@@ -101,25 +101,36 @@ input,select{
 }
 
 
-
 .password-box{
 
     position:relative;
 
 }
 
+.password-box input{
+
+    width:100%;
+
+}
 
 .password-box img{
 
     position:absolute;
-    right:12px;
-    top:18px;
+    right:15px;
+    top:50%;
+    transform:translateY(-50%);
     width:20px;
     cursor:pointer;
 
 }
-
-
+.eye-icon{
+    position:absolute;
+    right:15px;
+    top:50%;
+    transform:translateY(-50%);
+    cursor:pointer;
+    color:#555;
+}
 
 button{
 
