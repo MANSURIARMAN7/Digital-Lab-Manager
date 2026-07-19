@@ -1,0 +1,169 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, sans-serif;
+}
+
+
+body{
+    min-height:100vh;
+    background:#f1f5f9;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+
+.register-container{
+
+    width:900px;
+    background:white;
+    display:flex;
+    border-radius:15px;
+    overflow:hidden;
+    box-shadow:0 10px 30px rgba(0,0,0,0.1);
+
+}
+
+
+
+.logo-section{
+
+    width:40%;
+    background:#2563eb;
+    color:white;
+    padding:40px;
+    text-align:center;
+
+}
+
+
+.logo-section img{
+
+    width:100px;
+    margin-bottom:30px;
+
+}
+
+
+.logo-section h1{
+
+    font-size:28px;
+
+}
+
+
+.logo-section p{
+
+    margin-top:20px;
+    line-height:1.5;
+
+}
+
+
+
+.register-box{
+
+    width:60%;
+    padding:40px;
+
+}
+
+
+.register-box h2{
+
+    text-align:center;
+    margin-bottom:25px;
+
+}
+
+
+
+label{
+
+    display:block;
+    margin-top:15px;
+    font-weight:bold;
+
+}
+
+
+
+input,select{
+
+    width:100%;
+    padding:12px;
+    margin-top:8px;
+    border:1px solid #ccc;
+    border-radius:8px;
+
+}
+
+
+.password-box{
+
+    position:relative;
+
+}
+
+.password-box input{
+
+    width:100%;
+
+}
+
+.password-box img{
+
+    position:absolute;
+    right:15px;
+    top:50%;
+    transform:translateY(-50%);
+    width:20px;
+    cursor:pointer;
+
+}
+.eye-icon{
+    position:absolute;
+    right:15px;
+    top:50%;
+    transform:translateY(-50%);
+    cursor:pointer;
+    color:#555;
+}
+
+button{
+
+    width:100%;
+    margin-top:25px;
+    padding:13px;
+    background:#2563eb;
+    color:white;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:16px;
+
+}
+
+
+button:hover{
+
+    background:#1d4ed8;
+
+}
+
+
+
+.login-link{
+
+    text-align:center;
+    margin-top:20px;
+
+}
+
+
+a{
+
+    color:#2563eb;
+}
