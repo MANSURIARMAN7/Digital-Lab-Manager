@@ -12,20 +12,21 @@
 
     <aside class="sidebar">
         <div class="college-name">
-            <div class="logo-circle">KD</div>
+           <img src="../assets/images/KDP-Logo.png" alt="K.D. Polytechnic Logo" class="college-logo">
             <div>
                 <h2>K.D. Polytechnic</h2>
                 <p>Student Portal</p>
             </div>
         </div>
 
-        <nav class="nav-links">
-            <a class="active" href="dashboard.php">⌂ <span>Dashboard</span></a>
-            <a href="my-manuals.php">📚 <span>My Manuals</span></a>
-            <a href="history.php">🕘 <span>History</span></a>
-            <a href="profile.php">👤 <span>My Profile</span></a>
-            <a href="login.php" class="logout">⇥ <span>Logout</span></a>
-        </nav>
+       <nav class="nav-links">
+    <a class="active" href="Stdashboard.php">🏠 <span>Dashboard</span></a>
+<a href="upload-manual.php">📤 <span>Upload Manual</span></a>
+    <a href="my-manuals.php">📚 <span>My Manuals</span></a>
+    <a href="submission-history.php">🕘 <span>History</span></a>
+    <a href="profile.php">👤 <span>My Profile</span></a>
+    <a href="login.php" class="logout">⇥ <span>Logout</span></a>
+</nav>
     </aside>
 
     <main class="main-content">
@@ -90,7 +91,7 @@
                     <p>View all submitted manuals</p>
                 </a>
 
-                <a href="history.php" class="quick-card">
+                <a href="submission-history.php" class="quick-card">
                     <span class="quick-icon">🕘</span>
                     <h3>History</h3>
                     <p>Check your activity history</p>

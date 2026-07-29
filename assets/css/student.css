@@ -270,3 +270,158 @@ body {
         width: fit-content;
     }
 }
+.college-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    background: white;
+    border-radius: 50%;
+    padding: 4px;
+}
+.nav-links a.active,
+.nav-links a.active,
+.nav-links a.active span {
+    color: #ffffff !important;
+}
+/* Upload Manual Page */
+.upload-page {
+    display: grid;
+    grid-template-columns: 0.9fr 1.4fr;
+    gap: 25px;
+    align-items: start;
+}
+
+.upload-info {
+    color: white;
+    background: linear-gradient(145deg, #1d4ed8, #173f83);
+    padding: 32px 28px;
+    border-radius: 18px;
+}
+
+.info-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.upload-info h2 {
+    margin-bottom: 12px;
+}
+
+.upload-info > p {
+    color: #dbeafe;
+    line-height: 1.6;
+}
+
+.guidelines {
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.guidelines h3 {
+    margin-bottom: 14px;
+}
+
+.guidelines p {
+    color: #e0ecff;
+    margin: 12px 0;
+    font-size: 14px;
+}
+
+.form-card {
+    background: white;
+    padding: 30px;
+    border-radius: 18px;
+    box-shadow: 0 5px 20px rgba(15, 42, 86, 0.10);
+}
+
+.form-card h2 {
+    color: #102a56;
+    margin-bottom: 6px;
+}
+
+.form-note {
+    color: #64748b;
+    font-size: 14px;
+    margin-bottom: 22px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.form-group {
+    margin-bottom: 19px;
+}
+
+.form-group label {
+    display: block;
+    color: #334155;
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    padding: 12px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.form-group small {
+    color: #64748b;
+    display: block;
+    margin-top: 7px;
+    font-size: 12px;
+}
+
+.submit-btn {
+    border: none;
+    border-radius: 9px;
+    padding: 13px 22px;
+    color: white;
+    background: #2563eb;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.submit-btn:hover {
+    background: #1d4ed8;
+}
+
+.success-message {
+    color: #166534;
+    background: #dcfce7;
+    padding: 13px;
+    margin-bottom: 20px;
+    border-radius: 9px;
+    font-weight: bold;
+}
+
+@media (max-width: 900px) {
+    .upload-page {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
