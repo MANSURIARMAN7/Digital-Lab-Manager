@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard | K.D. Polytechnic</title>
-    <link rel="stylesheet" href="../assets/css/student.css?v=2">
+    <link rel="stylesheet" href="../assets/css/student.css?v=4">
 </head>
 <body>
+    <script>
+function toggleDarkMode() {
+    document.body.classList.toggle("dark-mode");
+}
+</script>
 
 <div class="app">
 
@@ -38,6 +43,7 @@
             </div>
             <div class="date-box">
                 <span>📅</span> 2026
+                <button class="theme-toggle" onclick="toggleDarkMode()">🌙 Dark Mode</button>
             </div>
         </header>
 
