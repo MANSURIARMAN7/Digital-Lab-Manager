@@ -1,0 +1,40 @@
+[
+    {
+        "id": "1",
+        "name": "Arman",
+        "enrollment": "246310307055",
+        "subject": "Software Engineering",
+        "date": "18-07-2026",
+        "status": "Approved",
+        "marks": "10",
+        "remark": ""
+    },
+    {
+        "id": "2",
+        "name": "Hamza",
+        "enrollment": "246310307003",
+        "subject": "Machine Learning",
+        "date": "17-07-2026",
+        "status": "Approved",
+        "remark": "",
+        "marks": "9"
+    },
+    {
+        "id": "3",
+        "name": "Sohan",
+        "enrollment": "246310307038",
+        "subject": "Operating System",
+        "date": "16-07-2026",
+        "status": "Rejected",
+        "remark": "\"Plagiarism detected, resubmit\"",
+        "marks": ""
+    },
+    {
+        "id": "4",
+        "name": "Rehan",
+        "enrollment": "246310307151",
+        "subject": "Data Structures",
+        "date": "15-07-2026",
+        "status": "Rejected"
+    }
+]
