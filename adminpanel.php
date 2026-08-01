@@ -161,6 +161,69 @@
         .tab-content-section.active {
             display: block;
         }
+
+        /* --- Nested Student Cards UI --- */
+        .student-card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            margin-bottom: 18px;
+        }
+
+        .student-header {
+            padding: 16px 20px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .student-header:hover {
+            background-color: #f8fafc;
+        }
+
+        .subject-list-container {
+            background-color: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            padding: 15px 20px;
+        }
+
+        .subject-item {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .subject-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+        }
+
+        .status-icon.approved { background-color: #dcfce7; color: #16a34a; }
+        .status-icon.not-submitted { background-color: #fee2e2; color: #dc2626; }
+        .status-icon.pending { background-color: #fef3c7; color: #d97706; }
+
+        .badge-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.78rem;
+        }
     </style>
 </head>
 <body>
@@ -211,7 +274,6 @@
         <div id="dashboard-tab" class="tab-content-section active">
             <h4 class="fw-bold text-dark mb-4">University Lab Manager Dashboard</h4>
 
-            <!-- Metric Stat Cards -->
             <div class="row g-3 mb-4">
                 <div class="col-md-3">
                     <div class="stat-card">
@@ -267,7 +329,6 @@
                 </div>
             </div>
 
-            <!-- Chart & Submissions Overview -->
             <div class="row g-4">
                 <div class="col-lg-5">
                     <div class="content-card">
@@ -321,43 +382,151 @@
             </div>
         </div>
 
-        <!-- ==================== 2. STUDENT MANAGEMENT TAB ==================== -->
+        <!-- ==================== 2. STUDENT MANAGEMENT TAB (UPDATED INTEGRATION) ==================== -->
         <div id="student-tab" class="tab-content-section">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="fw-bold text-dark mb-0">👨‍🎓 Student Management</h4>
+                <h4 class="fw-bold text-dark mb-0">👨‍🎓 Student Management & Lab Manual Tracker</h4>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStudentModal"><i class="fa-solid fa-plus me-1"></i> Add New Student</button>
             </div>
-            <div class="content-card">
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Student ID</th>
-                                <th>Enrollment No</th>
-                                <th>Name</th>
-                                <th>Branch & Sem</th>
-                                <th>Batch</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>#STU-101</td>
-                                <td>EN2024001</td>
-                                <td>Rahul Sharma<br><small class="text-muted">rahul@univ.edu</small></td>
-                                <td>CSE - Sem 4</td>
-                                <td>Batch B1</td>
-                                <td><span class="status-badge badge-active">Active</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen"></i></button>
-                                    <button class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+
+            <!-- STUDENT CARD 1 -->
+            <div class="student-card">
+                <div class="student-header d-flex align-items-center justify-content-between" data-bs-toggle="collapse" data-bs-target="#studentSubjects1">
+                    <div class="d-flex align-items-center gap-3">
+                        <img src="https://ui-avatars.com/api/?name=Rahul+Sharma&background=2563eb&color=fff" class="rounded-circle" width="42" alt="Rahul">
+                        <div>
+                            <h6 class="fw-bold mb-0 text-dark">Rahul Sharma</h6>
+                            <small class="text-muted">Enrollment: EN2024001 | Branch: CSE (Sem 4) | Batch B1</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-primary rounded-pill px-3 py-2">5 Lab Manuals</span>
+                        <i class="fa-solid fa-chevron-down text-muted"></i>
+                    </div>
+                </div>
+
+                <!-- Collapsible Subject List Sidebar Area -->
+                <div id="studentSubjects1" class="collapse show">
+                    <div class="subject-list-container">
+                        <p class="text-muted small fw-semibold mb-2">SUBJECT WISE LAB MANUAL STATUS:</p>
+
+                        <!-- 1. RDBMS - Approved -->
+                        <div class="subject-item">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                <div>
+                                    <span class="fw-bold text-dark">RDBMS</span>
+                                    <small class="text-muted d-block">Relational Database Management System</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                <button class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i> View</button>
+                            </div>
+                        </div>
+
+                        <!-- 2. DS - Approved -->
+                        <div class="subject-item">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                <div>
+                                    <span class="fw-bold text-dark">DS</span>
+                                    <small class="text-muted d-block">Data Structures & Algorithms</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                <button class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i> View</button>
+                            </div>
+                        </div>
+
+                        <!-- 3. IML - Not Submitted (Cancel Sign) -->
+                        <div class="subject-item">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="status-icon not-submitted"><i class="fa-solid fa-xmark"></i></div>
+                                <div>
+                                    <span class="fw-bold text-dark">IML</span>
+                                    <small class="text-muted d-block">Introduction to Machine Learning</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-danger bg-opacity-10 text-danger">Not Submitted ❌</span>
+                                <button class="btn btn-sm btn-outline-danger" disabled>No File</button>
+                            </div>
+                        </div>
+
+                        <!-- 4. RWPD - Under Review -->
+                        <div class="subject-item">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="status-icon pending"><i class="fa-solid fa-clock"></i></div>
+                                <div>
+                                    <span class="fw-bold text-dark">RWPD</span>
+                                    <small class="text-muted d-block">Responsive Web Program Development</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-warning bg-opacity-10 text-warning">Under Review ⏳</span>
+                                <button class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-file-pdf"></i> Review</button>
+                            </div>
+                        </div>
+
+                        <!-- 5. SE - Not Submitted (Cancel Sign) -->
+                        <div class="subject-item">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="status-icon not-submitted"><i class="fa-solid fa-xmark"></i></div>
+                                <div>
+                                    <span class="fw-bold text-dark">SE</span>
+                                    <small class="text-muted d-block">Software Engineering</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-danger bg-opacity-10 text-danger">Not Submitted ❌</span>
+                                <button class="btn btn-sm btn-outline-danger" disabled>No File</button>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
+
+            <!-- STUDENT CARD 2 -->
+            <div class="student-card">
+                <div class="student-header d-flex align-items-center justify-content-between" data-bs-toggle="collapse" data-bs-target="#studentSubjects2">
+                    <div class="d-flex align-items-center gap-3">
+                        <img src="https://ui-avatars.com/api/?name=Priya+Patel&background=10b981&color=fff" class="rounded-circle" width="42" alt="Priya">
+                        <div>
+                            <h6 class="fw-bold mb-0 text-dark">Priya Patel</h6>
+                            <small class="text-muted">Enrollment: EN2024002 | Branch: IT (Sem 4) | Batch B2</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-primary rounded-pill px-3 py-2">5 Lab Manuals</span>
+                        <i class="fa-solid fa-chevron-down text-muted"></i>
+                    </div>
+                </div>
+
+                <div id="studentSubjects2" class="collapse">
+                    <div class="subject-list-container">
+                        <p class="text-muted small fw-semibold mb-2">SUBJECT WISE LAB MANUAL STATUS:</p>
+
+                        <div class="subject-item">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                <div><span class="fw-bold text-dark">RDBMS</span></div>
+                            </div>
+                            <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                        </div>
+                        <div class="subject-item">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                <div><span class="fw-bold text-dark">DS</span></div>
+                            </div>
+                            <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- ==================== 3. FACULTY MANAGEMENT TAB ==================== -->
@@ -570,7 +739,7 @@
             element.classList.add('active');
         }
 
-        // Initialize Chart
+        // Initialize Doughnut Chart
         const ctx = document.getElementById('submissionsDoughnut').getContext('2d');
         new Chart(ctx, {
             type: 'doughnut',
@@ -591,4 +760,5 @@
         });
     </script>
 </body>
-</html
+</html>
+
