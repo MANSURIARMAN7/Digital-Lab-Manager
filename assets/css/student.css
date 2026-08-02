@@ -470,3 +470,64 @@ body {
 .dark-mode .welcome-box {
     background: linear-gradient(110deg, #1e40af, #172554);
 }
+/* ===========================
+   Semester Section
+=========================== */
+
+.semester-section{
+    background:#ffffff;
+    margin-top:25px;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.08);
+}
+
+.semester-section h2{
+    color:#0d47a1;
+    margin-bottom:15px;
+    font-size:24px;
+}
+
+.semester-select{
+    width:300px;
+    padding:12px;
+    border:2px solid #0d47a1;
+    border-radius:8px;
+    font-size:16px;
+    outline:none;
+    margin-bottom:25px;
+}
+
+/* Subject Grid */
+
+.subject-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:20px;
+}
+
+.subject-card{
+    background:#f8f9fc;
+    border-radius:15px;
+    padding:25px;
+    text-align:center;
+    text-decoration:none;
+    color:#222;
+    border:2px solid #e0e0e0;
+    transition:0.3s;
+}
+
+.subject-card:hover{
+    background:#0d47a1;
+    color:#fff;
+    transform:translateY(-5px);
+}
+
+.subject-card h3{
+    margin-top:15px;
+    font-size:18px;
+}
+
+.subject-card{
+    font-size:40px;
+}
