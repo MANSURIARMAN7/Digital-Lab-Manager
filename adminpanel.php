@@ -1,3 +1,8 @@
+
+
+
+
+Claim offer
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -258,7 +263,7 @@
         <div class="brand">
             <img src="college-logo.png"
                  alt="College Logo"
-                 style="width: 50px; height: 50px; object-fit: contain;">
+                 style="width: 42px; height: 42px; object-fit: contain;">
 
             <i class="fa-solid fa-microscope text-primary fs-4"></i>
 
@@ -534,8 +539,8 @@
                                 <tbody>
 
                                     <tr>
-                                        <td>Rahul Sharma (BTech CS)</td>
-                                        <td>Data Structures</td>
+                                        <td>Pathan Rehan Khan (CE)</td>
+                                        <td>DS Lab</td>
                                         <td>Today, 10:30 AM</td>
                                         <td>
                                             <span class="status-badge badge-pending">
@@ -545,8 +550,8 @@
                                     </tr>
 
                                     <tr>
-                                        <td>Priya Patel (BTech IT)</td>
-                                        <td>DBMS Lab</td>
+                                        <td>Belim Hamza (CE)</td>
+                                        <td>RDBMS Lab</td>
                                         <td>Yesterday</td>
                                         <td>
                                             <span class="status-badge badge-approved">
@@ -556,8 +561,8 @@
                                     </tr>
 
                                     <tr>
-                                        <td>Aman Verma (BTech CS)</td>
-                                        <td>Operating Systems</td>
+                                        <td>Sheikh Sohan (CE)</td>
+                                        <td>IML Lab</td>
                                         <td>2 Days ago</td>
                                         <td>
                                             <span class="status-badge badge-rejected">
@@ -599,29 +604,27 @@
             </div>
 
 
-            <!-- STUDENT CARD 1 -->
+            <!-- STUDENT CARD 1: Pathan Rehan Khan -->
 
-            <div class="student-card">
+            <div class="student-card" id="studentCard-7131">
 
-                <div class="student-header d-flex align-items-center justify-content-between"
-                     data-bs-toggle="collapse"
-                     data-bs-target="#studentSubjects1">
+                <div class="student-header d-flex align-items-center justify-content-between">
 
-                    <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects7131">
 
-                        <img src="https://ui-avatars.com/api/?name=Rahul+Sharma&background=2563eb&color=fff"
+                        <img src="https://ui-avatars.com/api/?name=Pathan+Rehan+Khan&background=2563eb&color=fff"
                              class="rounded-circle"
                              width="42"
-                             alt="Rahul">
+                             alt="Rehan">
 
                         <div>
 
                             <h6 class="fw-bold mb-0 text-dark">
-                                Rahul Sharma
+                                Pathan Rehan Khan
                             </h6>
 
                             <small class="text-muted">
-                                Enrollment: EN2024001 | Branch: CSE (Sem 4) | Batch B1
+                                Enrollment: 7131 | Branch: CE (sem5) | Batch B1
                             </small>
 
                         </div>
@@ -629,18 +632,22 @@
 
                     <div class="d-flex align-items-center gap-3">
 
-                        <span class="badge bg-primary rounded-pill px-3 py-2">
+                        <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects7131">
                             5 Lab Manuals
                         </span>
 
-                        <i class="fa-solid fa-chevron-down text-muted"></i>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeStudent('studentCard-7131', 'Pathan Rehan Khan')">
+                            <i class="fa-solid fa-user-minus me-1"></i> Cancel Admission
+                        </button>
+
+                        <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects7131"></i>
 
                     </div>
 
                 </div>
 
 
-                <div id="studentSubjects1" class="collapse show">
+                <div id="studentSubjects7131" class="collapse show">
 
                     <div class="subject-list-container">
 
@@ -831,29 +838,27 @@
             </div>
 
 
-            <!-- STUDENT CARD 2 -->
+            <!-- STUDENT CARD 2: Belim Hamza -->
 
-            <div class="student-card">
+            <div class="student-card" id="studentCard-7003">
 
-                <div class="student-header d-flex align-items-center justify-content-between"
-                     data-bs-toggle="collapse"
-                     data-bs-target="#studentSubjects2">
+                <div class="student-header d-flex align-items-center justify-content-between">
 
-                    <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects7003">
 
-                        <img src="https://ui-avatars.com/api/?name=Priya+Patel&background=10b981&color=fff"
+                        <img src="https://ui-avatars.com/api/?name=Belim+Hamza&background=10b981&color=fff"
                              class="rounded-circle"
                              width="42"
-                             alt="Priya">
+                             alt="Hamza">
 
                         <div>
 
                             <h6 class="fw-bold mb-0 text-dark">
-                                Priya Patel
+                                Belim Hamza
                             </h6>
 
                             <small class="text-muted">
-                                Enrollment: EN2024002 | Branch: IT (Sem 4) | Batch B2
+                                Enrollment: 7003 | Branch: CE (sem5) | Batch A1
                             </small>
 
                         </div>
@@ -861,18 +866,22 @@
 
                     <div class="d-flex align-items-center gap-3">
 
-                        <span class="badge bg-primary rounded-pill px-3 py-2">
+                        <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects7003">
                             5 Lab Manuals
                         </span>
 
-                        <i class="fa-solid fa-chevron-down text-muted"></i>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeStudent('studentCard-7003', 'Belim Hamza')">
+                            <i class="fa-solid fa-user-minus me-1"></i> Cancel Admission
+                        </button>
+
+                        <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects7003"></i>
 
                     </div>
 
                 </div>
 
 
-                <div id="studentSubjects2" class="collapse">
+                <div id="studentSubjects7003" class="collapse">
 
                     <div class="subject-list-container">
 
@@ -893,13 +902,21 @@
                                     <span class="fw-bold text-dark">
                                         RDBMS
                                     </span>
+                                    <small class="text-muted d-block">
+                                        Relational Database Management System
+                                    </small>
                                 </div>
 
                             </div>
 
-                            <span class="badge-status bg-success bg-opacity-10 text-success">
-                                Approved ✅
-                            </span>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
 
                         </div>
 
@@ -916,13 +933,536 @@
                                     <span class="fw-bold text-dark">
                                         DS
                                     </span>
+                                    <small class="text-muted d-block">
+                                        Data Structures & Algorithms
+                                    </small>
                                 </div>
 
                             </div>
 
-                            <span class="badge-status bg-success bg-opacity-10 text-success">
-                                Approved ✅
-                            </span>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon pending">
+                                    <i class="fa-solid fa-clock"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        IML
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Introduction to Machine Learning
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-warning bg-opacity-10 text-warning">
+                                    Under Review ⏳
+                                </span>
+                                <button class="btn btn-sm btn-outline-primary">
+                                    <i class="fa-solid fa-file-pdf"></i> Review
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon approved">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        RWPD
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Responsive Web Program Development
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon not-submitted">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        SE
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Software Engineering
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-danger bg-opacity-10 text-danger">
+                                    Not Submitted ❌
+                                </span>
+                                <button class="btn btn-sm btn-outline-danger" disabled>
+                                    No File
+                                </button>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- STUDENT CARD 3: Sheikh Sohan -->
+
+            <div class="student-card" id="studentCard-7038">
+
+                <div class="student-header d-flex align-items-center justify-content-between">
+
+                    <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects7038">
+
+                        <img src="https://ui-avatars.com/api/?name=Sheikh+Sohan&background=f59e0b&color=fff"
+                             class="rounded-circle"
+                             width="42"
+                             alt="Sohan">
+
+                        <div>
+
+                            <h6 class="fw-bold mb-0 text-dark">
+                                Sheikh Sohan
+                            </h6>
+
+                            <small class="text-muted">
+                                Enrollment: 7038 | Branch: CE (sem5) | Batch A1
+                            </small>
+
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+
+                        <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects7038">
+                            5 Lab Manuals
+                        </span>
+
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeStudent('studentCard-7038', 'Sheikh Sohan')">
+                            <i class="fa-solid fa-user-minus me-1"></i> Cancel Admission
+                        </button>
+
+                        <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects7038"></i>
+
+                    </div>
+
+                </div>
+
+
+                <div id="studentSubjects7038" class="collapse">
+
+                    <div class="subject-list-container">
+
+                        <p class="text-muted small fw-semibold mb-2">
+                            SUBJECT WISE LAB MANUAL STATUS:
+                        </p>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon approved">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        RDBMS
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Relational Database Management System
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon pending">
+                                    <i class="fa-solid fa-clock"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        DS
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Data Structures & Algorithms
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-warning bg-opacity-10 text-warning">
+                                    Under Review ⏳
+                                </span>
+                                <button class="btn btn-sm btn-outline-primary">
+                                    <i class="fa-solid fa-file-pdf"></i> Review
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon approved">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        IML
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Introduction to Machine Learning
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon not-submitted">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        RWPD
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Responsive Web Program Development
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-danger bg-opacity-10 text-danger">
+                                    Not Submitted ❌
+                                </span>
+                                <button class="btn btn-sm btn-outline-danger" disabled>
+                                    No File
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon approved">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        SE
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Software Engineering
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- STUDENT CARD 4: MANSURI ARMAN -->
+
+            <div class="student-card" id="studentCard-7055">
+
+                <div class="student-header d-flex align-items-center justify-content-between">
+
+                    <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects7055">
+
+                        <img src="https://ui-avatars.com/api/?name=MANSURI+ARMAN&background=8b5cf6&color=fff"
+                             class="rounded-circle"
+                             width="42"
+                             alt="Arman">
+
+                        <div>
+
+                            <h6 class="fw-bold mb-0 text-dark">
+                                MANSURI ARMAN
+                            </h6>
+
+                            <small class="text-muted">
+                                Enrollment: 7055 | Branch: CE (sem5) | Batch A1
+                            </small>
+
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+
+                        <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects7055">
+                            5 Lab Manuals
+                        </span>
+
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeStudent('studentCard-7055', 'MANSURI ARMAN')">
+                            <i class="fa-solid fa-user-minus me-1"></i> Cancel Admission
+                        </button>
+
+                        <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects7055"></i>
+
+                    </div>
+
+                </div>
+
+
+                <div id="studentSubjects7055" class="collapse">
+
+                    <div class="subject-list-container">
+
+                        <p class="text-muted small fw-semibold mb-2">
+                            SUBJECT WISE LAB MANUAL STATUS:
+                        </p>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon approved">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        RDBMS
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Relational Database Management System
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon approved">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        DS
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Data Structures & Algorithms
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon pending">
+                                    <i class="fa-solid fa-clock"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        IML
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Introduction to Machine Learning
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-warning bg-opacity-10 text-warning">
+                                    Under Review ⏳
+                                </span>
+                                <button class="btn btn-sm btn-outline-primary">
+                                    <i class="fa-solid fa-file-pdf"></i> Review
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon approved">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        RWPD
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Responsive Web Program Development
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-success bg-opacity-10 text-success">
+                                    Approved ✅
+                                </span>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="subject-item">
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                <div class="status-icon not-submitted">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </div>
+
+                                <div>
+                                    <span class="fw-bold text-dark">
+                                        SE
+                                    </span>
+                                    <small class="text-muted d-block">
+                                        Software Engineering
+                                    </small>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-status bg-danger bg-opacity-10 text-danger">
+                                    Not Submitted ❌
+                                </span>
+                                <button class="btn btn-sm btn-outline-danger" disabled>
+                                    No File
+                                </button>
+                            </div>
 
                         </div>
 
@@ -1119,7 +1659,7 @@
                     <tbody>
 
                         <tr>
-                            <td>Priya Patel</td>
+                            <td>Belim Hamza</td>
                             <td>Exp #01 - SQL Queries</td>
                             <td>Today, 11:00 AM</td>
 
@@ -1162,7 +1702,7 @@
                             <i class="fa-solid fa-file-pdf text-danger display-3"></i>
 
                             <p class="mt-2 text-muted mb-0">
-                                Student_Manual_Rahul_Exp1.pdf
+                                Student_Manual_Rehan_Exp1.pdf
                             </p>
 
                             <button class="btn btn-sm btn-primary mt-2">
@@ -1436,6 +1976,20 @@
             element.classList.add('active');
         }
 
+        // Student Remove / Cancel Admission Functionality
+        function removeStudent(cardId, studentName) {
+            if (confirm("Kya aap " + studentName + " ka admission cancel/remove karna chahte hain?")) {
+                const card = document.getElementById(cardId);
+                if (card) {
+                    card.style.transition = "all 0.3s ease";
+                    card.style.opacity = "0";
+                    card.style.transform = "scale(0.95)";
+                    setTimeout(() => {
+                        card.remove();
+                    }, 300);
+                }
+            }
+        }
 
         // Initialize Doughnut Chart
 
@@ -1494,3 +2048,5 @@
 
 </body>
 </html>
+
+
