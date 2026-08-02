@@ -1,0 +1,54 @@
+[
+    {
+        "id": 1,
+        "name": "M.C.Thakor",
+        "user_id": "FAC-01",
+        "password": "admin",
+        "role": "faculty",
+        "subjects": ["Software Engineering", "Machine Learning"]
+    },
+    {
+        "id": 1,
+        "name": "N.A.Patel",
+        "user_id": "FAC-02",
+        "password": "admin",
+        "role": "faculty",
+        "subjects": ["Programing In Java", "Minor Project"]
+    },
+    {
+        "id": 1,
+        "name": "K.M.Madhu",
+        "user_id": "FAC-03",
+        "password": "admin",
+        "role": "faculty",
+        "subjects": ["Web Devlopment In Python", "CHASM"]
+    },
+    {
+        "id": 2,
+        "name": "arman",
+        "user_id": "246310307055",
+        "password": "testarman",
+        "role": "student"
+    },
+    {
+        "id": 2,
+        "name": "hamza",
+        "user_id": "246310307003",
+        "password": "testhamza",
+        "role": "student"
+    },
+    {
+        "id": 2,
+        "name": "rehan",
+        "user_id": "246310307130",
+        "password": "testrehan",
+        "role": "student"
+    },
+    {
+        "id": 2,
+        "name": "sohan",
+        "user_id": "246310307038",
+        "password": "testsohan",
+        "role": "student"
+    }
+]
