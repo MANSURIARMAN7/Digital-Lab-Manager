@@ -1,3 +1,15 @@
+<?php
+session_start();
+
+// Agar user login nahi hai, YA uska role 'student' nahi hai
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['role'] !== 'student') {
+    // FIX 1: Usko wapas login page par phek do (Rasta update kiya: ../login.php)
+    header("Location: ../login.php");
+    exit();
+}
+
+// Yahan se tera baaki ka student dashboard ka PHP/HTML code shuru hoga...
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,13 +37,14 @@ function toggleDarkMode() {
         </div>
 
        <nav class="nav-links">
-    <a class="active" href="Stdashboard.php">🏠 <span>Dashboard</span></a>
-<a href="upload-manual.php">📤 <span>Upload Manual</span></a>
-    <a href="my-manuals.php">📚 <span>My Manuals</span></a>
-    <a href="submission-history.php">🕘 <span>History</span></a>
-    <a href="profile.php">👤 <span>My Profile</span></a>
-    <a href="login.php" class="logout">⇥ <span>Logout</span></a>
-</nav>
+            <a class="active" href="Stdashboard.php">🏠 <span>Dashboard</span></a>
+            <a href="upload-manual.php">📤 <span>Upload Manual</span></a>
+            <a href="my-manuals.php">📚 <span>My Manuals</span></a>
+            <a href="submission-history.php">🕘 <span>History</span></a>
+            <a href="profile.php">👤 <span>My Profile</span></a>
+            <a href="../logout.php" class="logout">⇥ <span>Logout</span></a>
+            
+        </nav>
     </aside>
 
     <main class="main-content">
@@ -39,7 +52,8 @@ function toggleDarkMode() {
         <header class="topbar">
             <div>
                 <p class="small-text">Student Dashboard</p>
-                <h1>Welcome back, Student! 👋</h1>
+                <!-- BONUS: Ab yahan student ka asli naam aayega JSON se! -->
+                <h1>Welcome back, <?php echo $_SESSION['name']; ?>! 👋</h1>
             </div>
             <div class="date-box">
                 <span>📅</span> 2026

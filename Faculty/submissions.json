@@ -1,40 +1,55 @@
 [
     {
         "id": "1",
-        "name": "Arman",
+        "name": "arman",
         "enrollment": "246310307055",
         "subject": "Software Engineering",
-        "date": "18-07-2026",
+        "date": "10-07-2026",
         "status": "Approved",
         "marks": "10",
         "remark": ""
     },
     {
         "id": "2",
-        "name": "Hamza",
+        "name": "hamza",
         "enrollment": "246310307003",
         "subject": "Machine Learning",
-        "date": "17-07-2026",
+        "date": "12-07-2026",
         "status": "Approved",
-        "remark": "",
         "marks": "9"
     },
     {
         "id": "3",
-        "name": "Sohan",
-        "enrollment": "246310307038",
-        "subject": "Operating System",
-        "date": "16-07-2026",
-        "status": "Rejected",
-        "remark": "\"Plagiarism detected, resubmit\"",
-        "marks": ""
+        "name": "rehan",
+        "enrollment": "246310307130",
+        "subject": "Programing In Java",
+        "date": "14-07-2026",
+        "status": "Pending"
     },
     {
         "id": "4",
-        "name": "Rehan",
-        "enrollment": "246310307151",
-        "subject": "Data Structures",
+        "name": "sohan",
+        "enrollment": "246310307038",
+        "subject": "Minor Project",
         "date": "15-07-2026",
         "status": "Rejected"
+    },
+    {
+        "id": "5",
+        "name": "arman",
+        "enrollment": "246310307055",
+        "subject": "Web Devlopment In Python",
+        "date": "16-07-2026",
+        "status": "Approved",
+        "marks": "10",
+        "remark": ""
+    },
+    {
+        "id": "6",
+        "name": "hamza",
+        "enrollment": "246310307003",
+        "subject": "CHASM",
+        "date": "18-07-2026",
+        "status": "Pending"
     }
 ]
