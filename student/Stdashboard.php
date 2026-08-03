@@ -44,13 +44,7 @@ function toggleDarkMode() {
             </div>
             <div class="date-box">
                 <button onclick="toggleDarkMode()" class="theme-toggle">🌙 Dark Mode</button>
-                <div class="date-box" style="display: flex; gap: 10px; align-items: center;">
-    <div class="notification-box" style="position: relative; cursor: pointer; font-size: 18px; background: #ffffff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        🔔<span style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 1px 6px; font-size: 10px; font-weight: bold;">2</span>
-    </div>
-
-    <button onclick="toggleDarkMode()" class="theme-toggle">🌙 Dark Mode</button>
-</div>
+                
             </div>
         </div>
 
