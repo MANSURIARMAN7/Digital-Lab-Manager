@@ -1,3 +1,15 @@
+<?php
+session_start();
+
+// Agar user login nahi hai, YA uska role 'student' nahi hai
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['role'] !== 'student') {
+    // FIX 1: Usko wapas login page par phek do (Rasta update kiya: ../login.php)
+    header("Location: ../login.php");
+    exit();
+}
+
+// Yahan se tera baaki ka student dashboard ka PHP/HTML code shuru hoga...
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,13 +37,14 @@ function toggleDarkMode() {
         </div>
 
        <nav class="nav-links">
-    <a class="active" href="Stdashboard.php">🏠 <span>Dashboard</span></a>
-<a href="upload-manual.php">📤 <span>Upload Manual</span></a>
-    <a href="my-manuals.php">📚 <span>My Manuals</span></a>
-    <a href="submission-history.php">🕘 <span>History</span></a>
-    <a href="profile.php">👤 <span>My Profile</span></a>
-    <a href="login.php" class="logout">⇥ <span>Logout</span></a>
-</nav>
+            <a class="active" href="Stdashboard.php">🏠 <span>Dashboard</span></a>
+            <a href="upload-manual.php">📤 <span>Upload Manual</span></a>
+            <a href="my-manuals.php">📚 <span>My Manuals</span></a>
+            <a href="submission-history.php">🕘 <span>History</span></a>
+            <a href="profile.php">👤 <span>My Profile</span></a>
+            <a href="../logout.php" class="logout">⇥ <span>Logout</span></a>
+            
+        </nav>
     </aside>
 
     <main class="main-content">
@@ -39,7 +52,8 @@ function toggleDarkMode() {
         <header class="topbar">
             <div>
                 <p class="small-text">Student Dashboard</p>
-                <h1>Welcome back, Student! 👋</h1>
+                <!-- BONUS: Ab yahan student ka asli naam aayega JSON se! -->
+                <h1>Welcome back, <?php echo $_SESSION['name']; ?>! 👋</h1>
             </div>
             <div class="date-box">
                 <span>📅</span> 2026
@@ -54,6 +68,52 @@ function toggleDarkMode() {
             </div>
             <div class="welcome-icon">🎓</div>
         </section>
+
+        <section class="semester-section">
+
+    <h2>Select Semester</h2>
+
+    <select class="semester-select">
+        <option>Semester 1</option>
+        <option>Semester 2</option>
+        <option>Semester 3</option>
+        <option>Semester 4</option>
+        <option selected>Semester 5</option>
+        <option>Semester 6</option>
+    </select>
+
+    <h2 style="margin-top:25px;">Subjects</h2>
+
+    <div class="subject-grid">
+
+        <a href="#" class="subject-card">
+            🌐
+            <h3>Web Development</h3>
+        </a>
+
+        <a href="#" class="subject-card">
+            🗄
+            <h3>Database Management System</h3>
+        </a>
+
+        <a href="#" class="subject-card">
+            📡
+            <h3>Internet of Things</h3>
+        </a>
+
+        <a href="#" class="subject-card">
+            ☕
+            <h3>Java Programming</h3>
+        </a>
+
+        <a href="#" class="subject-card">
+            🐍
+            <h3>Python Programming</h3>
+        </a>
+
+    </div>
+
+</section>
 
         <section class="stats">
             <div class="stat-card blue">
