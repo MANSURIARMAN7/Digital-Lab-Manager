@@ -6,6 +6,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
     // Usko wapas login page par phek do
     header("Location: login.php"); // Path check kar lena agar admin panel kisi aur folder mein hai
     exit();
+
 }
 ?>
 
