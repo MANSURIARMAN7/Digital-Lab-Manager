@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+body {
+    background-color: #f4f7fa;
+    color: #1e293b;
+    overflow-x: hidden;
+}
+
+/* --- Navbar Styling --- */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 8%;
+    background: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    text-decoration: none;
+    color: #113460;
+}
+
+.nav-logo img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e2e8f0;
+}
+
+.nav-logo h2 {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.nav-btn {
+    background: #113460;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-btn:hover {
+    background: #1a4b8c;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(17, 52, 96, 0.2);
+}
+
+/* --- Hero Section Styling --- */
+.hero {
+    text-align: center;
+    padding: 120px 20px 80px 20px;
+}
+
+.hero h1 {
+    font-size: 50px;
+    color: #0f172a;
+    margin-bottom: 25px;
+    font-weight: 800;
+}
+
+.hero h1 span {
+    color: #113460;
+}
+
+.hero p {
+    font-size: 18px;
+    color: #64748b;
+    max-width: 650px;
+    margin: 0 auto 40px auto;
+    line-height: 1.7;
+}
+
+.cta-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.btn-primary {
+    background: #2563eb;
+    color: white;
+    padding: 16px 40px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 600;
+    transition: 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+}
+
+/* --- Features Section --- */
+.features {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    padding: 50px 8%;
+    flex-wrap: wrap;
+    margin-bottom: 50px;
+}
+
+.feature-card {
+    background: white;
+    padding: 40px 30px;
+    border-radius: 12px;
+    width: 320px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    border-top: 5px solid #113460;
+    transition: 0.3s;
+}
+
+.feature-card:nth-child(2) { border-top-color: #10b981; }
+.feature-card:nth-child(3) { border-top-color: #f59e0b; }
+
+.feature-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+}
+
+.feature-card i {
+    font-size: 45px;
+    color: #113460;
+    margin-bottom: 25px;
+}
+
+.feature-card:nth-child(2) i { color: #10b981; }
+.feature-card:nth-child(3) i { color: #f59e0b; }
+
+.feature-card h3 {
+    font-size: 22px;
+    margin-bottom: 15px;
+    color: #0f172a;
+}
+
+.feature-card p {
+    color: #64748b;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    padding: 25px;
+    color: #64748b;
+    background: white;
+    font-size: 14px;
+    margin-top: auto;
+}
