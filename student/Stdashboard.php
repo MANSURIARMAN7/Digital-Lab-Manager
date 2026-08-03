@@ -19,7 +19,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
     <link rel="stylesheet" href="../assets/css/student.css?v=4">
 </head>
 <body>
-    <script>
+
+<script>
 function toggleDarkMode() {
     document.body.classList.toggle("dark-mode");
 }
@@ -29,7 +30,7 @@ function toggleDarkMode() {
 
     <aside class="sidebar">
         <div class="college-name">
-           <img src="../assets/images/KDP-Logo.png" alt="K.D. Polytechnic Logo" class="college-logo">
+            <img src="../assets/images/KDP-Logo.png" alt="K.D. Polytechnic Logo" class="college-logo">
             <div>
                 <h2>K.D. Polytechnic</h2>
                 <p>Student Portal</p>
@@ -42,6 +43,7 @@ function toggleDarkMode() {
             <a href="my-manuals.php">📚 <span>My Manuals</span></a>
             <a href="submission-history.php">🕘 <span>History</span></a>
             <a href="profile.php">👤 <span>My Profile</span></a>
+            <a href="login.php" class="logout">⇥ <span>Logout</span></a>
             <a href="../logout.php" class="logout">⇥ <span>Logout</span></a>
             
         </nav>
@@ -49,71 +51,26 @@ function toggleDarkMode() {
 
     <main class="main-content">
 
-        <header class="topbar">
+        <div class="topbar">
             <div>
+                <p class="small-text">Welcome back,</p>
+                <h1>Student Dashboard</h1>
                 <p class="small-text">Student Dashboard</p>
                 <!-- BONUS: Ab yahan student ka asli naam aayega JSON se! -->
                 <h1>Welcome back, <?php echo $_SESSION['name']; ?>! 👋</h1>
             </div>
             <div class="date-box">
-                <span>📅</span> 2026
-                <button class="theme-toggle" onclick="toggleDarkMode()">🌙 Dark Mode</button>
+                <button onclick="toggleDarkMode()" class="theme-toggle">🌙 Dark Mode</button>
             </div>
-        </header>
+        </div>
 
-        <section class="welcome-box">
+        <div class="welcome-box">
             <div>
-                <h2>Digital Lab Manual & Expense Tracker</h2>
-                <p>Upload your lab manual, check submitted work and manage your academic records easily.</p>
+                <h2>Hello, Student! 👋</h2>
+                <p>Manage your lab manuals, track submissions, and check your academic history all in one place.</p>
             </div>
             <div class="welcome-icon">🎓</div>
-        </section>
-
-        <section class="semester-section">
-
-    <h2>Select Semester</h2>
-
-    <select class="semester-select">
-        <option>Semester 1</option>
-        <option>Semester 2</option>
-        <option>Semester 3</option>
-        <option>Semester 4</option>
-        <option selected>Semester 5</option>
-        <option>Semester 6</option>
-    </select>
-
-    <h2 style="margin-top:25px;">Subjects</h2>
-
-    <div class="subject-grid">
-
-        <a href="#" class="subject-card">
-            🌐
-            <h3>Web Development</h3>
-        </a>
-
-        <a href="#" class="subject-card">
-            🗄
-            <h3>Database Management System</h3>
-        </a>
-
-        <a href="#" class="subject-card">
-            📡
-            <h3>Internet of Things</h3>
-        </a>
-
-        <a href="#" class="subject-card">
-            ☕
-            <h3>Java Programming</h3>
-        </a>
-
-        <a href="#" class="subject-card">
-            🐍
-            <h3>Python Programming</h3>
-        </a>
-
-    </div>
-
-</section>
+        </div>
 
         <section class="stats">
             <div class="stat-card blue">
