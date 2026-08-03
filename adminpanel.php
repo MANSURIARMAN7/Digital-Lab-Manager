@@ -7,8 +7,6 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
     header("Location: login.php"); // Path check kar lena agar admin panel kisi aur folder mein hai
     exit();
 }
-
-// Yahan se tera Admin Panel ka kaam shuru hoga...
 ?>
 
 <!DOCTYPE html>
