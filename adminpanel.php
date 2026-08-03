@@ -1,8 +1,4 @@
 
-
-
-
-Claim offer
 <!DOCTYPE html>
 <html lang="en">
 <head>
