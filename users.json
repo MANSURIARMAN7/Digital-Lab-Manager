@@ -1,12 +1,5 @@
 [
     {
-        "id": 0,
-        "name": "Admin Manager",
-        "user_id": "admin",
-        "password": "admin",
-        "role": "admin"
-    },
-    {
         "id": 1,
         "name": "M.C.Thakor",
         "user_id": "FAC-01",
@@ -57,5 +50,12 @@
         "user_id": "246310307038",
         "password": "testsohan",
         "role": "student"
+    },
+    {
+        "id": 3,
+        "name": "System Administrator",
+        "user_id": "admin",
+        "password": "admin",
+        "role": "admin"
     }
 ]
