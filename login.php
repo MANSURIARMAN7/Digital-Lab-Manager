@@ -43,7 +43,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     header("Location: student/stdashboard.php"); 
                     exit();
                 } else if ($user['role'] == 'admin') {
-                    header("Location: adminpanel.php"); 
+                    header("Location: admin/adminpanel.php"); 
                     exit();
                 }
             }
