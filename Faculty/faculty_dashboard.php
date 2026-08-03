@@ -1,22 +1,41 @@
 <?php
 session_start();
 
-// Agar user login nahi hai, YA uska role 'faculty' nahi hai
+// Agar user login nahi hai
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['role'] !== 'faculty') {
     header("Location: ../login.php");
     exit();
 }
 
-// Faculty ke subjects nikalo
-$faculty_subjects = isset($_SESSION['subjects']) ? $_SESSION['subjects'] : [];
+// 🚀 SUPER FIX: Session bhool jao, direct users.json se latest subjects live nikalo!
+$faculty_subjects = [];
+$users_file = '../users.json'; 
+if (file_exists($users_file)) {
+    $users_data = json_decode(file_get_contents($users_file), true);
+    if (is_array($users_data)) {
+        foreach ($users_data as $u) {
+            if (isset($u['user_id']) && $u['user_id'] === $_SESSION['user_id']) {
+                if (isset($u['subjects'])) {
+                    $faculty_subjects = $u['subjects'];
+                }
+                break;
+            }
+        }
+    }
+}
 
-// Check karo ki konsa subject selected hai (Default pehla subject dikhao)
-$selected_subject = isset($_GET['subject']) ? $_GET['subject'] : (count($faculty_subjects) > 0 ? $faculty_subjects[0] : '');
+// Default subject nikalne ka sahi tarika
+$default_sub = '';
+if (count($faculty_subjects) > 0) {
+    $default_sub = is_array($faculty_subjects[0]) ? $faculty_subjects[0]['name'] : $faculty_subjects[0];
+}
+
+// URL se subject nikalo
+$selected_subject = isset($_GET['subject']) ? $_GET['subject'] : $default_sub;
 
 $json_file = 'submissions.json'; 
 if (!file_exists($json_file)) {
-    $default_data = [];
-    file_put_contents($json_file, json_encode($default_data, JSON_PRETTY_PRINT));
+    file_put_contents($json_file, json_encode([], JSON_PRETTY_PRINT));
 }
 
 $all_submissions = json_decode(file_get_contents($json_file), true);
@@ -24,15 +43,15 @@ if (!is_array($all_submissions)) {
     $all_submissions = [];
 }
 
-// ADVANCED FILTER: Sirf selected subject ke students dikhao
+// ADVANCED FILTER
 $recent_submissions = [];
 foreach ($all_submissions as $row) {
-    if ($row['subject'] === $selected_subject) {
+    if (isset($row['subject']) && $row['subject'] === $selected_subject) {
         $recent_submissions[] = $row; 
     }
 }
 
-// Ab saari counting sirf selected subject ki hogi (Mix nahi hoga!)
+// Counting
 $total_students = count($recent_submissions);
 $pending = 0;
 $approved = 0;
@@ -57,7 +76,7 @@ $approval_rate = ($total_students > 0) ? round(($approved / $total_students) * 1
     <title>Faculty Dashboard - KDP</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="../assets/css/faculty_dashboard.css?v=504">
+    <link rel="stylesheet" href="../assets/css/faculty_dashboard.css?v=506">
 </head>
 
 <body>
@@ -107,19 +126,23 @@ $approval_rate = ($total_students > 0) ? round(($approved / $total_students) * 1
                     <i class="fas fa-moon dark-mode-toggle" id="themeToggle" title="Switch Theme"></i>
                     <div class="profile-info">
                         <img src="https://ui-avatars.com/api/?name=Faculty&background=2563eb&color=fff" alt="Profile" class="profile-pic">
-                        <span class="faculty-name">Welcome, <?php echo $_SESSION['name']; ?></span>
+                        <span class="faculty-name">Welcome, <?php echo isset($_SESSION['name']) && !empty($_SESSION['name']) ? $_SESSION['name'] : 'Sir'; ?></span>
                     </div>
                 </div>
             </div>
 
-            <!-- NAYA DROPDOWN SECTION (Subject Select Karne Ke Liye) -->
+            <!-- NAYA DROPDOWN SECTION -->
             <div style="background: white; padding: 15px 25px; border-radius: 12px; margin-bottom: 25px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
                 <h3 style="color: #1e293b; font-size: 16px; margin: 0;">📚 Select Subject:</h3>
                 <?php if(count($faculty_subjects) > 0) { ?>
-                    <select onchange="window.location.href='?subject='+this.value" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 15px; font-weight: 600; color: #113460; background: #f8fafc; cursor: pointer; outline: none; min-width: 250px;">
-                        <?php foreach($faculty_subjects as $sub) { ?>
-                            <option value="<?php echo $sub; ?>" <?php if($selected_subject == $sub) echo 'selected'; ?>>
-                                <?php echo $sub; ?>
+                    <!-- encodeURIComponent joda gaya hai taaki URL error na aaye -->
+                    <select onchange="window.location.href='?subject=' + encodeURIComponent(this.value)" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 15px; font-weight: 600; color: #113460; background: #f8fafc; cursor: pointer; outline: none; min-width: 300px;">
+                        <?php foreach($faculty_subjects as $sub) { 
+                            $sub_name = is_array($sub) ? $sub['name'] : $sub;
+                            $sub_sem = is_array($sub) ? " (" . $sub['sem'] . ")" : "";
+                        ?>
+                            <option value="<?php echo $sub_name; ?>" <?php if($selected_subject == $sub_name) echo 'selected'; ?>>
+                                <?php echo $sub_name . $sub_sem; ?>
                             </option>
                         <?php } ?>
                     </select>
@@ -162,7 +185,7 @@ $approval_rate = ($total_students > 0) ? round(($approved / $total_students) * 1
 
             <div class="table-section">
                 <div class="table-header">
-                    <h3>Recent Submissions for <span style="color: #2563eb;"><?php echo $selected_subject; ?></span></h3>
+                    <h3>Recent Submissions for <span style="color: #2563eb;"><?php echo htmlspecialchars($selected_subject); ?></span></h3>
                 </div>
                 <table>
                     <tr>
@@ -175,7 +198,7 @@ $approval_rate = ($total_students > 0) ? round(($approved / $total_students) * 1
                     </tr>
                     <?php 
                     if(count($recent_submissions) == 0) {
-                        echo "<tr><td colspan='6' style='text-align:center; padding: 20px; color: #64748b;'>No submissions found for $selected_subject.</td></tr>";
+                        echo "<tr><td colspan='6' style='text-align:center; padding: 20px; color: #64748b;'>No submissions found for " . htmlspecialchars($selected_subject) . ".</td></tr>";
                     } else {
                         foreach ($recent_submissions as $row) {
                             $status_class = strtolower($row['status']); ?>
@@ -203,7 +226,7 @@ $approval_rate = ($total_students > 0) ? round(($approved / $total_students) * 1
         </div>
     </div>
 
-    <!-- Modals same as before -->
+    <!-- Modals -->
     <div id="studentModal" class="modal-overlay">
         <div class="modal-content">
             <h2 id="modalName" style="color:#0f172a;">Student Name</h2>
@@ -239,7 +262,7 @@ $approval_rate = ($total_students > 0) ? round(($approved / $total_students) * 1
     </div>
 
     <div id="toastBox" class="toast-container"></div>
-    <script src="../assets/js/faculty_dashboard.js?v=504"></script>
+    <script src="../assets/js/faculty_dashboard.js?v=506"></script>
 </body>
 
 </html>
