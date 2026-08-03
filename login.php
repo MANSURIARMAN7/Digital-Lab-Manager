@@ -96,7 +96,7 @@
 
         </div>
 
-    </div>
+</div>
 
     <script src="assets/js/login.js"></script>
 
