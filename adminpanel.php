@@ -1629,67 +1629,216 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
         </div>
 
 
-        <!-- ==================== 3. FACULTY MANAGEMENT TAB ==================== -->
-
+                <!-- ==================== 3. FACULTY MANAGEMENT TAB ==================== -->
         <div id="faculty-tab" class="tab-content-section">
-
+            
+            <!-- Page Header -->
             <div class="d-flex justify-content-between align-items-center mb-4">
-
-                <h4 class="fw-bold text-dark mb-0">
-                    👨‍🏫 Faculty Management
-                </h4>
-
-                <button class="btn btn-primary">
-                    <i class="fa-solid fa-plus me-1"></i>
-                    Add Faculty
-                </button>
-
+                <div>
+                    <h4 class="fw-bold text-dark mb-1">👨‍🏫 Faculty & Staff Management</h4>
+                    <p class="text-muted small mb-0">Manage teaching staff, lab assistants, and department roles.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-light border shadow-sm text-secondary">
+                        <i class="fa-solid fa-file-export me-1"></i> Export CSV
+                    </button>
+                    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addFacultyModal">
+                        <i class="fa-solid fa-plus me-1"></i> Add New Faculty
+                    </button>
+                </div>
             </div>
 
-            <div class="content-card">
+            <!-- Main Content Card -->
+            <div class="content-card border-0 shadow-sm">
+                
+                <!-- Advanced Search & Filters -->
+                <div class="row g-3 align-items-center mb-4">
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0 py-2">
+                                <i class="fa-solid fa-magnifying-glass text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control bg-light border-0 shadow-none py-2" placeholder="Search by name, employee ID, or email...">
+                        </div>
+                    </div>
+                    <div class="col-md-7 d-flex justify-content-md-end gap-2">
+                        <select class="form-select bg-light border-0 shadow-none w-auto text-muted font-sm py-2">
+                            <option value="">All Departments</option>
+                            <option value="CE">Computer Engineering (CE)</option>
+                            <option value="IT">Information Tech. (IT)</option>
+                            <option value="ME">Mechanical Eng. (ME)</option>
+                        </select>
+                        <select class="form-select bg-light border-0 shadow-none w-auto text-muted font-sm py-2">
+                            <option value="">Status: All</option>
+                            <option value="active">🟢 Active</option>
+                            <option value="leave">🟡 On Leave</option>
+                            <option value="inactive">🔴 Inactive</option>
+                        </select>
+                    </div>
+                </div>
 
+                <!-- Professional Table -->
                 <div class="table-responsive">
-
-                    <table class="table align-middle">
-
-                        <thead class="table-light">
-
+                    <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+                        <thead class="table-light text-muted">
                             <tr>
-                                <th>Faculty ID</th>
-                                <th>Name</th>
-                                <th>Department</th>
-                                <th>Assigned Subject</th>
-                                <th>Mobile</th>
-                                <th>Status</th>
+                                <th class="fw-semibold pb-3">Faculty Profile</th>
+                                <th class="fw-semibold pb-3">Emp ID</th>
+                                <th class="fw-semibold pb-3">Designation / Dept.</th>
+                                <th class="fw-semibold pb-3">Contact Information</th>
+                                <th class="fw-semibold pb-3">Status</th>
+                                <th class="fw-semibold text-end pb-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="border-top-0">
+                            
+                            <!-- Faculty Row 1 -->
+                            <tr>
+                                <td class="py-3">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="position-relative">
+                                            <img src="https://ui-avatars.com/api/?name=Amit+Patel&background=0f172a&color=fff&bold=true" class="rounded-circle shadow-sm" width="45" alt="Faculty">
+                                            <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" title="Online"></span>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold mb-0 text-dark">Dr. Amit Patel</h6>
+                                            <small class="text-primary fw-medium">Joined: Aug 2018</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1">FAC-2018-01</span></td>
+                                <td>
+                                    <div class="fw-semibold text-dark">Head of Department</div>
+                                    <small class="text-muted">Computer Engineering (CE)</small>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <a href="mailto:amit.patel@uni.edu" class="text-decoration-none text-muted small"><i class="fa-solid fa-envelope me-2 text-secondary"></i>amit.patel@uni.edu</a>
+                                        <a href="tel:+919876543210" class="text-decoration-none text-muted small"><i class="fa-solid fa-phone me-2 text-secondary"></i>+91 98765 43210</a>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill">Active</span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light text-muted border-0 shadow-none" type="button" data-bs-toggle="dropdown">
+                                            <i class="fa-solid fa-ellipsis-vertical px-1"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                            <li><a class="dropdown-item small" href="#"><i class="fa-regular fa-eye me-2 text-muted"></i> View Profile</a></li>
+                                            <li><a class="dropdown-item small" href="#"><i class="fa-regular fa-pen-to-square me-2 text-muted"></i> Edit Details</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item small text-danger" href="#"><i class="fa-solid fa-trash-can me-2"></i> Remove Faculty</a></li>
+                                        </ul>
+                                    </div>
+                                </td>
                             </tr>
 
-                        </thead>
-
-                        <tbody>
-
+                            <!-- Faculty Row 2 -->
                             <tr>
-
-                                <td>#FAC-201</td>
-                                <td>Dr. Anit Kapoor</td>
-                                <td>Computer Science</td>
-                                <td>Data Structures, DBMS</td>
-                                <td>+91 9876543210</td>
-
-                                <td>
-                                    <span class="status-badge badge-active">
-                                        Active
-                                    </span>
+                                <td class="py-3">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <img src="https://ui-avatars.com/api/?name=Priya+Sharma&background=2563eb&color=fff&bold=true" class="rounded-circle shadow-sm" width="45" alt="Faculty">
+                                        <div>
+                                            <h6 class="fw-bold mb-0 text-dark">Prof. Priya Sharma</h6>
+                                            <small class="text-muted fw-medium">Joined: Jan 2021</small>
+                                        </div>
+                                    </div>
                                 </td>
+                                <td><span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1">FAC-2021-14</span></td>
+                                <td>
+                                    <div class="fw-semibold text-dark">Assistant Professor</div>
+                                    <small class="text-muted">Information Tech. (IT)</small>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <a href="mailto:priya.s@uni.edu" class="text-decoration-none text-muted small"><i class="fa-solid fa-envelope me-2 text-secondary"></i>priya.s@uni.edu</a>
+                                        <a href="tel:+919988776655" class="text-decoration-none text-muted small"><i class="fa-solid fa-phone me-2 text-secondary"></i>+91 99887 76655</a>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill">Active</span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light text-muted border-0 shadow-none" type="button" data-bs-toggle="dropdown">
+                                            <i class="fa-solid fa-ellipsis-vertical px-1"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                            <li><a class="dropdown-item small" href="#"><i class="fa-regular fa-eye me-2 text-muted"></i> View Profile</a></li>
+                                            <li><a class="dropdown-item small" href="#"><i class="fa-regular fa-pen-to-square me-2 text-muted"></i> Edit Details</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item small text-danger" href="#"><i class="fa-solid fa-trash-can me-2"></i> Remove Faculty</a></li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
 
+                            <!-- Faculty Row 3 -->
+                            <tr>
+                                <td class="py-3">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="position-relative">
+                                            <img src="https://ui-avatars.com/api/?name=Rajesh+Kumar&background=64748b&color=fff&bold=true" class="rounded-circle shadow-sm" width="45" alt="Faculty">
+                                            <span class="position-absolute bottom-0 end-0 p-1 bg-warning border border-white rounded-circle" title="Away"></span>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold mb-0 text-dark">Mr. Rajesh Kumar</h6>
+                                            <small class="text-muted fw-medium">Joined: Mar 2022</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1">LAB-2022-08</span></td>
+                                <td>
+                                    <div class="fw-semibold text-dark">Senior Lab Assistant</div>
+                                    <small class="text-muted">Computer Engineering (CE)</small>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <a href="mailto:rajesh.lab@uni.edu" class="text-decoration-none text-muted small"><i class="fa-solid fa-envelope me-2 text-secondary"></i>rajesh.lab@uni.edu</a>
+                                        <a href="tel:+919123456780" class="text-decoration-none text-muted small"><i class="fa-solid fa-phone me-2 text-secondary"></i>+91 91234 56780</a>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-3 py-2 rounded-pill">On Leave</span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light text-muted border-0 shadow-none" type="button" data-bs-toggle="dropdown">
+                                            <i class="fa-solid fa-ellipsis-vertical px-1"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                            <li><a class="dropdown-item small" href="#"><i class="fa-regular fa-eye me-2 text-muted"></i> View Profile</a></li>
+                                            <li><a class="dropdown-item small" href="#"><i class="fa-regular fa-pen-to-square me-2 text-muted"></i> Edit Details</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item small text-danger" href="#"><i class="fa-solid fa-trash-can me-2"></i> Remove Faculty</a></li>
+                                        </ul>
+                                    </div>
+                                </td>
                             </tr>
 
                         </tbody>
-
                     </table>
-
                 </div>
+
+                <!-- Pagination Footer -->
+                <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                    <p class="text-muted small mb-0">Showing <strong>1</strong> to <strong>3</strong> of <strong>48</strong> entries</p>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item disabled"><a class="page-link text-muted border-0" href="#">Previous</a></li>
+                            <li class="page-item active"><a class="page-link border-0 shadow-sm" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link text-dark border-0" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link text-dark border-0" href="#">3</a></li>
+                            <li class="page-item"><a class="page-link text-primary border-0" href="#">Next</a></li>
+                        </ul>
+                    </nav>
+                </div>
+
             </div>
         </div>
+
 
 
         <!-- ==================== 4. SUBJECT MANAGEMENT TAB ==================== -->
