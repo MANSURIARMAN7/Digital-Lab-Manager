@@ -69,6 +69,52 @@ function toggleDarkMode() {
             <div class="welcome-icon">🎓</div>
         </section>
 
+        <section class="semester-section">
+
+    <h2>Select Semester</h2>
+
+    <select class="semester-select">
+        <option>Semester 1</option>
+        <option>Semester 2</option>
+        <option>Semester 3</option>
+        <option>Semester 4</option>
+        <option selected>Semester 5</option>
+        <option>Semester 6</option>
+    </select>
+
+    <h2 style="margin-top:25px;">Subjects</h2>
+
+    <div class="subject-grid">
+
+        <a href="#" class="subject-card">
+            🌐
+            <h3>Web Development</h3>
+        </a>
+
+        <a href="#" class="subject-card">
+            🗄
+            <h3>Database Management System</h3>
+        </a>
+
+        <a href="#" class="subject-card">
+            📡
+            <h3>Internet of Things</h3>
+        </a>
+
+        <a href="#" class="subject-card">
+            ☕
+            <h3>Java Programming</h3>
+        </a>
+
+        <a href="#" class="subject-card">
+            🐍
+            <h3>Python Programming</h3>
+        </a>
+
+    </div>
+
+</section>
+
         <section class="stats">
             <div class="stat-card blue">
                 <div class="stat-icon">📄</div>
