@@ -1,8 +1,4 @@
 
-
-
-
-Claim offer
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -267,7 +263,7 @@ Claim offer
 
             <i class="fa-solid fa-microscope text-primary fs-4"></i>
 
-            <span>Lab & ERP System</span>
+            <span>DIGITAL LAB MANUAL</span>
         </div>
 
         <ul class="nav-links">
@@ -379,7 +375,7 @@ Claim offer
         <div id="dashboard-tab" class="tab-content-section active">
 
             <h4 class="fw-bold text-dark mb-4">
-                University Lab Manager Dashboard
+                Digital Lab Manager Dashboard
             </h4>
 
             <div class="row g-3 mb-4">
@@ -462,17 +458,17 @@ Claim offer
                         <div class="d-flex justify-content-between align-items-center">
 
                             <div>
-                                <span class="text-muted small">
-                                    Monthly Expense
+                                <span class="text-danger">
+                                    Rejected Submissions
                                 </span>
 
                                 <h3 class="fw-bold text-dark mb-0 mt-1">
-                                    ₹45,200
+                                    49
                                 </h3>
                             </div>
 
-                            <div class="stat-icon bg-danger bg-opacity-10 text-danger">
-                                <i class="fa-solid fa-indian-rupee-sign"></i>
+                            <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                                <i class="fa-solid fa-clock"></i>
                             </div>
 
                         </div>
