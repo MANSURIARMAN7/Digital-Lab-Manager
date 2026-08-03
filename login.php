@@ -8,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $user_id = $_POST['user_id'];
     $password = $_POST['password'];
 
-    // FIX 1: JSON file ka sahi rasta (Kyunki login.php ab bahar main folder mein hai)
+    // JSON file ka sahi rasta
     $json_file = 'users.json'; 
     
     if (file_exists($json_file)) {
@@ -19,18 +19,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         foreach ($users as $user) {
             if ($user['user_id'] == $user_id && $user['password'] == $password) {
                 
+                // 🔥 YAHI WO JADUI LINE HAI JO PURANA KACHRA SAAF KAREGI!
+                session_unset(); 
+                
                 // Login Pass! Session mein details save karo
                 $_SESSION['logged_in'] = true;
                 $_SESSION['user_id'] = $user['user_id'];
                 $_SESSION['name'] = $user['name'];
                 $_SESSION['role'] = $user['role'];
 
-                $login_success = true;
+                // Subjects save karo (Ab ye naye format mein aayega)
                 if (isset($user['subjects'])) {
-    $_SESSION['subjects'] = $user['subjects'];
-}
+                    $_SESSION['subjects'] = $user['subjects'];
+                }
 
-                // FIX 2: Role ke hisaab se sahi folder mein redirect karo
+                $login_success = true;
+
+                // Role ke hisaab se redirect karo
                 if ($user['role'] == 'faculty') {
                     header("Location: Faculty/faculty_dashboard.php");
                     exit();
@@ -61,7 +66,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Login - KDP</title>
-    <!-- FontAwesome Link Add Kiya -->
+    <!-- FontAwesome Link -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Version update taaki nayi CSS load ho -->
     <link rel="stylesheet" href="assets/css/login.css?v=9999">
@@ -99,7 +104,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <label>Password</label>
                 <div class="password-box">
                     <input type="password" id="password" name="password" placeholder="Enter Password" required>
-                    <!-- Yahan IMG hata kar FontAwesome Icon laga diya -->
                     <i class="fas fa-eye" id="togglePassword"></i>
                 </div>
 
