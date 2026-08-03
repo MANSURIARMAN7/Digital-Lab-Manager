@@ -38,7 +38,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     </aside>
 
     <main class="main-content">
-
+    
         <header class="topbar">
             <div>
                 <p class="small-text">Student Portal</p>
