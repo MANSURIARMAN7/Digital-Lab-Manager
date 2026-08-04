@@ -1,39 +1,70 @@
 <?php
 session_start();
+include '../db.php'; // 🔥 Live Database Connection
 
-if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'faculty') {
+// 1. Check Login
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['role'] !== 'faculty') {
     header("Location: ../login.php");
     exit();
 }
 
-$faculty_subjects = isset($_SESSION['subjects']) ? $_SESSION['subjects'] : [];
-$faculty_sub_names = [];
-foreach ($faculty_subjects as $sub) {
-    $faculty_sub_names[] = is_array($sub) ? $sub['name'] : $sub;
+$faculty_id = $_SESSION['user_id'];
+$faculty_name = isset($_SESSION['name']) ? $_SESSION['name'] : 'Faculty';
+
+// 2. Fetch Subjects directly from MySQL (Handling Semesters)
+$faculty_subjects = [];
+$sub_query = "SELECT subjects FROM users WHERE user_id = '$faculty_id'";
+$sub_result = $conn->query($sub_query);
+
+if ($sub_result && $sub_result->num_rows > 0) {
+    $row = $sub_result->fetch_assoc();
+    if (!empty($row['subjects'])) {
+        $decoded = json_decode($row['subjects'], true);
+        if (is_array($decoded)) {
+            $faculty_subjects = $decoded;
+        } else {
+            $faculty_subjects = array_map('trim', explode(',', $row['subjects']));
+        }
+    }
 }
 
-$json_file = 'submissions.json'; 
-if (!file_exists($json_file)) { file_put_contents($json_file, json_encode([], JSON_PRETTY_PRINT)); }
-$all_submissions = json_decode(file_get_contents($json_file), true);
-if (!is_array($all_submissions)) { $all_submissions = []; }
-
-$overall_stats = ['total' => 0, 'approved' => 0, 'pending' => 0, 'rejected' => 0];
-$subject_stats = [];
-
-foreach ($faculty_sub_names as $sub) {
-    $subject_stats[$sub] = ['total' => 0, 'approved' => 0, 'pending' => 0, 'rejected' => 0];
+if (empty($faculty_subjects)) {
+    $faculty_subjects = ["Web Development", "Database Management"];
 }
 
-foreach ($all_submissions as $row) {
-    if (isset($row['subject']) && in_array($row['subject'], $faculty_sub_names)) {
-        $status = strtolower($row['status']);
-        $sub_name = $row['subject'];
+$default_sub = is_array($faculty_subjects[0]) ? (isset($faculty_subjects[0]['name']) ? $faculty_subjects[0]['name'] : $faculty_subjects[0]) : $faculty_subjects[0];
+$selected_subject = isset($_GET['subject']) ? trim($_GET['subject']) : $default_sub;
+$safe_sub = $conn->real_escape_string($selected_subject);
 
-        $overall_stats['total']++;
-        if (isset($overall_stats[$status])) $overall_stats[$status]++;
+// 3. 🔥 LIVE FETCH REPORT DATA & STATS
+$report_data = [];
+$total_students = 0;
+$total_approved = 0;
+$total_rejected = 0;
 
-        $subject_stats[$sub_name]['total']++;
-        if (isset($subject_stats[$sub_name][$status])) $subject_stats[$sub_name][$status]++;
+$query = "
+    SELECT s.enrollment, s.status, s.marks, s.submitted_at, u.name 
+    FROM submissions s 
+    LEFT JOIN users u ON s.enrollment = u.user_id 
+    WHERE s.subject = '$safe_sub' 
+    ORDER BY s.enrollment ASC
+";
+$result = $conn->query($query);
+
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        if (empty($row['name'])) {
+            $row['name'] = "Student (" . $row['enrollment'] . ")";
+        }
+        $report_data[] = $row; 
+        
+        // Calculate Stats
+        $total_students++;
+        if (strtolower($row['status']) == 'approved') {
+            $total_approved++;
+        } elseif (strtolower($row['status']) == 'rejected') {
+            $total_rejected++;
+        }
     }
 }
 ?>
@@ -43,241 +74,221 @@ foreach ($all_submissions as $row) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports & Analytics - KDP Faculty</title>
+    <title>Reports - KDP</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../assets/css/faculty_dashboard.css?v=602">
-    <!-- Chart.js link -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
-        /* Modern Report Design CSS */
-        .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px dashed #e2e8f0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f1f5f9; display: flex; height: 100vh; overflow: hidden; }
         
-        .btn-print { background: #0f172a; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .btn-print:hover { background: #334155; transform: translateY(-1px); }
-        
-        .progress-bar-container { width: 100%; background: #f1f5f9; border-radius: 10px; height: 8px; margin-top: 8px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
-        .progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 10px; }
-        
-        .charts-container { display: flex; gap: 20px; margin-top: 25px; margin-bottom: 30px; }
-        
-        /* 🔥 FIX: Graphs ko limit mein rakhne ka design */
-        .chart-box { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); flex: 1; border: 1px solid #f1f5f9; display: flex; flex-direction: column; }
-        .canvas-wrapper { position: relative; height: 260px; width: 100%; margin-top: 15px; } /* Ye Line Graph ko bada hone se rokegi */
+        /* 🔵 SIDEBAR */
+        .sidebar { width: 260px; background-color: #113460; color: #ffffff; display: flex; flex-direction: column; padding: 25px 0; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 10; }
+        .sidebar-logo-container { text-align: center; margin-bottom: 20px; }
+        .logo-wrapper { width: 90px; height: 90px; background: #ffffff; border-radius: 50%; margin: 0 auto 15px auto; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 0 15px rgba(255,255,255,0.15); border: 3px solid rgba(255,255,255,0.2); }
+        .sidebar-logo { width: 105%; height: auto; }
+        .sidebar-title h2 { font-size: 19px; font-weight: 600; letter-spacing: 0.5px; }
+        .sidebar-title p { font-size: 13px; color: #94a3b8; margin-top: 2px;}
+        .sidebar-divider { height: 1px; background: #1e4b85; margin: 15px 20px; }
+        .nav-links { list-style: none; padding: 0; flex-grow: 1; margin-top: 10px; }
+        .nav-links li { padding: 15px 25px; margin: 5px 15px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 15px; transition: 0.3s; color: #cbd5e1; }
+        .nav-links li:hover { background: #1e4b85; color: white; }
+        .nav-links li.active { background: #2563eb; color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.3); }
+        .nav-links li i { font-size: 18px; }
+        .logout-btn { color: #fca5a5 !important; margin-top: auto; }
+        .logout-btn:hover { background: rgba(239, 68, 68, 0.1) !important; color: #ef4444 !important; }
 
-        /* Enhanced Table Design */
-        .table-section { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); border: 1px solid #f1f5f9; margin-bottom: 30px;}
-        table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        th { background: #f8fafc; padding: 15px; text-align: left; color: #475569; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; }
-        td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #334155; }
-        tr:last-child td { border-bottom: none; }
+        /* 🔵 MAIN CONTENT */
+        .main { flex: 1; padding: 30px; overflow-y: auto; }
+        
+        /* 🔥 HEADER & PROFILE */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .header-left h2 { color: #0f172a; font-size: 26px; font-weight: 700; }
+        .header-left p { color: #64748b; font-size: 14px; margin-top: 5px; }
+        .header-profile { display: flex; align-items: center; gap: 15px; background: #ffffff; padding: 8px 10px 8px 20px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.3s ease; }
+        .header-profile:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.06); transform: translateY(-2px); }
+        .profile-text { display: flex; flex-direction: column; text-align: right; }
+        .welcome-text { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .faculty-name { font-size: 15px; color: #0f172a; font-weight: 700; }
+        .profile-avatar { width: 42px; height: 42px; border-radius: 50%; border: 2px solid #2563eb; object-fit: cover; }
+
+        /* 🔥 ACTION TOOLBAR */
+        .toolbar { background: white; padding: 20px 25px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; flex-wrap: wrap; gap: 15px;}
+        .subject-selector { display: flex; align-items: center; gap: 15px; }
+        .subject-selector h3 { color: #1e293b; font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; }
+        .subject-selector select { padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; min-width: 250px; background: #f8fafc; color: #2563eb; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.3s; }
+        
+        .toolbar-actions { display: flex; align-items: center; gap: 15px; }
+        .search-box { position: relative; width: 250px; }
+        .search-box i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+        .search-box input { width: 100%; padding: 10px 15px 10px 40px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-size: 14px; background: #f8fafc; transition: 0.3s; }
+        .search-box input:focus { border-color: #3b82f6; background: white; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        
+        .btn-print { background: #10b981; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(16,185,129,0.3); transition: 0.3s;}
+        .btn-print:hover { background: #059669; transform: translateY(-2px);}
+
+        /* 🔥 REPORT SUMMARY CARDS */
+        .quick-stats { display: flex; gap: 20px; margin-bottom: 25px; }
+        .stat-badge { flex: 1; background: white; padding: 15px 20px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+        .stat-badge span { color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-badge h4 { color: #0f172a; font-size: 22px; font-weight: 700; margin-top: 4px; }
+        .stat-icon { width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+
+        /* TABLE STYLES */
+        .table-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; }
+        .table-title { color: #0f172a; margin-bottom: 20px; text-align: center; font-size: 20px; }
+        .table-title span { font-size: 15px; font-weight: 500; color: #64748b; display: block; margin-top: 5px;}
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8fafc; color: #64748b; padding: 14px 12px; text-align: left; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; border: 1px solid #e2e8f0; font-weight: 700; letter-spacing: 0.5px;}
+        td { padding: 14px 12px; border: 1px solid #e2e8f0; color: #1e293b; font-size: 14.5px; font-weight: 500;}
         tr:hover td { background: #f8fafc; }
-
+        
+        /* 🖨️ PRINT STYLES (Sirf Table Print Hoga) */
         @media print {
-            .sidebar, .faculty-profile, .btn-print, .report-header p { display: none !important; }
-            .main { margin-left: 0 !important; width: 100% !important; padding: 0 !important; background: white !important; }
+            .sidebar, .header, .toolbar, .quick-stats { display: none !important; }
+            .main { padding: 0 !important; overflow: visible !important; background: white; }
+            .table-section { box-shadow: none !important; border: none !important; padding: 0 !important; }
+            table { width: 100% !important; }
+            th, td { border: 1px solid #000 !important; color: #000 !important; padding: 10px !important;}
             body { background: white; }
-            .card, .table-section, .chart-box { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
-            .charts-container { display: block; }
-            .chart-box { margin-bottom: 20px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        
-        <!-- SIDEBAR -->
-        <div class="sidebar" style="display: flex; flex-direction: column; height: 100vh;">
-            <div class="sidebar-logo-container">
-                <img src="../assets/images/KDP-Logo.png" alt="Logo" class="sidebar-logo">
-                <div class="sidebar-title">
-                    <h2>K.D. Polytechnic</h2>
-                    <p>Faculty Portal</p>
-                </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-logo-container">
+            <div class="logo-wrapper">
+                <img src="../assets/images/KDP-Logo.png" alt="KDP Logo" class="sidebar-logo">
             </div>
-            <div class="sidebar-divider"></div>
-            <ul style="list-style: none; padding: 0; display: flex; flex-direction: column; flex-grow: 1;">
-                <li onclick="window.location.href='faculty_dashboard.php'" style="cursor: pointer;"><span class="menu-icon">🏠</span> Dashboard</li>
-                <li onclick="window.location.href='labmanual_list.php'" style="cursor: pointer;"><span class="menu-icon">📘</span> Lab Manuals</li>
-                <li onclick="window.location.href='reports.php'" class="active" style="cursor: pointer;"><span class="menu-icon">📄</span> Reports</li>
-                <li onclick="window.location.href='../logout.php'" style="cursor: pointer; margin-top: auto; color: #ff8ba7;"><span class="menu-icon" style="color: #ff8ba7;">➔</span> Logout</li>
-            </ul>
+            <div class="sidebar-title">
+                <h2>K.D. Polytechnic</h2>
+                <p>Faculty Portal</p>
+            </div>
         </div>
+        <div class="sidebar-divider"></div>
+        <ul class="nav-links">
+            <li onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
+            <li onclick="window.location.href='labmanual_list.php'"><i class="fas fa-book"></i> Lab Manuals</li>
+            <li class="active" onclick="window.location.href='reports.php'"><i class="fas fa-file-alt"></i> Reports</li>
+            <li class="logout-btn" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>
+        </ul>
+    </div>
 
-        <div class="main">
-            <div class="report-header">
-                <div>
-                    <h2 style="font-size: 24px; color: #0f172a; margin-bottom: 5px;">Analytics & Reports</h2>
-                    <p style="color: #64748b; font-size: 14px; margin: 0;">Subject-wise performance and visual submission records.</p>
-                </div>
-                <div style="display: flex; gap: 20px; align-items: center;">
-                    <button class="btn-print" onclick="window.print()">
-                        <i class="fas fa-print"></i> Print Report
-                    </button>
-                    <div class="faculty-profile">
-                        <img src="https://ui-avatars.com/api/?name=Faculty&background=2563eb&color=fff" alt="Profile" class="profile-pic" style="border-radius: 50%; width: 45px; height: 45px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-                    </div>
-                </div>
-            </div>
-
-            <!-- CARDS (Cleaner Design) -->
-            <div class="cards" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
-                <div class="card" style="border:none; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-radius: 12px; background: #fff; padding: 20px; position:relative; overflow:hidden;">
-                    <div style="position:relative; z-index:1;">
-                        <h3 style="color:#64748b; font-size:14px; margin:0 0 10px 0;">Total Submissions</h3>
-                        <p style="font-size:28px; font-weight:700; color:#0f172a; margin:0;"><?php echo $overall_stats['total']; ?></p>
-                    </div>
-                    <i class="fas fa-file-alt" style="position:absolute; right:15px; top:50%; transform:translateY(-50%); font-size:40px; color:#f1f5f9; z-index:0;"></i>
-                </div>
-                <div class="card" style="border:none; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-radius: 12px; background: #fff; padding: 20px; position:relative; overflow:hidden; border-bottom: 4px solid #10b981;">
-                    <div style="position:relative; z-index:1;">
-                        <h3 style="color:#64748b; font-size:14px; margin:0 0 10px 0;">Approved</h3>
-                        <p style="font-size:28px; font-weight:700; color:#0f172a; margin:0;"><?php echo $overall_stats['approved']; ?></p>
-                    </div>
-                    <i class="fas fa-check-circle" style="position:absolute; right:15px; top:50%; transform:translateY(-50%); font-size:40px; color:rgba(16, 185, 129, 0.1); z-index:0;"></i>
-                </div>
-                <div class="card" style="border:none; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-radius: 12px; background: #fff; padding: 20px; position:relative; overflow:hidden; border-bottom: 4px solid #f59e0b;">
-                    <div style="position:relative; z-index:1;">
-                        <h3 style="color:#64748b; font-size:14px; margin:0 0 10px 0;">Pending</h3>
-                        <p style="font-size:28px; font-weight:700; color:#0f172a; margin:0;"><?php echo $overall_stats['pending']; ?></p>
-                    </div>
-                    <i class="fas fa-clock" style="position:absolute; right:15px; top:50%; transform:translateY(-50%); font-size:40px; color:rgba(245, 158, 11, 0.1); z-index:0;"></i>
-                </div>
-                <div class="card" style="border:none; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-radius: 12px; background: #fff; padding: 20px; position:relative; overflow:hidden; border-bottom: 4px solid #ef4444;">
-                    <div style="position:relative; z-index:1;">
-                        <h3 style="color:#64748b; font-size:14px; margin:0 0 10px 0;">Rejected</h3>
-                        <p style="font-size:28px; font-weight:700; color:#0f172a; margin:0;"><?php echo $overall_stats['rejected']; ?></p>
-                    </div>
-                    <i class="fas fa-times-circle" style="position:absolute; right:15px; top:50%; transform:translateY(-50%); font-size:40px; color:rgba(239, 68, 68, 0.1); z-index:0;"></i>
-                </div>
-            </div>
-
-            <!-- GRAPHICAL CHARTS USING CHART.JS -->
-            <div class="charts-container">
-                <div class="chart-box" style="flex: 0.35;">
-                    <h3 style="color: #0f172a; font-size: 16px; margin: 0; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9;">Overall Status</h3>
-                    <!-- FIX: Ye canvas wrapper class hi magic kar rahi hai -->
-                    <div class="canvas-wrapper">
-                        <canvas id="pieChart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-box" style="flex: 0.65;">
-                    <h3 style="color: #0f172a; font-size: 16px; margin: 0; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9;">Subject-wise Approval</h3>
-                    <div class="canvas-wrapper">
-                        <canvas id="barChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TABLE -->
-            <div class="table-section">
-                <h3 style="color: #0f172a; font-size: 18px; margin: 0 0 20px 0;">📚 Subject-wise Breakdown</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Subject Name</th>
-                            <th>Total Students</th>
-                            <th>Approved</th>
-                            <th>Pending</th>
-                            <th>Rejected</th>
-                            <th>Approval Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php 
-                        $labels = []; $approvedData = []; $pendingData = [];
-                        foreach ($subject_stats as $sub_name => $stat) { 
-                            $rate = ($stat['total'] > 0) ? round(($stat['approved'] / $stat['total']) * 100) : 0;
-                            $labels[] = $sub_name;
-                            $approvedData[] = $stat['approved'];
-                            $pendingData[] = $stat['pending'];
-                            ?>
-                            <tr>
-                                <td style="font-weight: 600; color: #2563eb;"><?php echo $sub_name; ?></td>
-                                <td style="font-weight: 500;"><?php echo $stat['total']; ?></td>
-                                <td style="color: #10b981; font-weight: 600;"><?php echo $stat['approved']; ?></td>
-                                <td style="color: #f59e0b; font-weight: 600;"><?php echo $stat['pending']; ?></td>
-                                <td style="color: #ef4444; font-weight: 600;"><?php echo $stat['rejected']; ?></td>
-                                <td style="width: 150px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size: 12px; font-weight: 600; color: #475569;">
-                                        <span>Progress</span>
-                                        <span><?php echo $rate; ?>%</span>
-                                    </div>
-                                    <div class="progress-bar-container">
-                                        <div class="progress-bar" style="width: <?php echo $rate; ?>%;"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php } ?>
-                    </tbody>
-                </table>
+    <!-- MAIN CONTENT -->
+    <div class="main">
+        <div class="header">
+            <div class="header-left">
+                <h2>Term Work Reports</h2>
+                <p>View, search and print generated student reports.</p>
             </div>
             
-            <div style="display: none; text-align: center; margin-top: 50px; color: #64748b; font-size: 12px; border-top: 1px dashed #ccc; padding-top: 20px;" id="printFooter">
-                <strong>K.D. Polytechnic</strong><br>
-                Report generated from Digital Lab Manual System by <?php echo isset($_SESSION['name']) ? $_SESSION['name'] : 'Faculty'; ?> on <?php echo date("d-M-Y h:i A"); ?>.
+            <div class="header-profile">
+                <div class="profile-text">
+                    <span class="welcome-text">Welcome Back,</span>
+                    <span class="faculty-name"><?php echo htmlspecialchars($faculty_name); ?></span>
+                </div>
+                <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($faculty_name); ?>&background=2563eb&color=fff&rounded=true&bold=true" alt="Profile" class="profile-avatar">
             </div>
+        </div>
 
-            <script>
-                window.onbeforeprint = function() { document.getElementById('printFooter').style.display = 'block'; };
-                window.onafterprint = function() { document.getElementById('printFooter').style.display = 'none'; };
+        <!-- 🔥 ACTION TOOLBAR -->
+        <div class="toolbar">
+            <div class="subject-selector">
+                <h3><i class="fas fa-layer-group" style="color: #64748b;"></i> Subject:</h3>
+                <select onchange="window.location.href='?subject=' + encodeURIComponent(this.value)">
+                    <?php foreach($faculty_subjects as $sub) { 
+                        $sub_name = is_array($sub) ? (isset($sub['name']) ? $sub['name'] : '') : $sub;
+                        $sem_label = is_array($sub) && isset($sub['sem']) ? "Sem " . $sub['sem'] . " - " : "";
+                        if (!empty($sub_name)) {
+                    ?>
+                        <option value="<?php echo htmlspecialchars($sub_name); ?>" <?php if($selected_subject == $sub_name) echo 'selected'; ?>>
+                            <?php echo htmlspecialchars($sem_label . $sub_name); ?>
+                        </option>
+                    <?php } } ?>
+                </select>
+            </div>
+            
+            <div class="toolbar-actions">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search enrollment...">
+                </div>
+                <button class="btn-print" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+            </div>
+        </div>
 
-                // PHP Data to JS
-                const pieData = [<?php echo $overall_stats['approved']; ?>, <?php echo $overall_stats['pending']; ?>, <?php echo $overall_stats['rejected']; ?>];
-                const barLabels = <?php echo json_encode($labels); ?>;
-                const barApproved = <?php echo json_encode($approvedData); ?>;
-                const barPending = <?php echo json_encode($pendingData); ?>;
+        <!-- 🔥 REPORT SUMMARY CARDS -->
+        <div class="quick-stats">
+            <div class="stat-badge">
+                <div><span>Total Evaluated</span><h4><?php echo $total_students; ?></h4></div>
+                <div class="stat-icon" style="background: #eff6ff; color: #3b82f6;"><i class="fas fa-users"></i></div>
+            </div>
+            <div class="stat-badge">
+                <div><span>Passed (Approved)</span><h4><?php echo $total_approved; ?></h4></div>
+                <div class="stat-icon" style="background: #d1fae5; color: #059669;"><i class="fas fa-check-circle"></i></div>
+            </div>
+            <div class="stat-badge">
+                <div><span>Needs Revision</span><h4><?php echo $total_rejected; ?></h4></div>
+                <div class="stat-icon" style="background: #fee2e2; color: #dc2626;"><i class="fas fa-exclamation-circle"></i></div>
+            </div>
+        </div>
 
-                // Configure Font Family
-                Chart.defaults.font.family = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-                Chart.defaults.color = '#64748b';
-
-                // 1. Pie Chart Configuration
-                new Chart(document.getElementById('pieChart'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Approved', 'Pending', 'Rejected'],
-                        datasets: [{
-                            data: pieData,
-                            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-                            hoverOffset: 5,
-                            borderWidth: 2,
-                            borderColor: '#ffffff'
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        cutout: '75%',
-                        plugins: {
-                            legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } }
-                        }
-                    }
-                });
-
-                // 2. Bar Chart Configuration
-                new Chart(document.getElementById('barChart'), {
-                    type: 'bar',
-                    data: {
-                        labels: barLabels,
-                        datasets: [
-                            { label: 'Approved', data: barApproved, backgroundColor: '#10b981', borderRadius: 6, barThickness: 25 },
-                            { label: 'Pending', data: barPending, backgroundColor: '#f59e0b', borderRadius: 6, barThickness: 25 }
-                        ]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        scales: { 
-                            y: { beginAtZero: true, grid: { color: '#f1f5f9', drawBorder: false } },
-                            x: { grid: { display: false, drawBorder: false } }
-                        },
-                        plugins: {
-                            legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } }
-                        }
-                    }
-                });
-            </script>
+        <!-- TABLE SECTION -->
+        <div class="table-section">
+            <h3 class="table-title">
+                K.D. Polytechnic - Term Work Report
+                <span>Subject: <?php echo htmlspecialchars($selected_subject); ?></span>
+            </h3>
+            <table id="reportTable">
+                <tr>
+                    <th>Enrollment No.</th>
+                    <th>Student Name</th>
+                    <th>Status</th>
+                    <th style="text-align: center;">Marks (Out of 10)</th>
+                </tr>
+                <?php if (count($report_data) == 0) { ?>
+                    <tr><td colspan='4' style='text-align:center; padding: 30px; color: #64748b;'><i class="fas fa-file-excel" style="font-size: 24px; margin-bottom: 10px; display: block; color: #cbd5e1;"></i>No report data available for this subject.</td></tr>
+                <?php } else { 
+                    foreach ($report_data as $row) { ?>
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;"><?php echo htmlspecialchars($row['enrollment']); ?></td>
+                        <td><?php echo htmlspecialchars($row['name']); ?></td>
+                        <td style="font-weight: 600; color: <?php echo ($row['status'] == 'Approved') ? '#059669' : (($row['status'] == 'Rejected') ? '#dc2626' : '#d97706'); ?>;">
+                            <?php echo htmlspecialchars($row['status']); ?>
+                        </td>
+                        <td style="text-align: center; font-weight: bold; font-size: 16px; color: #2563eb;">
+                            <?php echo (isset($row['marks']) && $row['marks'] != '') ? htmlspecialchars($row['marks']) : '-'; ?>
+                        </td>
+                    </tr>
+                <?php } } ?>
+            </table>
         </div>
     </div>
+
+    <!-- Live Search JavaScript -->
+    <script>
+        function searchTable() {
+            let input = document.getElementById("searchInput").value.toLowerCase();
+            let table = document.getElementById("reportTable");
+            let tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let tdEnroll = tr[i].getElementsByTagName("td")[0];
+                let tdName = tr[i].getElementsByTagName("td")[1];
+                if (tdEnroll || tdName) {
+                    let textEnroll = tdEnroll.textContent || tdEnroll.innerText;
+                    let textName = tdName.textContent || tdName.innerText;
+                    if (textEnroll.toLowerCase().indexOf(input) > -1 || textName.toLowerCase().indexOf(input) > -1) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }       
+            }
+        }
+    </script>
 </body>
 </html>
