@@ -3,10 +3,11 @@ include 'header.php';
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="fw-bold text-dark mb-0">
-        👨‍🎓 Student Management & Lab Manual Tracker
-    </h4>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+    <div>
+        <h4 class="fw-bold text-dark mb-1">👨‍🎓 Student Management & Lab Manual Tracker</h4>
+        <p class="text-muted small mb-0">Track student laboratory manuals, academic branch details, and submission progress.</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addStudentModal">
         <i class="fa-solid fa-plus me-1"></i> Add New Student
     </button>
 </div>

@@ -9,7 +9,7 @@ include 'header.php';
 <div class="row g-3 mb-4">
 
     <div class="col-md-3">
-        <div class="stat-card">
+        <div class="stat-card" style="border-left: 4px solid #3b82f6;">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <span class="text-muted small">Total Students</span>
@@ -23,7 +23,7 @@ include 'header.php';
     </div>
 
     <div class="col-md-3">
-        <div class="stat-card">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <span class="text-muted small">Active Faculty</span>
@@ -37,7 +37,7 @@ include 'header.php';
     </div>
 
     <div class="col-md-3">
-        <div class="stat-card">
+        <div class="stat-card" style="border-left: 4px solid #f59e0b;">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <span class="text-muted small">Pending Reviews</span>
@@ -51,14 +51,14 @@ include 'header.php';
     </div>
 
     <div class="col-md-3">
-        <div class="stat-card">
+        <div class="stat-card" style="border-left: 4px solid #ef4444;">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <span class="text-danger">Rejected Submissions</span>
+                    <span class="text-muted small">Rejected Submissions</span>
                     <h3 class="fw-bold text-dark mb-0 mt-1">49</h3>
                 </div>
-                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
-                    <i class="fa-solid fa-clock"></i>
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                    <i class="fa-solid fa-circle-xmark"></i>
                 </div>
             </div>
         </div>
@@ -85,7 +85,7 @@ include 'header.php';
         <div class="content-card">
             <h5 class="fw-bold text-dark mb-3">Recent Student Manual Submissions</h5>
             <div class="table-responsive">
-                <table class="table align-middle">
+                <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>Student</th>
