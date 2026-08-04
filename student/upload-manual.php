@@ -38,7 +38,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     </aside>
 
     <main class="main-content">
-
+    
         <header class="topbar">
             <div>
                 <p class="small-text">Student Portal</p>
@@ -60,7 +60,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <h3>Guidelines</h3>
                     <p>✓ Upload PDF, DOC, or DOCX file</p>
                     <p>✓ Maximum file size: 10 MB</p>
-                    <p>✓ Check subject and experiment number before submitting</p>
+                    <p>✓ Check subject and practical details before submitting</p>
                 </div>
             </div>
 
@@ -80,24 +80,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <div class="form-row">
                         <div class="form-group">
                             <label>Subject Name *</label>
-                            <select name="subject" required>
+                            <select name="subject" id="subjectSelect" onchange="autoFillPracticalDetails()" required>
                                 <option value="">Select Subject</option>
-                                <option>Web Development</option>
-                                <option>Database Management System</option>
-                                <option>Computer Network</option>
-                                <option>Java Programming</option>
+                                <option value="Web Development">Web Development</option>
+                                <option value="Database Management System">Database Management System</option>
+                                <option value="Computer Network">Computer Network</option>
+                                <option value="Java Programming">Java Programming</option>
                             </select>
                         </div>
 
                         <div class="form-group">
-                            <label>Experiment Number *</label>
-                            <input type="number" name="experiment_no" placeholder="Example: 1" min="1" required>
+                            <label>Practical Number (Current Week) *</label>
+                            <input type="number" name="experiment_no" id="practicalNoInput" placeholder="Auto-filled on subject select" min="1" required readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Manual Title *</label>
-                        <input type="text" name="title" placeholder="Example: HTML Basic Tags Experiment" required>
+                        <label>Practical Title *</label>
+                        <input type="text" name="title" id="practicalTitleInput" placeholder="Select a subject to auto-fill practical name" required readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                     </div>
 
                     <div class="form-group">
@@ -118,6 +118,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </section>
     </main>
 </div>
+
+<script>
+// Subject-wise current week practical logic
+const currentWeekPracticals = {
+    "Web Development": {
+        practical_no: 3,
+        title: "Practical #3: Building Responsive Layouts using CSS Flexbox & Grid"
+    },
+    "Database Management System": {
+        practical_no: 3,
+        title: "Practical #3: Implementation of Relational DDL and DML Queries"
+    },
+    "Computer Network": {
+        practical_no: 3,
+        title: "Practical #3: IP Addressing, Subnetting, and Ping Commands"
+    },
+    "Java Programming": {
+        practical_no: 3,
+        title: "Practical #3: Class Inheritance and Method Overriding Concepts"
+    }
+};
+
+function autoFillPracticalDetails() {
+    const subjectSelect = document.getElementById("subjectSelect").value;
+    const practicalNoInput = document.getElementById("practicalNoInput");
+    const practicalTitleInput = document.getElementById("practicalTitleInput");
+
+    if (subjectSelect && currentWeekPracticals[subjectSelect]) {
+        // Auto fill current week data
+        practicalNoInput.value = currentWeekPracticals[subjectSelect].practical_no;
+        practicalTitleInput.value = currentWeekPracticals[subjectSelect].title;
+    } else {
+        // Clear if no subject chosen
+        practicalNoInput.value = "";
+        practicalTitleInput.value = "";
+    }
+}
+</script>
 
 </body>
 </html>
