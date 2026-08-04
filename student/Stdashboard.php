@@ -6,13 +6,8 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
     exit();
 }
 
-<<<<<<< HEAD
 $student_name = $_SESSION['name'] ?? 'Student';
 $student_id = $_SESSION['user_id'] ?? ''; 
-=======
-$student_name = $_SESSION['name'];
-$student_id = $_SESSION['user_id']; 
->>>>>>> e97aec22a2266778a2de909b7627cda6cf5eb0ce
 
 // 1. STATS LOGIC
 $json_file = '../Faculty/submissions.json'; 
