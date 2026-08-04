@@ -42,14 +42,13 @@ function toggleDarkMode() {
                 <p class="small-text">Academic Session 2026</p>
                 <h1>Student Dashboard</h1>
             </div>
-            <div class="date-box">
-                <button onclick="toggleDarkMode()" class="theme-toggle">🌙 Dark Mode</button>
-                <div class="date-box" style="display: flex; gap: 10px; align-items: center;">
-    <div class="notification-box" style="position: relative; cursor: pointer; font-size: 18px; background: #ffffff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        🔔<span style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 1px 6px; font-size: 10px; font-weight: bold;">2</span>
+           <div class="date-box" style="display: flex; align-items: center; gap: 10px; background: transparent; padding: 0; border: none; box-shadow: none;">
+    <div class="notification-box" style="position: relative; cursor: pointer; background: #102a56; color: white; padding: 10px 14px; border-radius: 9px; display: flex; align-items: center; justify-content: center; height: 42px; box-sizing: border-box;">
+        🔔<span style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; line-height: 1;">2</span>
     </div>
+
+    <button onclick="toggleDarkMode()" class="theme-toggle">🌙 Dark Mode</button>
 </div>
-            </div>
         </div>
 
         <div class="welcome-box">
