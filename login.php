@@ -26,20 +26,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result && $result->num_rows > 0) {
         $user = $result->fetch_assoc();
         
+        // Purana session saaf karo
+        session_unset();
+        
         // Session set kar rahe hain
         $_SESSION['logged_in'] = true;
         $_SESSION['user_id'] = $user['user_id'];
         $_SESSION['name'] = $user['name'];
         $_SESSION['role'] = strtolower($user['role']);
         
-       // Role ke hisaab se redirect
-       // Role ke hisaab se redirect
+        // Subjects save karo
+        if (isset($user['subjects']) && !empty($user['subjects'])) {
+            $decoded = json_decode($user['subjects'], true);
+            if (is_array($decoded)) {
+                $_SESSION['subjects'] = $decoded;
+            } else {
+                $_SESSION['subjects'] = array_map('trim', explode(',', $user['subjects']));
+            }
+        }
+        
+        // Role ke hisaab se redirect
         if ($_SESSION['role'] == 'faculty') {
             header("Location: Faculty/faculty_dashboard.php");
         } elseif ($_SESSION['role'] == 'student') {
             header("Location: student/stdashboard.php");
         } else {
-            header("Location: admin/adminpanel.php"); // 🔥 Yahan 'admin/' laga diya
+            header("Location: admin/dashboard.php"); // Redirect to modular admin dashboard
         }
         exit();
     } else {
