@@ -1,61 +1,52 @@
 <?php
 session_start();
 
+// 🔥 Tera naya Database Connection yahan include kar diya!
+include 'db.php'; 
+
 $error = "";
 
 // Agar user ne form submit kiya hai
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $user_id = $_POST['user_id'];
-    $password = $_POST['password'];
+    $user_id = trim($_POST['user_id']);
+    $password = trim($_POST['password']);
 
-    // JSON file ka sahi rasta
-    $json_file = 'users.json'; 
-    
-    if (file_exists($json_file)) {
-        $users = json_decode(file_get_contents($json_file), true);
-        $login_success = false;
+    // SQL Query: User ko database me dhoondho (Secure tareeqa)
+    $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ? AND password = ?");
+    $stmt->bind_param("ss", $user_id, $password);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-        // Har user ko check karo
-        foreach ($users as $user) {
-            if ($user['user_id'] == $user_id && $user['password'] == $password) {
-                
-                // 🔥 YAHI WO JADUI LINE HAI JO PURANA KACHRA SAAF KAREGI!
-                session_unset(); 
-                
-                // Login Pass! Session mein details save karo
-                $_SESSION['logged_in'] = true;
-                $_SESSION['user_id'] = $user['user_id'];
-                $_SESSION['name'] = $user['name'];
-                $_SESSION['role'] = $user['role'];
+    // Agar 1 row match hoti hai, matlab ID/Pass ekdum sahi hai
+    if ($result->num_rows == 1) {
+        $user = $result->fetch_assoc();
+        
+        // 🔥 YAHI WO JADUI LINE HAI JO PURANA KACHRA SAAF KAREGI!
+        session_unset(); 
+        
+        // Login Pass! Session mein details save karo
+        $_SESSION['logged_in'] = true;
+        $_SESSION['user_id'] = $user['user_id'];
+        $_SESSION['name'] = $user['name'];
+        $_SESSION['role'] = $user['role'];
 
-                // Subjects save karo (Ab ye naye format mein aayega)
-                if (isset($user['subjects'])) {
-                    $_SESSION['subjects'] = $user['subjects'];
-                }
-
-                $login_success = true;
-
-                // Role ke hisaab se redirect karo
-                if ($user['role'] == 'faculty') {
-                    header("Location: Faculty/faculty_dashboard.php");
-                    exit();
-                } else if ($user['role'] == 'student') {
-                    header("Location: student/stdashboard.php"); 
-                    exit();
-                } else if ($user['role'] == 'admin') {
-                    header("Location: admin/adminpanel.php"); 
-                    exit();
-                }
-            }
-        }
-
-        // Agar ID/Password match nahi hua
-        if (!$login_success) {
-            $error = "Invalid User ID or Password!";
+        // Role ke hisaab se redirect karo
+        if ($user['role'] == 'faculty') {
+            header("Location: Faculty/faculty_dashboard.php");
+            exit();
+        } else if ($user['role'] == 'student') {
+            header("Location: student/stdashboard.php"); 
+            exit();
+        } else if ($user['role'] == 'admin') {
+            header("Location: adminpanel.php"); 
+            exit();
         }
     } else {
-        $error = "Database file not found!";
+        // Agar ID/Password match nahi hua
+        $error = "Invalid User ID or Password!";
     }
+    
+    $stmt->close();
 }
 ?>
 
