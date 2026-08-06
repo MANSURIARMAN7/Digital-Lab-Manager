@@ -1,18 +1,48 @@
 <?php
 session_start();
-include '../db.php'; // 🔥 Live Database Connection
+include '../db.php';
 
 // 1. Check Login
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['role'] !== 'faculty') {
+if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'faculty') {
     header("Location: ../login.php");
     exit();
 }
 
 $faculty_id = $_SESSION['user_id'];
-$faculty_name = isset($_SESSION['name']) ? $_SESSION['name'] : 'Faculty';
+$msg = "";
 
-// 2. Fetch Subjects directly from MySQL (Handling Semesters if available)
-$faculty_subjects = [];
+// 2. Handle Grading (Single Approval/Rejection with Remark)
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type']) && $_POST['action_type'] === 'single_grade') {
+    $sub_id = (int)$_POST['submission_id'];
+    $marks = isset($_POST['marks']) ? (int)$_POST['marks'] : 0;
+    $action = $_POST['action']; 
+    $remark = $conn->real_escape_string(trim($_POST['remark']));
+    
+    $status = ($action === 'Approve') ? 'Approved' : 'Rejected';
+    if ($status === 'Rejected') $marks = 0;
+
+    $update_sql = "UPDATE submissions SET status='$status', marks='$marks', remark='$remark' WHERE id=$sub_id";
+    if ($conn->query($update_sql)) {
+        $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm'><i class='fa-solid fa-circle-check me-2'></i> Status updated to <strong>$status</strong>! <button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+    } else {
+        $msg = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
+    }
+}
+
+// 3. Handle Bulk Approval (Sabhi Pending bacchon ko 10/10 de kar approve karna)
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type']) && $_POST['action_type'] === 'bulk_approve') {
+    $bulk_sub_name = $conn->real_escape_string($_POST['bulk_subject']);
+    if (!empty($bulk_sub_name)) {
+        $bulk_sql = "UPDATE submissions SET status='Approved', marks=10, remark='Auto Approved' WHERE subject='$bulk_sub_name' AND status='Pending'";
+        if ($conn->query($bulk_sql)) {
+            $affected = $conn->affected_rows;
+            $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm'><i class='fa-solid fa-wand-magic-sparkles me-2'></i> Successfully approved <strong>$affected</strong> pending submissions with 10/10 marks! <button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+        }
+    }
+}
+
+// 4. Fetch Subjects & Group by Semester
+$raw_subjects = [];
 $sub_query = "SELECT subjects FROM users WHERE user_id = '$faculty_id'";
 $sub_result = $conn->query($sub_query);
 
@@ -20,50 +50,61 @@ if ($sub_result && $sub_result->num_rows > 0) {
     $row = $sub_result->fetch_assoc();
     if (!empty($row['subjects'])) {
         $decoded = json_decode($row['subjects'], true);
-        if (is_array($decoded)) {
-            $faculty_subjects = $decoded;
-        } else {
-            $faculty_subjects = array_map('trim', explode(',', $row['subjects']));
-        }
+        $raw_subjects = is_array($decoded) ? $decoded : array_map('trim', explode(',', $row['subjects']));
     }
 }
 
-if (empty($faculty_subjects)) {
-    $faculty_subjects = ["Web Development", "Database Management"];
+$faculty_semesters = ["Semester 1", "Semester 2", "Semester 3", "Semester 4", "Semester 5", "Semester 6"];
+$grouped_subjects = array_fill_keys($faculty_semesters, []);
+$grouped_subjects["Other Subjects"] = [];
+
+foreach($raw_subjects as $sub) {
+    $sub_text = is_array($sub) ? ($sub['name'] ?? '') : $sub;
+    if(preg_match('/Sem\s*(\d+)\s*[-:]\s*(.*)/i', $sub_text, $matches)) {
+        $sem = "Semester " . $matches[1];
+        $subject_name = trim($matches[2]);
+        if(!in_array($sem, $faculty_semesters)) $faculty_semesters[] = $sem;
+    } else {
+        $sem = "Other Subjects"; 
+        $subject_name = trim($sub_text);
+    }
+    $grouped_subjects[$sem][] = $subject_name;
 }
 
-$default_sub = is_array($faculty_subjects[0]) ? (isset($faculty_subjects[0]['name']) ? $faculty_subjects[0]['name'] : $faculty_subjects[0]) : $faculty_subjects[0];
-$selected_subject = isset($_GET['subject']) ? trim($_GET['subject']) : $default_sub;
+// 5. Handle Filters from URL & Search Query
+$selected_sem = isset($_GET['sem']) && in_array($_GET['sem'], $faculty_semesters) ? $_GET['sem'] : 'Semester 1';
+$available_subjects = $grouped_subjects[$selected_sem] ?? [];
+$selected_subject = isset($_GET['subject']) && in_array($_GET['subject'], $available_subjects) ? $_GET['subject'] : ($available_subjects[0] ?? '');
+$status_filter = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'All';
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+
 $safe_sub = $conn->real_escape_string($selected_subject);
 
-// 3. 🔥 LIVE FETCH SUBMISSIONS
-$submissions = [];
-$total_uploads = 0;
-$pending_review = 0;
-$graded = 0;
+// 6. Build SQL Query based on Filters
+$submissions_data = [];
+if (!empty($safe_sub)) {
+    $sql_where = "WHERE s.subject = '$safe_sub'";
+    
+    if ($status_filter !== 'All') {
+        $safe_status = $conn->real_escape_string($status_filter);
+        $sql_where .= " AND s.status = '$safe_status'";
+    }
 
-$query = "
-    SELECT s.*, u.name 
-    FROM submissions s 
-    LEFT JOIN users u ON s.enrollment = u.user_id 
-    WHERE s.subject = '$safe_sub' 
-    ORDER BY s.id DESC
-";
-$result = $conn->query($query);
+    if (!empty($search_query)) {
+        $safe_search = $conn->real_escape_string($search_query);
+        $sql_where .= " AND (s.enrollment LIKE '%$safe_search%' OR u.name LIKE '%$safe_search%')";
+    }
 
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        if (empty($row['name'])) {
-            $row['name'] = "Student (" . $row['enrollment'] . ")";
-        }
-        $submissions[] = $row; 
-        
-        // Calculate Quick Stats
-        $total_uploads++;
-        if (strtolower($row['status']) == 'pending') {
-            $pending_review++;
-        } else {
-            $graded++;
+    $query = "SELECT s.*, u.name as student_name 
+              FROM submissions s 
+              LEFT JOIN users u ON s.enrollment = u.user_id 
+              $sql_where 
+              ORDER BY s.id DESC";
+              
+    $res = $conn->query($query);
+    if ($res) {
+        while ($r = $res->fetch_assoc()) {
+            $submissions_data[] = $r;
         }
     }
 }
@@ -74,74 +115,66 @@ if ($result) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lab Manuals - KDP</title>
+    <title>Check Lab Manuals - Faculty Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: #f1f5f9; display: flex; height: 100vh; overflow: hidden; }
+        body { background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
         
-        /* 🔵 SIDEBAR (Same as Dashboard) */
         .sidebar { width: 260px; background-color: #113460; color: #ffffff; display: flex; flex-direction: column; padding: 25px 0; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 10; }
         .sidebar-logo-container { text-align: center; margin-bottom: 20px; }
         .logo-wrapper { width: 90px; height: 90px; background: #ffffff; border-radius: 50%; margin: 0 auto 15px auto; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 0 15px rgba(255,255,255,0.15); border: 3px solid rgba(255,255,255,0.2); }
         .sidebar-logo { width: 105%; height: auto; }
-        .sidebar-title h2 { font-size: 19px; font-weight: 600; letter-spacing: 0.5px; }
-        .sidebar-title p { font-size: 13px; color: #94a3b8; margin-top: 2px;}
+        .sidebar-title h2 { font-size: 19px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 2px; }
+        .sidebar-title p { font-size: 13px; color: #94a3b8; margin: 0;}
         .sidebar-divider { height: 1px; background: #1e4b85; margin: 15px 20px; }
+        
         .nav-links { list-style: none; padding: 0; flex-grow: 1; margin-top: 10px; }
         .nav-links li { padding: 15px 25px; margin: 5px 15px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 15px; transition: 0.3s; color: #cbd5e1; }
         .nav-links li:hover { background: #1e4b85; color: white; }
         .nav-links li.active { background: #2563eb; color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.3); }
-        .nav-links li i { font-size: 18px; }
+        .nav-links li i { font-size: 18px; width: 20px; text-align: center; }
         .logout-btn { color: #fca5a5 !important; margin-top: auto; }
         .logout-btn:hover { background: rgba(239, 68, 68, 0.1) !important; color: #ef4444 !important; }
 
-        /* 🔵 MAIN CONTENT */
         .main { flex: 1; padding: 30px; overflow-y: auto; }
-        
-        /* 🔥 HEADER & PROFILE */
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .header-left h2 { color: #0f172a; font-size: 26px; font-weight: 700; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header-left h2 { color: #0f172a; font-size: 26px; font-weight: 700; margin: 0; }
         .header-left p { color: #64748b; font-size: 14px; margin-top: 5px; }
-        .header-profile { display: flex; align-items: center; gap: 15px; background: #ffffff; padding: 8px 10px 8px 20px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.3s ease; }
-        .header-profile:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.06); transform: translateY(-2px); }
-        .profile-text { display: flex; flex-direction: column; text-align: right; }
-        .welcome-text { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .faculty-name { font-size: 15px; color: #0f172a; font-weight: 700; }
-        .profile-avatar { width: 42px; height: 42px; border-radius: 50%; border: 2px solid #2563eb; object-fit: cover; }
 
-        /* 🔥 NEW TOOLBAR (Subject + Search) */
-        .toolbar { background: white; padding: 20px 25px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; }
-        .subject-selector { display: flex; align-items: center; gap: 15px; }
-        .subject-selector h3 { color: #1e293b; font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; }
-        .subject-selector select { padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; min-width: 280px; background: #f8fafc; color: #2563eb; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.3s; }
-        .subject-selector select:hover { border-color: #94a3b8; }
-        
-        .search-box { position: relative; width: 300px; }
-        .search-box i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
-        .search-box input { width: 100%; padding: 10px 15px 10px 40px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-size: 14px; background: #f8fafc; transition: 0.3s; }
-        .search-box input:focus { border-color: #3b82f6; background: white; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .filter-card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+        .filter-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .filter-box { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
+        .filter-box label { color: #64748b; font-size: 11px; margin-bottom: 6px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+        .filter-box select, .filter-box input { padding: 9px 12px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; background: #f8fafc; color: #113460; font-weight: 600; font-size: 14px; }
+        .filter-box select:focus, .filter-box input:focus { border-color: #2563eb; background: #fff; }
 
-        /* 🔥 QUICK STATS BAR */
-        .quick-stats { display: flex; gap: 20px; margin-bottom: 25px; }
-        .stat-badge { flex: 1; background: white; padding: 15px 20px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
-        .stat-badge span { color: #64748b; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-badge h4 { color: #0f172a; font-size: 22px; font-weight: 700; margin-top: 4px; }
-        .stat-icon { width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .table-card { background: white; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); overflow: hidden; }
+        .table-custom { margin: 0; width: 100%; border-collapse: collapse; }
+        .table-custom th { background: #f8fafc; color: #475569; padding: 14px 16px; font-size: 12px; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+        .table-custom td { padding: 14px 16px; vertical-align: middle; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-size: 14px; }
         
-        /* Table Styles */
-        .table-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f8fafc; color: #64748b; padding: 14px 12px; text-align: left; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; font-weight: 700; letter-spacing: 0.5px;}
-        td { padding: 16px 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-size: 14.5px; font-weight: 500;}
-        tr:hover td { background: #f8fafc; }
-        .badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
-        .badge.pending { background: #fef3c7; color: #d97706; }
-        .badge.approved { background: #d1fae5; color: #059669; }
-        .badge.rejected { background: #fee2e2; color: #dc2626; }
-        .btn-view { background: #eff6ff; color: #2563eb; padding: 8px 15px; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.3s; display: inline-flex; align-items: center; gap: 6px;}
-        .btn-view:hover { background: #2563eb; color: white; }
+        .badge-status { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; text-transform: uppercase; }
+        .status-pending { background: #fef3c7; color: #d97706; }
+        .status-approved { background: #d1fae5; color: #059669; }
+        .status-rejected { background: #fee2e2; color: #dc2626; }
+
+        .btn-pdf { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: 0.2s; }
+        .btn-pdf:hover { background: #2563eb; color: white; }
+
+        .marks-input { width: 65px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; font-weight: bold; color: #0f172a; outline: none; font-size: 13px; }
+        .remark-input { width: 140px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; color: #475569; font-size: 12px; outline: none; }
+        .remark-input:focus, .marks-input:focus { border-color: #2563eb; }
+
+        .action-form { display: flex; align-items: center; gap: 6px; }
+        .btn-action { padding: 6px 10px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-approve { background: #10b981; color: white; }
+        .btn-approve:hover { background: #059669; }
+        .btn-reject { background: #ef4444; color: white; }
+        .btn-reject:hover { background: #dc2626; }
+
+        .btn-bulk { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-bulk:hover { background: #1d4ed8; }
     </style>
 </head>
 <body>
@@ -149,19 +182,15 @@ if ($result) {
     <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="sidebar-logo-container">
-            <div class="logo-wrapper">
-                <img src="../assets/images/KDP-Logo.png" alt="KDP Logo" class="sidebar-logo">
-            </div>
-            <div class="sidebar-title">
-                <h2>K.D. Polytechnic</h2>
-                <p>Faculty Portal</p>
-            </div>
+            <div class="logo-wrapper"><img src="../assets/images/KDP-Logo.png" alt="Logo" class="sidebar-logo"></div>
+            <div class="sidebar-title"><h2>K.D. Polytechnic</h2><p>Faculty Portal</p></div>
         </div>
         <div class="sidebar-divider"></div>
         <ul class="nav-links">
             <li onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
-            <li class="active" onclick="window.location.href='labmanual_list.php'"><i class="fas fa-book"></i> Lab Manuals</li>
+            <li class="active" onclick="window.location.href='labmanual_list.php'"><i class="fas fa-book-open"></i> Lab Manuals</li>
             <li onclick="window.location.href='reports.php'"><i class="fas fa-file-alt"></i> Reports</li>
+            <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> Profile</li>
             <li class="logout-btn" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
     </div>
@@ -170,115 +199,117 @@ if ($result) {
     <div class="main">
         <div class="header">
             <div class="header-left">
-                <h2>Review Lab Manuals</h2>
-                <p>Evaluate student submissions and provide feedback.</p>
+                <h2>Check Lab Manuals</h2>
+                <p>Review student submissions, give feedback & assign marks.</p>
             </div>
-            
-            <div class="header-profile">
-                <div class="profile-text">
-                    <span class="welcome-text">Welcome Back,</span>
-                    <span class="faculty-name"><?php echo htmlspecialchars($faculty_name); ?></span>
-                </div>
-                <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($faculty_name); ?>&background=2563eb&color=fff&rounded=true&bold=true" alt="Profile" class="profile-avatar">
-            </div>
+            <?php if (!empty($selected_subject)): ?>
+                <form method="POST" onsubmit="return confirm('Are you sure you want to approve ALL pending submissions for this subject with 10/10 marks?');">
+                    <input type="hidden" name="action_type" value="bulk_approve">
+                    <input type="hidden" name="bulk_subject" value="<?php echo htmlspecialchars($selected_subject); ?>">
+                    <button type="submit" class="btn-bulk"><i class="fa-solid fa-wand-magic-sparkles"></i> Approve All Pending</button>
+                </form>
+            <?php endif; ?>
         </div>
 
-        <!-- 🔥 SMART TOOLBAR -->
-        <div class="toolbar">
-            <div class="subject-selector">
-                <h3><i class="fas fa-layer-group" style="color: #64748b;"></i> Subject:</h3>
-                <select onchange="window.location.href='?subject=' + encodeURIComponent(this.value)">
-                    <?php foreach($faculty_subjects as $sub) { 
-                        // Logic to show Semester if available (e.g. "Sem 5 - Web Dev")
-                        $sub_name = is_array($sub) ? (isset($sub['name']) ? $sub['name'] : '') : $sub;
-                        $sem_label = is_array($sub) && isset($sub['sem']) ? "Sem " . $sub['sem'] . " - " : "";
-                        
-                        if (!empty($sub_name)) {
-                    ?>
-                        <option value="<?php echo htmlspecialchars($sub_name); ?>" <?php if($selected_subject == $sub_name) echo 'selected'; ?>>
-                            <?php echo htmlspecialchars($sem_label . $sub_name); ?>
-                        </option>
-                    <?php } } ?>
-                </select>
-            </div>
-            
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search student name or enrollment...">
-            </div>
-        </div>
+        <?php echo $msg; ?>
 
-        <!-- 🔥 QUICK STATS -->
-        <div class="quick-stats">
-            <div class="stat-badge">
-                <div><span>Total Uploads</span><h4><?php echo $total_uploads; ?></h4></div>
-                <div class="stat-icon" style="background: #eff6ff; color: #3b82f6;"><i class="fas fa-file-upload"></i></div>
-            </div>
-            <div class="stat-badge">
-                <div><span>Pending Review</span><h4><?php echo $pending_review; ?></h4></div>
-                <div class="stat-icon" style="background: #fef3c7; color: #d97706;"><i class="fas fa-clock"></i></div>
-            </div>
-            <div class="stat-badge">
-                <div><span>Graded / Reviewed</span><h4><?php echo $graded; ?></h4></div>
-                <div class="stat-icon" style="background: #d1fae5; color: #059669;"><i class="fas fa-check-double"></i></div>
-            </div>
-        </div>
-
-        <!-- TABLE SECTION -->
-        <div class="table-section">
-            <table id="submissionsTable">
-                <tr>
-                    <th>Student Name</th>
-                    <th>Enrollment No.</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-                <?php if (count($submissions) == 0) { ?>
-                    <tr><td colspan='4' style='text-align:center; padding: 30px; color: #64748b;'><i class="fas fa-folder-open" style="font-size: 24px; margin-bottom: 10px; display: block; color: #cbd5e1;"></i>No manuals uploaded yet for this subject.</td></tr>
-                <?php } else { 
-                    foreach ($submissions as $row) { 
-                        $status_class = strtolower($row['status']); 
-                ?>
-                    <tr>
-                        <td style="font-weight: 600; color: #0f172a;"><?php echo htmlspecialchars($row['name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['enrollment']); ?></td>
-                        <td><span class='badge <?php echo $status_class; ?>'><?php echo htmlspecialchars($row['status']); ?></span></td>
-                        <td>
-                            <?php if (!empty($row['file_path'])) { ?>
-                                <button class="btn-view" onclick="window.open('../<?php echo htmlspecialchars($row['file_path']); ?>', '_blank')">
-                                    <i class="fas fa-external-link-alt"></i> View PDF
-                                </button>
-                            <?php } else { ?>
-                                <span style="color: #94a3b8; font-size: 13px; font-style: italic;">No attachment</span>
+        <!-- ADVANCED FILTERS -->
+        <div class="filter-card">
+            <form method="GET" id="filterForm">
+                <div class="filter-row">
+                    <div class="filter-box">
+                        <label><i class="fa-solid fa-layer-group me-1"></i> Semester</label>
+                        <select name="sem" onchange="document.getElementById('filterForm').submit();">
+                            <?php foreach($faculty_semesters as $sem) { ?>
+                                <option value="<?php echo $sem; ?>" <?php if($selected_sem == $sem) echo 'selected'; ?>><?php echo $sem; ?></option>
                             <?php } ?>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-box">
+                        <label><i class="fa-solid fa-book me-1"></i> Subject</label>
+                        <select name="subject" onchange="document.getElementById('filterForm').submit();">
+                            <?php if(empty($available_subjects)) { ?>
+                                <option value="">No Subjects</option>
+                            <?php } else { 
+                                foreach($available_subjects as $sub) { ?>
+                                <option value="<?php echo htmlspecialchars($sub); ?>" <?php if($selected_subject == $sub) echo 'selected'; ?>><?php echo htmlspecialchars($sub); ?></option>
+                            <?php } } ?>
+                        </select>
+                    </div>
+
+                    <div class="filter-box">
+                        <label><i class="fa-solid fa-filter me-1"></i> Filter Status</label>
+                        <select name="status_filter" onchange="document.getElementById('filterForm').submit();">
+                            <option value="All" <?php if($status_filter == 'All') echo 'selected'; ?>>All Submissions</option>
+                            <option value="Pending" <?php if($status_filter == 'Pending') echo 'selected'; ?>>Pending</option>
+                            <option value="Approved" <?php if($status_filter == 'Approved') echo 'selected'; ?>>Approved</option>
+                            <option value="Rejected" <?php if($status_filter == 'Rejected') echo 'selected'; ?>>Rejected</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-box">
+                        <label><i class="fa-solid fa-magnifying-glass me-1"></i> Search Student</label>
+                        <input type="text" name="search" placeholder="Name or Enrollment..." value="<?php echo htmlspecialchars($search_query); ?>" onchange="document.getElementById('filterForm').submit();">
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- TABLE DATA -->
+        <div class="table-card">
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Enrollment No.</th>
+                        <th>Student Name</th>
+                        <th>PDF File</th>
+                        <th>Status</th>
+                        <th>Remark / Feedback</th>
+                        <th style="min-width: 220px;">Action / Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($submissions_data)) { ?>
+                        <tr><td colspan="6" class="text-center py-4 text-muted"><i class="fa-solid fa-inbox fs-4 mb-2 d-block"></i> No submissions found matching your filters.</td></tr>
+                    <?php } else { 
+                        foreach ($submissions_data as $row) { 
+                            $status_class = "status-" . strtolower($row['status']);
+                            $student_name = $row['student_name'] ?: "Student";
+                    ?>
+                    <tr>
+                        <td><strong><?php echo htmlspecialchars($row['enrollment']); ?></strong></td>
+                        <td><?php echo htmlspecialchars($student_name); ?></td>
+                        <td>
+                            <a href="../uploads/<?php echo htmlspecialchars($row['file_path']); ?>" target="_blank" class="btn-pdf">
+                                <i class="fa-regular fa-file-pdf"></i> View File
+                            </a>
+                        </td>
+                        <td><span class="badge-status <?php echo $status_class; ?>"><?php echo htmlspecialchars($row['status']); ?></span></td>
+                        
+                        <!-- REMARK DISPLAY OR INPUT -->
+                        <td>
+                            <small class="text-muted d-block"><?php echo !empty($row['remark']) ? htmlspecialchars($row['remark']) : '-'; ?></small>
+                        </td>
+
+                        <!-- INLINE GRADING FORM WITH REMARK -->
+                        <td>
+                            <form method="POST" class="action-form">
+                                <input type="hidden" name="action_type" value="single_grade">
+                                <input type="hidden" name="submission_id" value="<?php echo $row['id']; ?>">
+                                <input type="text" name="remark" class="remark-input" placeholder="Remark..." value="<?php echo htmlspecialchars($row['remark'] ?? ''); ?>">
+                                <input type="number" name="marks" class="marks-input" min="0" max="10" placeholder="/10" value="<?php echo ($row['marks'] > 0) ? $row['marks'] : ''; ?>" required title="Marks out of 10">
+                                <button type="submit" name="action" value="Approve" class="btn-action btn-approve" title="Approve"><i class="fa-solid fa-check"></i></button>
+                                <button type="submit" name="action" value="Reject" class="btn-action btn-reject" formnovalidate title="Reject"><i class="fa-solid fa-xmark"></i></button>
+                            </form>
                         </td>
                     </tr>
-                <?php } } ?>
+                    <?php } } ?>
+                </tbody>
             </table>
         </div>
     </div>
 
-    <!-- Live Search JavaScript -->
-    <script>
-        function searchTable() {
-            let input = document.getElementById("searchInput").value.toLowerCase();
-            let table = document.getElementById("submissionsTable");
-            let tr = table.getElementsByTagName("tr");
-
-            for (let i = 1; i < tr.length; i++) { // Skip header row
-                let tdName = tr[i].getElementsByTagName("td")[0];
-                let tdEnroll = tr[i].getElementsByTagName("td")[1];
-                if (tdName || tdEnroll) {
-                    let textName = tdName.textContent || tdName.innerText;
-                    let textEnroll = tdEnroll.textContent || tdEnroll.innerText;
-                    if (textName.toLowerCase().indexOf(input) > -1 || textEnroll.toLowerCase().indexOf(input) > -1) {
-                        tr[i].style.display = "";
-                    } else {
-                        tr[i].style.display = "none";
-                    }
-                }       
-            }
-        }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
