@@ -11,25 +11,37 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'faculty') {
 $faculty_id = $_SESSION['user_id'];
 $msg = "";
 
-// 2. Handle Grading (Single Approval/Rejection with Remark)
+// 2. Handle Grading (Approve, Reject, or Reset with Remark)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type']) && $_POST['action_type'] === 'single_grade') {
     $sub_id = (int)$_POST['submission_id'];
-    $marks = isset($_POST['marks']) ? (int)$_POST['marks'] : 0;
     $action = $_POST['action']; 
-    $remark = $conn->real_escape_string(trim($_POST['remark']));
     
-    $status = ($action === 'Approve') ? 'Approved' : 'Rejected';
-    if ($status === 'Rejected') $marks = 0;
-
-    $update_sql = "UPDATE submissions SET status='$status', marks='$marks', remark='$remark' WHERE id=$sub_id";
-    if ($conn->query($update_sql)) {
-        $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm'><i class='fa-solid fa-circle-check me-2'></i> Status updated to <strong>$status</strong>! <button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+    // 🔥 NAYA FEATURE: Reset to Pending
+    if ($action === 'Reset') {
+        $update_sql = "UPDATE submissions SET status='Pending', marks=0, remark='' WHERE id=$sub_id";
+        if ($conn->query($update_sql)) {
+            $msg = "<div class='alert alert-warning alert-dismissible fade show shadow-sm'><i class='fa-solid fa-rotate-left me-2'></i> Submission reset to <strong>Pending</strong>! <button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+        } else {
+            $msg = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
+        }
     } else {
-        $msg = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
+        // Approve ya Reject
+        $marks = isset($_POST['marks']) ? (int)$_POST['marks'] : 0;
+        $remark = $conn->real_escape_string(trim($_POST['remark']));
+        
+        $status = ($action === 'Approve') ? 'Approved' : 'Rejected';
+        if ($status === 'Rejected') $marks = 0;
+
+        $update_sql = "UPDATE submissions SET status='$status', marks='$marks', remark='$remark' WHERE id=$sub_id";
+        if ($conn->query($update_sql)) {
+            $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm'><i class='fa-solid fa-circle-check me-2'></i> Status updated to <strong>$status</strong>! <button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+        } else {
+            $msg = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
+        }
     }
 }
 
-// 3. Handle Bulk Approval (Sabhi Pending bacchon ko 10/10 de kar approve karna)
+// 3. Handle Bulk Approval
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type']) && $_POST['action_type'] === 'bulk_approve') {
     $bulk_sub_name = $conn->real_escape_string($_POST['bulk_subject']);
     if (!empty($bulk_sub_name)) {
@@ -172,6 +184,10 @@ if (!empty($safe_sub)) {
         .btn-approve:hover { background: #059669; }
         .btn-reject { background: #ef4444; color: white; }
         .btn-reject:hover { background: #dc2626; }
+        
+        /* 🔥 NEW BUTTON CSS */
+        .btn-reset { background: #f59e0b; color: white; }
+        .btn-reset:hover { background: #d97706; }
 
         .btn-bulk { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
         .btn-bulk:hover { background: #1d4ed8; }
@@ -266,7 +282,7 @@ if (!empty($safe_sub)) {
                         <th>PDF File</th>
                         <th>Status</th>
                         <th>Remark / Feedback</th>
-                        <th style="min-width: 220px;">Action / Grade</th>
+                        <th style="min-width: 250px;">Action / Grade</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -287,20 +303,25 @@ if (!empty($safe_sub)) {
                         </td>
                         <td><span class="badge-status <?php echo $status_class; ?>"><?php echo htmlspecialchars($row['status']); ?></span></td>
                         
-                        <!-- REMARK DISPLAY OR INPUT -->
+                        <!-- REMARK DISPLAY -->
                         <td>
                             <small class="text-muted d-block"><?php echo !empty($row['remark']) ? htmlspecialchars($row['remark']) : '-'; ?></small>
                         </td>
 
-                        <!-- INLINE GRADING FORM WITH REMARK -->
+                        <!-- INLINE GRADING FORM -->
                         <td>
                             <form method="POST" class="action-form">
                                 <input type="hidden" name="action_type" value="single_grade">
                                 <input type="hidden" name="submission_id" value="<?php echo $row['id']; ?>">
+                                
                                 <input type="text" name="remark" class="remark-input" placeholder="Remark..." value="<?php echo htmlspecialchars($row['remark'] ?? ''); ?>">
                                 <input type="number" name="marks" class="marks-input" min="0" max="10" placeholder="/10" value="<?php echo ($row['marks'] > 0) ? $row['marks'] : ''; ?>" required title="Marks out of 10">
+                                
                                 <button type="submit" name="action" value="Approve" class="btn-action btn-approve" title="Approve"><i class="fa-solid fa-check"></i></button>
                                 <button type="submit" name="action" value="Reject" class="btn-action btn-reject" formnovalidate title="Reject"><i class="fa-solid fa-xmark"></i></button>
+                                
+                                <!-- 🔥 RESET BUTTON (Orange icon) -->
+                                <button type="submit" name="action" value="Reset" class="btn-action btn-reset" formnovalidate title="Reset to Pending"><i class="fa-solid fa-rotate-left"></i></button>
                             </form>
                         </td>
                     </tr>
