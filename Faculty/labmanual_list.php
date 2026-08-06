@@ -16,16 +16,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type']) && $_PO
     $sub_id = (int)$_POST['submission_id'];
     $action = $_POST['action']; 
     
-    // 🔥 NAYA FEATURE: Reset to Pending
     if ($action === 'Reset') {
+        // Undo karke wapas pending karna hai
         $update_sql = "UPDATE submissions SET status='Pending', marks=0, remark='' WHERE id=$sub_id";
         if ($conn->query($update_sql)) {
             $msg = "<div class='alert alert-warning alert-dismissible fade show shadow-sm'><i class='fa-solid fa-rotate-left me-2'></i> Submission reset to <strong>Pending</strong>! <button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-        } else {
-            $msg = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
         }
     } else {
-        // Approve ya Reject
+        // Approve ya Reject karna hai
         $marks = isset($_POST['marks']) ? (int)$_POST['marks'] : 0;
         $remark = $conn->real_escape_string(trim($_POST['remark']));
         
@@ -41,7 +39,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type']) && $_PO
     }
 }
 
-// 3. Handle Bulk Approval
+// 3. Handle Bulk Approval (Sabhi Pending bacchon ko 10/10 de kar approve karna)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type']) && $_POST['action_type'] === 'bulk_approve') {
     $bulk_sub_name = $conn->real_escape_string($_POST['bulk_subject']);
     if (!empty($bulk_sub_name)) {
@@ -120,6 +118,37 @@ if (!empty($safe_sub)) {
         }
     }
 }
+
+// 7. 🔥 CSV/EXCEL EXPORT LOGIC
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['export_csv'])) {
+    $filename = "Marks_Report_" . str_replace(' ', '_', $safe_sub) . "_" . date('Y-m-d') . ".csv";
+    
+    // Set headers to force download
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=' . $filename);
+    
+    // Open output stream
+    $output = fopen('php://output', 'w');
+    
+    // Write Column Headers
+    fputcsv($output, array('Enrollment No.', 'Student Name', 'Subject', 'Status', 'Marks', 'Feedback/Remark'));
+    
+    // Write Data Rows
+    foreach ($submissions_data as $row) {
+        $student_name = $row['student_name'] ?: 'Student';
+        fputcsv($output, array(
+            $row['enrollment'],
+            $student_name,
+            $row['subject'],
+            $row['status'],
+            ($row['status'] == 'Pending') ? '-' : $row['marks'],
+            $row['remark']
+        ));
+    }
+    
+    fclose($output);
+    exit(); // Stop HTML rendering since we downloaded a file
+}
 ?>
 
 <!DOCTYPE html>
@@ -153,6 +182,8 @@ if (!empty($safe_sub)) {
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .header-left h2 { color: #0f172a; font-size: 26px; font-weight: 700; margin: 0; }
         .header-left p { color: #64748b; font-size: 14px; margin-top: 5px; }
+        
+        .header-actions { display: flex; gap: 10px; align-items: center; }
 
         .filter-card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
         .filter-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
@@ -184,13 +215,13 @@ if (!empty($safe_sub)) {
         .btn-approve:hover { background: #059669; }
         .btn-reject { background: #ef4444; color: white; }
         .btn-reject:hover { background: #dc2626; }
-        
-        /* 🔥 NEW BUTTON CSS */
         .btn-reset { background: #f59e0b; color: white; }
         .btn-reset:hover { background: #d97706; }
 
         .btn-bulk { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
         .btn-bulk:hover { background: #1d4ed8; }
+        .btn-export { background: #10b981; }
+        .btn-export:hover { background: #059669; }
     </style>
 </head>
 <body>
@@ -218,13 +249,24 @@ if (!empty($safe_sub)) {
                 <h2>Check Lab Manuals</h2>
                 <p>Review student submissions, give feedback & assign marks.</p>
             </div>
-            <?php if (!empty($selected_subject)): ?>
-                <form method="POST" onsubmit="return confirm('Are you sure you want to approve ALL pending submissions for this subject with 10/10 marks?');">
-                    <input type="hidden" name="action_type" value="bulk_approve">
-                    <input type="hidden" name="bulk_subject" value="<?php echo htmlspecialchars($selected_subject); ?>">
-                    <button type="submit" class="btn-bulk"><i class="fa-solid fa-wand-magic-sparkles"></i> Approve All Pending</button>
-                </form>
-            <?php endif; ?>
+            
+            <div class="header-actions">
+                <!-- 🔥 EXPORT TO EXCEL BUTTON -->
+                <?php if (!empty($submissions_data)): ?>
+                    <form method="POST" style="margin: 0;">
+                        <button type="submit" name="export_csv" value="1" class="btn-bulk btn-export"><i class="fa-solid fa-file-csv"></i> Download CSV</button>
+                    </form>
+                <?php endif; ?>
+
+                <!-- BULK APPROVE BUTTON -->
+                <?php if (!empty($selected_subject)): ?>
+                    <form method="POST" onsubmit="return confirm('Are you sure you want to approve ALL pending submissions for this subject with 10/10 marks?');" style="margin: 0;">
+                        <input type="hidden" name="action_type" value="bulk_approve">
+                        <input type="hidden" name="bulk_subject" value="<?php echo htmlspecialchars($selected_subject); ?>">
+                        <button type="submit" class="btn-bulk"><i class="fa-solid fa-wand-magic-sparkles"></i> Approve All Pending</button>
+                    </form>
+                <?php endif; ?>
+            </div>
         </div>
 
         <?php echo $msg; ?>
@@ -303,7 +345,7 @@ if (!empty($safe_sub)) {
                         </td>
                         <td><span class="badge-status <?php echo $status_class; ?>"><?php echo htmlspecialchars($row['status']); ?></span></td>
                         
-                        <!-- REMARK DISPLAY -->
+                        <!-- REMARK DISPLAY OR INPUT -->
                         <td>
                             <small class="text-muted d-block"><?php echo !empty($row['remark']) ? htmlspecialchars($row['remark']) : '-'; ?></small>
                         </td>
@@ -320,7 +362,7 @@ if (!empty($safe_sub)) {
                                 <button type="submit" name="action" value="Approve" class="btn-action btn-approve" title="Approve"><i class="fa-solid fa-check"></i></button>
                                 <button type="submit" name="action" value="Reject" class="btn-action btn-reject" formnovalidate title="Reject"><i class="fa-solid fa-xmark"></i></button>
                                 
-                                <!-- 🔥 RESET BUTTON (Orange icon) -->
+                                <!-- 🔥 RESET BUTTON ADDED -->
                                 <button type="submit" name="action" value="Reset" class="btn-action btn-reset" formnovalidate title="Reset to Pending"><i class="fa-solid fa-rotate-left"></i></button>
                             </form>
                         </td>
