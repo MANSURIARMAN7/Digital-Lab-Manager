@@ -1,297 +1,247 @@
 <?php
-include 'header.php';
+session_start();
+include '../db.php';
+
+// Admin Login Check
+if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../login.php");
+    exit();
+}
+
+// 1. Total Students
+$student_count_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student'");
+$total_students = ($student_count_res) ? $student_count_res->fetch_assoc()['total'] : 0;
+
+// 2. Active Faculty
+$faculty_count_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='faculty'");
+$active_faculty = ($faculty_count_res) ? $faculty_count_res->fetch_assoc()['total'] : 0;
+
+// 3. Pending Reviews
+$pending_res = $conn->query("SELECT COUNT(*) as total FROM submissions WHERE status='Pending'");
+$pending_reviews = ($pending_res) ? $pending_res->fetch_assoc()['total'] : 0;
+
+// 4. Rejected Submissions
+$rejected_res = $conn->query("SELECT COUNT(*) as total FROM submissions WHERE status='Rejected'");
+$rejected_submissions = ($rejected_res) ? $rejected_res->fetch_assoc()['total'] : 0;
+
+// 5. Total Submissions for Chart
+$total_sub_res = $conn->query("SELECT COUNT(*) as total FROM submissions");
+$total_submissions = ($total_sub_res) ? $total_sub_res->fetch_assoc()['total'] : 0;
+
+// 6. Recent Submissions for Table (Joining users table to get name & department)
+$recent_submissions = $conn->query("
+    SELECT u.name, u.department, s.subject_name, s.status, s.submitted_at 
+    FROM submissions s 
+    JOIN users u ON s.student_id = u.user_id 
+    ORDER BY s.submitted_at DESC 
+    LIMIT 5
+");
 ?>
 
-<style>
-    /* Dashboard specific CSS */
-    .stat-card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); height: 100%; }
-    .content-card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); height: 100%; }
-    .stat-icon { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-    .chart-container { position: relative; height: 250px; width: 100%; display: flex; justify-content: center; align-items: center;}
-    .chart-center-text { position: absolute; text-align: center; pointer-events: none; }
-    .chart-center-text .number { font-size: 28px; font-weight: bold; color: #374151; }
-    
-    /* Naye bado buttons ke liye hover effect */
-    .clickable-card { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
-    .clickable-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
-</style>
-
-<!-- Chart.js link (Zaruri hai taaki doughnut chart dikhe) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<div class="container-fluid mt-4">
-    <h4 class="fw-bold text-dark mb-4">
-        Digital Lab Manager Dashboard
-    </h4>
-
-    <!-- Upar Wale 4 Stat Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="stat-card" style="border-left: 4px solid #3b82f6;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="text-muted small">Total Students</span>
-                        <h3 class="fw-bold text-dark mb-0 mt-1">1,245</h3>
-                    </div>
-                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
-                        <i class="fa-solid fa-user-graduate"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="stat-card" style="border-left: 4px solid #10b981;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="text-muted small">Active Faculty</span>
-                        <h3 class="fw-bold text-dark mb-0 mt-1">48</h3>
-                    </div>
-                    <div class="stat-icon bg-success bg-opacity-10 text-success">
-                        <i class="fa-solid fa-chalkboard-user"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="stat-card" style="border-left: 4px solid #f59e0b;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="text-muted small">Pending Reviews</span>
-                        <h3 class="fw-bold text-dark mb-0 mt-1">128</h3>
-                    </div>
-                    <div class="stat-icon bg-warning bg-opacity-10 text-warning">
-                        <i class="fa-solid fa-clock"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="stat-card" style="border-left: 4px solid #ef4444;">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="text-muted small">Rejected Submissions</span>
-                        <h3 class="fw-bold text-dark mb-0 mt-1">49</h3>
-                    </div>
-                    <div class="stat-icon bg-danger bg-opacity-10 text-danger">
-                        <i class="fa-solid fa-circle-xmark"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Niche wala hissa (Chart aur Naye Bade Buttons) -->
-    <div class="row g-4">
-        <!-- Chart -->
-        <div class="col-lg-5">
-            <div class="content-card">
-                <h5 class="fw-bold text-dark mb-3">Submission Breakdown</h5>
-                <div class="chart-container">
-                    <canvas id="submissionsDoughnut"></canvas>
-                    <div class="chart-center-text">
-                        <div class="number">1,250</div>
-                        <div class="text-muted small">Submissions</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Student Management ke Bade Buttons -->
-        <div class="col-lg-7">
-            <div class="content-card">
-                <h5 class="fw-bold text-dark mb-4">Manage Students by Year</h5>
-                
-                <div class="row g-3">
-                    <!-- 1st Year Card -->
-                    <div class="col-12">
-                        <div class="stat-card clickable-card" style="border-left: 4px solid #3b82f6;" onclick="openYearPopup('1st Year')">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="text-muted small">Manage Classes A & B</span>
-                                    <h4 class="fw-bold text-dark mb-0 mt-1">1st Year Students</h4>
-                                </div>
-                                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
-                                    <i class="fa-solid fa-users"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 2nd Year Card -->
-                    <div class="col-12">
-                        <div class="stat-card clickable-card" style="border-left: 4px solid #10b981;" onclick="openYearPopup('2nd Year')">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="text-muted small">Manage Classes A & B</span>
-                                    <h4 class="fw-bold text-dark mb-0 mt-1">2nd Year Students</h4>
-                                </div>
-                                <div class="stat-icon bg-success bg-opacity-10 text-success">
-                                    <i class="fa-solid fa-users"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 3rd Year Card -->
-                    <div class="col-12">
-                        <div class="stat-card clickable-card" style="border-left: 4px solid #f59e0b;" onclick="openYearPopup('3rd Year')">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="text-muted small">Manage Classes A & B</span>
-                                    <h4 class="fw-bold text-dark mb-0 mt-1">3rd Year Students</h4>
-                                </div>
-                                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
-                                    <i class="fa-solid fa-users"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Year Selection Modal (Popup) -->
-<div class="modal fade" id="studentYearModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold text-primary" id="studentYearModalLabel">Year</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="modalDynamicContent">
-                <!-- Content will be loaded here via JS -->
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // Initialize Doughnut Chart
-    document.addEventListener('DOMContentLoaded', function() {
-        if(document.getElementById('submissionsDoughnut')){
-            const ctx = document.getElementById('submissionsDoughnut').getContext('2d');
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Approved', 'Pending', 'Rejected'],
-                    datasets: [{
-                        data: [650, 400, 200],
-                        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    cutout: '75%'
-                }
-            });
-        }
-    });
-
-    // Student Database (Sab batch aur saal ke naam alag-alag hain)
-    const studentDB = {
-        '1st Year': {
-            'A1': ['Aarav Patel', 'Diya Sharma', 'Vihaan Singh'],
-            'A2': ['Aanya Gupta', 'Aditya Verma', 'Zara Khan'],
-            'A3': ['Sai Joshi', 'Isha Reddy', 'Arjun Das'],
-            'A4': ['Riya Nair', 'Dev Mehta', 'Mira Iyer'],
-            'B1': ['Neha Kapoor', 'Rahul Desai', 'Kavya Sen'],
-            'B2': ['Neil Bhatia', 'Rohan Chawla', 'Tanvi Menon'],
-            'B3': ['Aryan Joshi', 'Kabir Tiwari', 'Shruti Jain'],
-            'B4': ['Rishi Saxena', 'Kriti Agarwal', 'Sarthak Rajput']
-        },
-        '2nd Year': {
-            'A1': ['Shaurya Mhatre', 'Ananya Kadam', 'Daksh Rajput'],
-            'A2': ['Ishaan Kulkarni', 'Prisha More', 'Dhruv Joshi'],
-            'A3': ['Nandini Gadkari', 'Sarthak Shinde', 'Mitali Pawar'],
-            'A4': ['Pranav Bhagat', 'Pooja Bharti', 'Harsh Nehra'],
-            'B1': ['Vedant Vardhan', 'Megha Chopra', 'Yash Singh'],
-            'B2': ['Sneha Kapoor', 'Karan Ali', 'Sagar Kumar'],
-            'B3': ['Vikram Kapoor', 'Anjali Bhatt', 'Amit Dhawan'],
-            'B4': ['Vishal Malhotra', 'Sonali Advani', 'Nitin Johar']
-        },
-        '3rd Year': {
-            'A1': ['Tanishq Tata', 'Aditi Ambani', 'Samar Adani'],
-            'A2': ['Vivaan Pichai', 'Suhani Nadella', 'Darshan Nooyi'],
-            'A3': ['Mahi Kohli', 'Avni Dhoni', 'Khushi Sharma'],
-            'A4': ['Chirag Bumrah', 'Jatin Pandya', 'Kunal Pant'],
-            'B1': ['Nikhil Mandhana', 'Tarun Kaur', 'Divya Raj'],
-            'B2': ['Priya Sindhu', 'Rachna Nehwal', 'Swati Kom'],
-            'B3': ['Tanya Chopra', 'Manish Bindra', 'Ritu Kumar'],
-            'B4': ['Deepak Chhetri', 'Sonali Bhutia', 'Vishal Singh']
-        }
-    };
-
-    // Modal Logic
-    let yearModal;
-
-    function openYearPopup(year) {
-        document.getElementById('studentYearModalLabel').innerText = year + " Students";
-
-        let content = `
-            <div class="mb-3 text-center">
-                <h6 class="text-muted mb-3">Select Class:</h6>
-                <button class="btn btn-primary px-4 me-2" onclick="showBatches('${year}', 'A')">Class A</button>
-                <button class="btn btn-primary px-4" onclick="showBatches('${year}', 'B')">Class B</button>
-            </div>
-            <div id="batchSection" class="mb-3 text-center"></div>
-            <div id="studentListSection"></div>
-        `;
-        document.getElementById('modalDynamicContent').innerHTML = content;
-
-        if (!yearModal) {
-            yearModal = new bootstrap.Modal(document.getElementById('studentYearModal'));
-        }
-        yearModal.show();
-    }
-
-    function showBatches(year, className) {
-        let content = `
-            <hr>
-            <h6 class="text-muted mb-3">Select Batch for Class ${className}:</h6>
-            <div class="d-flex flex-wrap justify-content-center gap-2">
-                <button class="btn btn-outline-secondary btn-sm" onclick="showStudents('${year}', '${className}', '${className}1')">Batch ${className}1</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="showStudents('${year}', '${className}', '${className}2')">Batch ${className}2</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="showStudents('${year}', '${className}', '${className}3')">Batch ${className}3</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="showStudents('${year}', '${className}', '${className}4')">Batch ${className}4</button>
-            </div>
-        `;
-        document.getElementById('batchSection').innerHTML = content;
-        document.getElementById('studentListSection').innerHTML = ''; 
-    }
-
-    function showStudents(year, className, batchName) {
-        // Javascript Data se Unique naam lana
-        let students = studentDB[year][batchName] || [];
-
-        let content = `
-            <hr>
-            <h6 class="fw-bold text-dark">Students of Batch ${batchName}</h6>
-            <ul class="list-group mt-2">
-        `;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Lab Manager Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --sidebar-width: 260px; --bg-color: #f8fafc; }
+        body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
         
-        students.forEach(name => {
-            content += `
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    ${name} 
-                    <span class="badge bg-success rounded-pill">Active</span>
-                </li>
-            `;
-        });
+        /* SIDEBAR (Tere Naye Design Ke Hisaab Se) */
+        .sidebar { width: var(--sidebar-width); background-color: #0f172a; color: #ffffff; display: flex; flex-direction: column; padding: 20px 0; z-index: 10; overflow-y: auto; }
+        .sidebar-logo-container { padding: 0 20px 20px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .sidebar-title h2 { font-size: 15px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: 0.5px; }
+        .nav-links { list-style: none; padding: 15px 15px 0 15px; margin: 0; flex-grow: 1; }
+        .nav-links li { padding: 11px 16px; margin: 4px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 14px; font-size: 14px; font-weight: 500; color: #94a3b8; transition: 0.2s ease-in-out; }
+        .nav-links li:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-links li.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
 
-        content += `</ul>`;
-        document.getElementById('studentListSection').innerHTML = content;
-    }
-</script>
+        /* MAIN CONTENT AREA */
+        .main { flex: 1; padding: 25px 35px; overflow-y: auto; display: flex; flex-direction: column; gap: 25px; }
+        
+        /* TOP BAR */
+        .topbar { background: white; padding: 12px 25px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; }
+        .search-box { background: #f8fafc; border-radius: 8px; padding: 6px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; }
+        .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
+        .user-profile { display: flex; align-items: center; gap: 12px; }
+        .user-avatar { width: 38px; height: 38px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
+        .notif-badge { width: 36px; height: 36px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; color: #64748b; cursor: pointer; }
 
-<?php
-include 'footer.php';
-?>
+        /* DASHBOARD GRID CARDS */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .stat-card { background: white; border-radius: 14px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.01); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+        .stat-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+        .stat-card:nth-child(1)::before { background: #3b82f6; }
+        .stat-card:nth-child(2)::before { background: #10b981; }
+        .stat-card:nth-child(3)::before { background: #f59e0b; }
+        .stat-card:nth-child(4)::before { background: #ef4444; }
+
+        .stat-title { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: #0f172a; margin-top: 8px; }
+        .stat-icon { position: absolute; right: 20px; top: 20px; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .stat-card:nth-child(1) .stat-icon { background: rgba(59,130,246,0.1); color: #3b82f6; }
+        .stat-card:nth-child(2) .stat-icon { background: rgba(16,185,129,0.1); color: #10b981; }
+        .stat-card:nth-child(3) .stat-icon { background: rgba(245,158,11,0.1); color: #f59e0b; }
+        .stat-card:nth-child(4) .stat-icon { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+        /* LOWER SECTION */
+        .lower-grid { display: grid; grid-template-columns: 4fr 6fr; gap: 20px; }
+        .content-box { background: white; border-radius: 14px; padding: 24px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.01); }
+        
+        /* TABLE STYLING */
+        .table-custom th { background: transparent; font-size: 12px; font-weight: 600; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
+        .table-custom td { vertical-align: middle; font-size: 14px; padding: 14px 0; color: #334155; border-bottom: 1px solid #f1f5f9; }
+        .table-custom tr:last-child td { border-bottom: none; }
+        
+        .badge-status { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
+        .badge-pending { background: rgba(245,158,11,0.1); color: #d97706; }
+        .badge-approved { background: rgba(16,185,129,0.1); color: #059669; }
+        .badge-rejected { background: rgba(239,68,68,0.1); color: #dc2626; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-logo-container">
+            <div style="background: #3b82f6; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">DL</div>
+            <div class="sidebar-title"><h2>DIGITAL LAB<br>MANUAL</h2></div>
+        </div>
+        <ul class="nav-links">
+            <li class="active" onclick="window.location.href='dashboard.php'"><i class="fas fa-chart-pie"></i> Dashboard</li>
+            <li onclick="window.location.href='Student_Mgmt.php'"><i class="fas fa-user-graduate"></i> Student Mgmt</li>
+            <li onclick="window.location.href='faculty_mgmt.php'"><i class="fas fa-chalkboard-teacher"></i> Faculty Mgmt</li>
+            <li onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book"></i> Subject Mgmt</li>
+            <li onclick="window.location.href='Lab_Manuals.php'"><i class="fas fa-file-alt"></i> Lab Manuals</li>
+            <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
+            <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
+            <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
+            <li onclick="window.location.href='Expense Mgmt.php'"><i class="fas fa-wallet"></i> Expense Mgmt</li>
+            <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #ef4444;"><i class="fas fa-sign-out-alt"></i> Logout</li>
+        </ul>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main">
+        <!-- TOPBAR -->
+        <div class="topbar">
+            <div class="search-box">
+                <i class="fas fa-search text-muted"></i>
+                <input type="text" placeholder="Search globally...">
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="notif-badge"><i class="far fa-bell"></i></div>
+                <div class="user-profile">
+                    <div class="user-avatar">AM</div>
+                    <div>
+                        <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">System Administrator</div>
+                        <div class="text-muted" style="font-size: 11.5px;">University Tech</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HEADER TITLE -->
+        <div>
+            <h4 class="fw-bold text-dark mb-1">Digital Lab Manager Dashboard</h4>
+            <p class="text-muted small mb-0">Overview of student admissions, lab manuals progress, and review analytics.</p>
+        </div>
+
+        <!-- STATS GRID (DYNAMIC VALUES) -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div>
+                    <div class="stat-title">Total Students</div>
+                    <div class="stat-value"><?php echo number_format($total_students); ?></div>
+                </div>
+                <div class="stat-icon"><i class="fas fa-user-graduate"></i></div>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-title">Active Faculty</div>
+                    <div class="stat-value"><?php echo number_format($active_faculty); ?></div>
+                </div>
+                <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-title">Pending Reviews</div>
+                    <div class="stat-value"><?php echo number_format($pending_reviews); ?></div>
+                </div>
+                <div class="stat-icon"><i class="fas fa-clock"></i></div>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-title">Rejected Submissions</div>
+                    <div class="stat-value"><?php echo number_format($rejected_submissions); ?></div>
+                </div>
+                <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+            </div>
+        </div>
+
+        <!-- LOWER SECTION -->
+        <div class="lower-grid">
+            <!-- BREAKDOWN GRAPH CARD (DYNAMIC VALUE) -->
+            <div class="content-box">
+                <h6 class="fw-bold text-dark mb-4">Submission Breakdown</h6>
+                <div class="d-flex flex-column align-items-center justify-content-center py-3">
+                    <div style="width: 170px; height: 170px; border-radius: 50%; background: conic-gradient(#10b981 0% 65%, #f59e0b 65% 85%, #ef4444 85% 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                        <div style="width: 125px; height: 125px; background: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <span class="fw-bold text-dark" style="font-size: 18px;"><?php echo number_format($total_submissions); ?></span>
+                            <span class="text-muted" style="font-size: 11px;">Submissions</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RECENT SUBMISSIONS TABLE (DYNAMIC DATA) -->
+            <div class="content-box">
+                <h6 class="fw-bold text-dark mb-3">Recent Student Manual Submissions</h6>
+                <table class="table table-custom mb-0">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Subject</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if($recent_submissions && $recent_submissions->num_rows > 0): ?>
+                            <?php while($row = $recent_submissions->fetch_assoc()): ?>
+                                <tr>
+                                    <td class="fw-semibold">
+                                        <?php echo htmlspecialchars($row['name']); ?> 
+                                        <!-- Shows abbreviation like (Computer) -->
+                                        <span class="text-muted" style="font-size: 12px;">(<?php echo htmlspecialchars(explode(' ', $row['department'])[0]); ?>)</span>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($row['subject_name']); ?></td>
+                                    <td class="text-muted"><?php echo date('d M Y, h:i A', strtotime($row['submitted_at'])); ?></td>
+                                    <td>
+                                        <?php 
+                                            // Dynamic Badge CSS Class based on Status
+                                            $badge_class = 'badge-pending';
+                                            if($row['status'] == 'Approved') $badge_class = 'badge-approved';
+                                            if($row['status'] == 'Rejected') $badge_class = 'badge-rejected';
+                                        ?>
+                                        <span class="badge-status <?php echo $badge_class; ?>"><?php echo $row['status']; ?></span>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No recent submissions found in database.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

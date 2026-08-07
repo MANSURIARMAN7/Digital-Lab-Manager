@@ -1,0 +1,16 @@
+[
+    {
+        "id": 2,
+        "name": "M.C.THAKOR",
+        "user_id": "FAC-01",
+        "password": "admin123",
+        "role": "faculty",
+        "email": "",
+        "phone": "",
+        "designation": "Assistant Professor",
+        "department": "CE",
+        "status": "active",
+        "joined_date": "Aug 2026",
+        "subjects": []
+    }
+]
