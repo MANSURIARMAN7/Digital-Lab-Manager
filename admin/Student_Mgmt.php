@@ -1,234 +1,824 @@
 <?php
-session_start();
-include '../db.php';
-
-// 1. Admin Login Check
-if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
-    header("Location: ../login.php");
-    exit();
-}
-
-$msg = "";
-
-// 2. Handle Add Student
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_student'])) {
-    $enrollment = $conn->real_escape_string($_POST['enrollment']);
-    $name = $conn->real_escape_string($_POST['name']);
-    $branch = $conn->real_escape_string($_POST['branch']);
-    $semester = $conn->real_escape_string($_POST['semester']);
-    $password = 'std123'; // Default password for students
-
-    // Check if Enrollment already exists
-    $check = $conn->query("SELECT user_id FROM users WHERE user_id = '$enrollment'");
-    if ($check->num_rows > 0) {
-        $msg = "<div class='alert alert-danger shadow-sm border-0' style='border-radius: 10px;'><i class='fas fa-exclamation-circle me-2'></i> Enrollment No. already exists!</div>";
-    } else {
-        // We use designation column to store semester for students to save space
-        $insert_query = "INSERT INTO users (user_id, name, password, role, department, designation, status) 
-                         VALUES ('$enrollment', '$name', '$password', 'student', '$branch', '$semester', 'Active')";
-        if ($conn->query($insert_query)) {
-            $msg = "<div class='alert alert-success shadow-sm border-0' style='border-radius: 10px;'><i class='fas fa-check-circle me-2'></i> Student Added Successfully!</div>";
-        } else {
-            $msg = "<div class='alert alert-danger shadow-sm border-0' style='border-radius: 10px;'>Error: " . $conn->error . "</div>";
-        }
-    }
-}
-
-// 3. Handle Delete Student
-if (isset($_GET['delete'])) {
-    $del_id = $conn->real_escape_string($_GET['delete']);
-    $conn->query("DELETE FROM users WHERE user_id = '$del_id' AND role = 'student'");
-    header("Location: Student_Mgmt.php");
-    exit();
-}
-
-// 4. Fetch All Students
-$students = [];
-$res = $conn->query("SELECT * FROM users WHERE role = 'student' ORDER BY id DESC");
-if ($res) {
-    while ($row = $res->fetch_assoc()) {
-        $students[] = $row;
-    }
-}
+include 'header.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Management - Digital Lab</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root { --sidebar-width: 260px; --bg-color: #f8fafc; }
-        body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
-        
-        /* SIDEBAR */
-        .sidebar { width: var(--sidebar-width); background-color: #0f172a; color: #ffffff; display: flex; flex-direction: column; padding: 20px 0; z-index: 10; overflow-y: auto; }
-        .sidebar-logo-container { padding: 0 20px 20px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .sidebar-title h2 { font-size: 15px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: 0.5px; }
-        .nav-links { list-style: none; padding: 15px 15px 0 15px; margin: 0; flex-grow: 1; }
-        .nav-links li { padding: 11px 16px; margin: 4px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 14px; font-size: 14px; font-weight: 500; color: #94a3b8; transition: 0.2s ease-in-out; }
-        .nav-links li:hover { color: white; background: rgba(255,255,255,0.05); }
-        .nav-links li.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+<style>
+    /* Category Cards CSS */
+    .year-card {
+        border-radius: 10px;
+        border: 1px solid #eaedf1;
+        background: #ffffff;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        display: block;
+    }
+    .year-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    .card-1st-year { border-left: 6px solid #3b82f6 !important; } 
+    .icon-bg-1st { background-color: #eff6ff; color: #3b82f6; }
 
-        /* MAIN CONTENT AREA */
-        .main { flex: 1; padding: 25px 35px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        
-        /* TOP BAR */
-        .topbar { background: white; padding: 12px 25px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; }
-        .search-box { background: #f8fafc; border-radius: 8px; padding: 6px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; }
-        .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
-        .user-profile { display: flex; align-items: center; gap: 12px; }
-        .user-avatar { width: 38px; height: 38px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
-        
-        /* STUDENT CARD STYLES */
-        .student-card { background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 15px; }
-        .student-header { padding: 15px 25px; background: #fff; border-bottom: 1px solid #f1f5f9; transition: background 0.2s; }
-        .student-header:hover { background: #f8fafc; }
-        
-        .form-control, .form-select { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 15px; font-size: 14px; box-shadow: none; }
-        .form-control:focus, .form-select:focus { border-color: #3b82f6; background-color: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
-    </style>
-</head>
-<body>
+    .card-2nd-year { border-left: 6px solid #10b981 !important; }
+    .icon-bg-2nd { background-color: #ecfdf5; color: #10b981; }
 
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="sidebar-logo-container">
-            <div style="background: #3b82f6; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">DL</div>
-            <div class="sidebar-title"><h2>DIGITAL LAB<br>MANUAL</h2></div>
+    .card-3rd-year { border-left: 6px solid #f59e0b !important; }
+    .icon-bg-3rd { background-color: #fffbeb; color: #f59e0b; }
+
+    .icon-circle {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 1.3rem;
+    }
+
+    /* Modal Selection Buttons CSS */
+    .btn-class-select {
+        width: 120px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    .btn-batch-select {
+        border-radius: 8px;
+        background-color: #ffffff;
+        border: 1px solid #d1d5db;
+        color: #4b5563;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .btn-batch-select:hover, .btn-batch-select.active-batch {
+        border-color: #3b82f6;
+        color: #3b82f6;
+        background-color: #eff6ff;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold text-dark mb-1">👨‍🎓 Student Management & Lab Manual Tracker</h4>
+        <p class="text-muted small mb-0">Track student laboratory manuals, academic branch details, and submission progress.</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+        <i class="fa-solid fa-plus me-1"></i> Add New Student
+    </button>
+</div>
+
+<!-- ========================================== -->
+<!--       MAIN SCREEN: DASHBOARD LAYOUT        -->
+<!-- ========================================== -->
+<div class="row">
+    
+    <!-- LEFT COLUMN: Year Categories -->
+    <div class="col-md-7 col-lg-6 mb-4">
+        <h5 class="fw-bold text-dark mb-3 mt-2">Manage Students by Year</h5>
+        
+        <!-- 1st Year Card -->
+        <div class="year-card card-1st-year mb-3 p-3" data-bs-toggle="modal" data-bs-target="#modal1stYear">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted mb-1 d-block">Manage Classes A & B</small>
+                    <h4 class="fw-bold mb-0 text-dark">1st Year Students</h4>
+                </div>
+                <div class="icon-circle icon-bg-1st">
+                    <i class="fa-solid fa-user-group"></i>
+                </div>
+            </div>
         </div>
-        <ul class="nav-links">
-            <li onclick="window.location.href='dashboard.php'"><i class="fas fa-chart-pie"></i> Dashboard</li>
-            <li class="active" onclick="window.location.href='Student_Mgmt.php'"><i class="fas fa-user-graduate"></i> Student Mgmt</li>
-            <li onclick="window.location.href='faculty_mgmt.php'"><i class="fas fa-chalkboard-teacher"></i> Faculty Mgmt</li>
-            <li onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book"></i> Subject Mgmt</li>
-            <li onclick="window.location.href='Lab_Manuals.php'"><i class="fas fa-file-alt"></i> Lab Manuals</li>
-            <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
-            <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
-            <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
-            <li onclick="window.location.href='Expense Mgmt.php'"><i class="fas fa-wallet"></i> Expense Mgmt</li>
-            <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #ef4444;"><i class="fas fa-sign-out-alt"></i> Logout</li>
-        </ul>
+
+        <!-- 2nd Year Card -->
+        <div class="year-card card-2nd-year mb-3 p-3" data-bs-toggle="modal" data-bs-target="#modal2ndYear">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted mb-1 d-block">Manage Classes A & B</small>
+                    <h4 class="fw-bold mb-0 text-dark">2nd Year Students</h4>
+                </div>
+                <div class="icon-circle icon-bg-2nd">
+                    <i class="fa-solid fa-user-group"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3rd Year Card -->
+        <div class="year-card card-3rd-year mb-3 p-3" data-bs-toggle="modal" data-bs-target="#modal3rdYear">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted mb-1 d-block">Manage Classes A & B</small>
+                    <h4 class="fw-bold mb-0 text-dark">3rd Year Students</h4>
+                </div>
+                <div class="icon-circle icon-bg-3rd">
+                    <i class="fa-solid fa-user-group"></i>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div class="main">
-        <!-- TOPBAR -->
-        <div class="topbar">
-            <div class="search-box">
-                <i class="fas fa-search text-muted"></i>
-                <input type="text" placeholder="Search students by name or enrollment...">
-            </div>
-            <div class="d-flex align-items-center gap-3">
-                <div class="user-profile">
-                    <div class="user-avatar">AM</div>
-                    <div>
-                        <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">System Administrator</div>
-                        <div class="text-muted" style="font-size: 11.5px;">University Tech</div>
-                    </div>
+    <!-- RIGHT COLUMN: Quick Search & Notice Board -->
+    <div class="col-md-5 col-lg-6 mb-4">
+        <h5 class="fw-bold text-dark mb-3 mt-2">Quick Actions & Updates</h5>
+        
+        <!-- Quick Search Widget -->
+        <div class="card shadow-sm border-0 mb-4" style="border-radius: 10px;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold text-dark mb-3">
+                    <i class="fa-solid fa-magnifying-glass text-primary me-2"></i> Quick Student Search
+                </h6>
+                <div class="input-group mb-2">
+                    <input type="text" class="form-control bg-light border-0" placeholder="Enter Enrollment No..." aria-label="Search Student">
+                    <button class="btn btn-primary px-4" type="button">Search</button>
                 </div>
+                <small class="text-muted">Directly find any student from any year.</small>
             </div>
         </div>
 
-        <!-- HEADER TITLE & BUTTON -->
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <div>
-                <h4 class="fw-bold text-dark mb-1">👨‍🎓 Student Management</h4>
-                <p class="text-muted small mb-0">Manage student admissions and academic branch details.</p>
+        <!-- Notice Board Widget -->
+        <div class="card shadow-sm border-0" style="border-radius: 10px;">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                <h6 class="fw-bold text-dark mb-0">
+                    <i class="fa-solid fa-bullhorn text-warning me-2"></i> Notice Board
+                </h6>
             </div>
-            <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addStudentModal">
-                <i class="fa-solid fa-plus me-1"></i> Add New Student
-            </button>
-        </div>
-
-        <?php if($msg != "") echo $msg; ?>
-
-        <!-- DYNAMIC STUDENT CARDS -->
-        <div>
-            <?php if(empty($students)): ?>
-                <div class="text-center text-muted py-5" style="background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
-                    <i class="fas fa-users mb-2" style="font-size: 30px; color: #94a3b8;"></i>
-                    <p>No students enrolled yet. Click 'Add New Student' to begin.</p>
-                </div>
-            <?php else: foreach($students as $index => $std): ?>
+            <div class="card-body p-4">
                 
-                <div class="student-card" id="studentCard-<?php echo $std['user_id']; ?>">
-                    <div class="student-header d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center gap-3 flex-grow-1">
-                            <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($std['name']); ?>&background=random&color=fff" class="rounded-circle" width="45" alt="Avatar">
-                            <div>
-                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 15px;"><?php echo htmlspecialchars($std['name']); ?></h6>
-                                <small class="text-muted fw-semibold">
-                                    Enrollment: <?php echo htmlspecialchars($std['user_id']); ?> | 
-                                    Branch: <?php echo htmlspecialchars($std['department']); ?> | 
-                                    Sem: <?php echo htmlspecialchars($std['designation']); ?>
-                                </small>
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 border border-success border-opacity-25">Status: Active</span>
-                            <a href="?delete=<?php echo urlencode($std['user_id']); ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Kya aap <?php echo htmlspecialchars($std['name']); ?> ka admission sach mein cancel karna chahte hain?');">
-                                <i class="fa-solid fa-user-minus me-1"></i> Cancel Admission
-                            </a>
-                        </div>
+                <!-- Alert 1: Warning -->
+                <div class="alert alert-warning border-0 d-flex align-items-center mb-3" role="alert" style="border-radius: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation fs-4 me-3"></i>
+                    <div>
+                        <span class="fw-bold d-block text-dark">Submission Deadline</span>
+                        <small class="text-dark opacity-75">1st Year (Sem 1) submission ends tomorrow.</small>
+                    </div>
+                </div>
+                
+                <!-- Alert 2: Info -->
+                <div class="alert alert-info border-0 d-flex align-items-center mb-3" role="alert" style="border-radius: 8px;">
+                    <i class="fa-solid fa-circle-info fs-4 me-3"></i>
+                    <div>
+                        <span class="fw-bold d-block text-dark">Lab Schedule Updated</span>
+                        <small class="text-dark opacity-75">New timetable for 2nd Year (Class A).</small>
                     </div>
                 </div>
 
-            <?php endforeach; endif; ?>
-        </div>
-    </div>
+                <!-- Alert 3: Success -->
+                <div class="alert alert-success border-0 d-flex align-items-center mb-0" role="alert" style="border-radius: 8px;">
+                    <i class="fa-solid fa-check-circle fs-4 me-3"></i>
+                    <div>
+                        <span class="fw-bold d-block text-dark">Reviews Completed</span>
+                        <small class="text-dark opacity-75">3rd Year Batch B1 manuals reviewed.</small>
+                    </div>
+                </div>
 
-    <!-- ADD STUDENT MODAL -->
-    <div class="modal fade" id="addStudentModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header bg-light border-0">
-                    <h5 class="modal-title fw-bold">Add Student</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <form method="POST">
-                        <div class="mb-3">
-                            <label class="form-label text-muted fw-bold" style="font-size:11px; letter-spacing: 0.5px;">ENROLLMENT NO.</label>
-                            <input type="text" name="enrollment" class="form-control" placeholder="e.g. 246310307055" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label text-muted fw-bold" style="font-size:11px; letter-spacing: 0.5px;">FULL NAME</label>
-                            <input type="text" name="name" class="form-control" placeholder="e.g. Mansuri Arman" required>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted fw-bold" style="font-size:11px; letter-spacing: 0.5px;">BRANCH</label>
-                                <select name="branch" class="form-select">
-                                    <option value="Computer Engineering">Computer Engg.</option>
-                                    <option value="Mechanical Engineering">Mechanical Engg.</option>
-                                    <option value="Civil Engineering">Civil Engg.</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label text-muted fw-bold" style="font-size:11px; letter-spacing: 0.5px;">SEMESTER</label>
-                                <select name="semester" class="form-select">
-                                    <option value="Semester 1">Semester 1</option>
-                                    <option value="Semester 2">Semester 2</option>
-                                    <option value="Semester 3">Semester 3</option>
-                                    <option value="Semester 4">Semester 4</option>
-                                    <option value="Semester 5">Semester 5</option>
-                                    <option value="Semester 6">Semester 6</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mt-4">
-                            <button type="submit" name="add_student" class="btn btn-primary w-100 fw-bold py-2" style="border-radius: 8px;">Save Student</button>
-                        </div>
-                    </form>
-                </div>
             </div>
         </div>
     </div>
 
-</body>
-</html>
+</div> <!-- End of Row -->
+
+<!-- ========================================== -->
+<!--       POPUP (MODAL) FOR 1ST YEAR           -->
+<!-- ========================================== -->
+<div class="modal fade" id="modal1stYear" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background-color: #f8f9fa;">
+            <div class="modal-header border-bottom pb-3 bg-white">
+                <h5 class="fw-bold text-primary mb-0">1st Year Students</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetSelections('1')"></button>
+            </div>
+            <div class="modal-body pt-4">
+                
+                <div class="text-center mb-4">
+                    <span class="text-muted d-block mb-3">Select Class:</span>
+                    <button class="btn btn-primary btn-class-select me-2 class-btn-1" onclick="showBatches('1', 'A', this)">Class A</button>
+                    <button class="btn btn-primary btn-class-select class-btn-1" onclick="showBatches('1', 'B', this)">Class B</button>
+                </div>
+                <hr class="text-muted opacity-25">
+
+                <div id="batches-1-A" class="text-center mb-4 d-none batch-container-1">
+                    <span class="text-muted d-block mb-3">Select Batch for Class A:</span>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-1" onclick="showStudents('1', 'A1', this)">Batch A1</button>
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-1" onclick="showStudents('1', 'A2', this)">Batch A2</button>
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-1" onclick="showStudents('1', 'A3', this)">Batch A3</button>
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-1" onclick="showStudents('1', 'A4', this)">Batch A4</button>
+                    </div>
+                </div>
+
+                <div id="batches-1-B" class="text-center mb-4 d-none batch-container-1">
+                    <span class="text-muted d-block mb-3">Select Batch for Class B:</span>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-1" onclick="showStudents('1', 'B1', this)">Batch B1</button>
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-1" onclick="showStudents('1', 'B2', this)">Batch B2</button>
+                    </div>
+                </div>
+
+                <div id="divider-1" class="d-none"><hr class="text-muted opacity-25"></div>
+
+                <div id="students-container-1" class="d-none">
+                    <h6 class="fw-bold mb-3 text-dark" id="student-title-1">Students of Batch A1</h6>
+                    
+                    <div id="students-1-A1" class="student-group-1 d-none">
+                        <!-- Student 1: Aarav Patel -->
+                        <div class="student-card shadow-sm mb-3" id="studentCard-1001">
+                            <div class="student-header d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects1001">
+                                    <img src="https://ui-avatars.com/api/?name=Aarav+Patel&background=2563eb&color=fff" class="rounded-circle" width="42" alt="Aarav">
+                                    <div>
+                                        <h6 class="fw-bold mb-0 text-dark">Aarav Patel</h6>
+                                        <small class="text-muted">Enrollment: 1001 | Branch: CE (sem1) | Batch A1</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-sm btn-outline-danger px-3 py-1 me-1" style="border-radius: 15px;">Remove</button>
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
+                                    <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects1001">5 Lab Manuals</span>
+                                    <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects1001"></i>
+                                </div>
+                            </div>
+                            <div id="studentSubjects1001" class="collapse show">
+                                <div class="subject-list-container">
+                                    <p class="text-muted small fw-semibold mb-2 mt-3">SUBJECT WISE LAB MANUAL STATUS (1st Year):</p>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">RWPD</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">BOE</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">MATHEMATIC-I</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon not-submitted"><i class="fa-solid fa-xmark"></i></div>
+                                            <div><span class="fw-bold text-dark">CPF</span></div>
+                                        </div>
+                                        <span class="badge-status bg-danger bg-opacity-10 text-danger">Not Submitted ❌</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon pending"><i class="fa-solid fa-clock"></i></div>
+                                            <div><span class="fw-bold text-dark">MODERN PHYSICS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-warning bg-opacity-10 text-warning">Under Review ⏳</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Student 2: Diya Sharma -->
+                        <div class="student-card shadow-sm mb-3" id="studentCard-1001-2">
+                            <div class="student-header d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects1001-2">
+                                    <img src="https://ui-avatars.com/api/?name=Diya+Sharma&background=2563eb&color=fff" class="rounded-circle" width="42" alt="Diya">
+                                    <div>
+                                        <h6 class="fw-bold mb-0 text-dark">Diya Sharma</h6>
+                                        <small class="text-muted">Enrollment: 1002 | Branch: CE (sem1) | Batch A1</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-sm btn-outline-danger px-3 py-1 me-1" style="border-radius: 15px;">Remove</button>
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
+                                    <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects1001-2">5 Lab Manuals</span>
+                                    <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects1001-2"></i>
+                                </div>
+                            </div>
+                            <div id="studentSubjects1001-2" class="collapse">
+                                <div class="subject-list-container">
+                                    <p class="text-muted small fw-semibold mb-2 mt-3">SUBJECT WISE LAB MANUAL STATUS (1st Year):</p>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">RWPD</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">BOE</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">MATHEMATIC-I</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">CPF</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">MODERN PHYSICS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="students-1-A2" class="student-group-1 d-none">
+                        <!-- Student 1: Aanya Gupta -->
+                        <div class="student-card shadow-sm" id="studentCard-1002">
+                            <div class="student-header d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects1002">
+                                    <img src="https://ui-avatars.com/api/?name=Aanya+Gupta&background=10b981&color=fff" class="rounded-circle" width="42" alt="Aanya">
+                                    <div>
+                                        <h6 class="fw-bold mb-0 text-dark">Aanya Gupta</h6>
+                                        <small class="text-muted">Enrollment: 1004 | Branch: CE (sem1) | Batch A2</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-sm btn-outline-danger px-3 py-1 me-1" style="border-radius: 15px;">Remove</button>
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
+                                    <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects1002">5 Lab Manuals</span>
+                                    <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects1002"></i>
+                                </div>
+                            </div>
+                            <div id="studentSubjects1002" class="collapse">
+                                <div class="subject-list-container">
+                                    <p class="text-muted small fw-semibold mb-2 mt-3">SUBJECT WISE LAB MANUAL STATUS (1st Year):</p>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">RWPD</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">BOE</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon pending"><i class="fa-solid fa-clock"></i></div>
+                                            <div><span class="fw-bold text-dark">MATHEMATIC-I</span></div>
+                                        </div>
+                                        <span class="badge-status bg-warning bg-opacity-10 text-warning">Under Review ⏳</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">CPF</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">MODERN PHYSICS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="students-1-A3" class="student-group-1 d-none text-center py-4"><p class="text-muted">No students assigned to Batch A3 yet.</p></div>
+                    <div id="students-1-A4" class="student-group-1 d-none text-center py-4"><p class="text-muted">No students assigned to Batch A4 yet.</p></div>
+                    <div id="students-1-B1" class="student-group-1 d-none text-center py-4"><p class="text-muted">No students assigned to Batch B1 yet.</p></div>
+                    <div id="students-1-B2" class="student-group-1 d-none text-center py-4"><p class="text-muted">No students assigned to Batch B2 yet.</p></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!--       POPUP (MODAL) FOR 2ND YEAR           -->
+<!-- ========================================== -->
+<div class="modal fade" id="modal2ndYear" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background-color: #f8f9fa;">
+            <div class="modal-header border-bottom pb-3 bg-white">
+                <h5 class="fw-bold text-success mb-0">2nd Year Students</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetSelections('2')"></button>
+            </div>
+            <div class="modal-body pt-4">
+                
+                <div class="text-center mb-4">
+                    <span class="text-muted d-block mb-3">Select Class:</span>
+                    <button class="btn btn-primary btn-class-select me-2 class-btn-2" onclick="showBatches('2', 'A', this)">Class A</button>
+                    <button class="btn btn-primary btn-class-select class-btn-2" onclick="showBatches('2', 'B', this)">Class B</button>
+                </div>
+                <hr class="text-muted opacity-25">
+
+                <div id="batches-2-A" class="text-center mb-4 d-none batch-container-2">
+                    <span class="text-muted d-block mb-3">Select Batch for Class A:</span>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-2" onclick="showStudents('2', 'A1', this)">Batch A1</button>
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-2" onclick="showStudents('2', 'A2', this)">Batch A2</button>
+                    </div>
+                </div>
+
+                <div id="batches-2-B" class="text-center mb-4 d-none batch-container-2">
+                    <span class="text-muted d-block mb-3">Select Batch for Class B:</span>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-2" onclick="showStudents('2', 'B1', this)">Batch B1</button>
+                    </div>
+                </div>
+
+                <div id="divider-2" class="d-none"><hr class="text-muted opacity-25"></div>
+
+                <div id="students-container-2" class="d-none">
+                    <h6 class="fw-bold mb-3 text-dark" id="student-title-2">Students of Batch A1</h6>
+                    
+                    <div id="students-2-A1" class="student-group-2 d-none">
+                        <!-- Student 1: Shaurya Mhatre -->
+                        <div class="student-card shadow-sm" id="studentCard-2001">
+                            <div class="student-header d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects2001">
+                                    <img src="https://ui-avatars.com/api/?name=Shaurya+Mhatre&background=f59e0b&color=fff" class="rounded-circle" width="42" alt="Shaurya">
+                                    <div>
+                                        <h6 class="fw-bold mb-0 text-dark">Shaurya Mhatre</h6>
+                                        <small class="text-muted">Enrollment: 2001 | Branch: CE (sem3) | Batch A1</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-sm btn-outline-danger px-3 py-1 me-1" style="border-radius: 15px;">Remove</button>
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
+                                    <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects2001">5 Lab Manuals</span>
+                                    <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects2001"></i>
+                                </div>
+                            </div>
+                            <div id="studentSubjects2001" class="collapse">
+                                <div class="subject-list-container">
+                                    <p class="text-muted small fw-semibold mb-2 mt-3">SUBJECT WISE LAB MANUAL STATUS (2nd Year):</p>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">FOS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">CN</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">SWPD</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">DS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">DBMS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="students-2-A2" class="student-group-2 d-none">
+                        <!-- Student 1: Ishaan Kulkarni -->
+                        <div class="student-card shadow-sm" id="studentCard-2002">
+                            <div class="student-header d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects2002">
+                                    <img src="https://ui-avatars.com/api/?name=Ishaan+Kulkarni&background=8b5cf6&color=fff" class="rounded-circle" width="42" alt="Ishaan">
+                                    <div>
+                                        <h6 class="fw-bold mb-0 text-dark">Ishaan Kulkarni</h6>
+                                        <small class="text-muted">Enrollment: 2004 | Branch: CE (sem3) | Batch A2</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-sm btn-outline-danger px-3 py-1 me-1" style="border-radius: 15px;">Remove</button>
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
+                                    <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects2002">5 Lab Manuals</span>
+                                    <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects2002"></i>
+                                </div>
+                            </div>
+                            <div id="studentSubjects2002" class="collapse">
+                                <div class="subject-list-container">
+                                    <p class="text-muted small fw-semibold mb-2 mt-3">SUBJECT WISE LAB MANUAL STATUS (2nd Year):</p>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon not-submitted"><i class="fa-solid fa-xmark"></i></div>
+                                            <div><span class="fw-bold text-dark">FOS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-danger bg-opacity-10 text-danger">Not Submitted ❌</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">CN</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">SWPD</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">DS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">DBMS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="students-2-B1" class="student-group-2 d-none text-center py-4"><p class="text-muted">No students assigned to Batch B1 yet.</p></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!--       POPUP (MODAL) FOR 3RD YEAR           -->
+<!-- ========================================== -->
+<div class="modal fade" id="modal3rdYear" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background-color: #f8f9fa;">
+            <div class="modal-header border-bottom pb-3 bg-white">
+                <h5 class="fw-bold text-warning mb-0">3rd Year Students</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetSelections('3')"></button>
+            </div>
+            <div class="modal-body pt-4">
+                
+                <div class="text-center mb-4">
+                    <span class="text-muted d-block mb-3">Select Class:</span>
+                    <button class="btn btn-primary btn-class-select me-2 class-btn-3" onclick="showBatches('3', 'A', this)">Class A</button>
+                    <button class="btn btn-primary btn-class-select class-btn-3" onclick="showBatches('3', 'B', this)">Class B</button>
+                </div>
+                <hr class="text-muted opacity-25">
+
+                <div id="batches-3-A" class="text-center mb-4 d-none batch-container-3">
+                    <span class="text-muted d-block mb-3">Select Batch for Class A:</span>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-3" onclick="showStudents('3', 'A1', this)">Batch A1</button>
+                    </div>
+                </div>
+
+                <div id="batches-3-B" class="text-center mb-4 d-none batch-container-3">
+                    <span class="text-muted d-block mb-3">Select Batch for Class B:</span>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-3" onclick="showStudents('3', 'B1', this)">Batch B1</button>
+                        <button class="btn px-4 py-2 btn-batch-select batch-btn-3" onclick="showStudents('3', 'B2', this)">Batch B2</button>
+                    </div>
+                </div>
+
+                <div id="divider-3" class="d-none"><hr class="text-muted opacity-25"></div>
+
+                <div id="students-container-3" class="d-none">
+                    <h6 class="fw-bold mb-3 text-dark" id="student-title-3">Students of Batch B1</h6>
+                    
+                    <div id="students-3-A1" class="student-group-3 d-none text-center py-4"><p class="text-muted">No students assigned to Batch A1 yet.</p></div>
+
+                    <div id="students-3-B1" class="student-group-3 d-none">
+                        <!-- Student 1: Nikhil Mandhana -->
+                        <div class="student-card shadow-sm" id="studentCard-3001">
+                            <div class="student-header d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects3001">
+                                    <img src="https://ui-avatars.com/api/?name=Nikhil+Mandhana&background=ec4899&color=fff" class="rounded-circle" width="42" alt="Nikhil">
+                                    <div>
+                                        <h6 class="fw-bold mb-0 text-dark">Nikhil Mandhana</h6>
+                                        <small class="text-muted">Enrollment: 3001 | Branch: CE (sem5) | Batch B1</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-sm btn-outline-danger px-3 py-1 me-1" style="border-radius: 15px;">Remove</button>
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
+                                    <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects3001">3 Lab Manuals</span>
+                                    <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects3001"></i>
+                                </div>
+                            </div>
+                            <div id="studentSubjects3001" class="collapse">
+                                <div class="subject-list-container">
+                                    <p class="text-muted small fw-semibold mb-2 mt-3">SUBJECT WISE LAB MANUAL STATUS (3rd Year):</p>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">IS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">CHASM</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">ADDVC</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="students-3-B2" class="student-group-3 d-none">
+                        <!-- Student 1: Priya Sindhu -->
+                        <div class="student-card shadow-sm" id="studentCard-3002">
+                            <div class="student-header d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1" data-bs-toggle="collapse" data-bs-target="#studentSubjects3002">
+                                    <img src="https://ui-avatars.com/api/?name=Priya+Sindhu&background=14b8a6&color=fff" class="rounded-circle" width="42" alt="Priya">
+                                    <div>
+                                        <h6 class="fw-bold mb-0 text-dark">Priya Sindhu</h6>
+                                        <small class="text-muted">Enrollment: 3004 | Branch: CE (sem5) | Batch B2</small>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-sm btn-outline-danger px-3 py-1 me-1" style="border-radius: 15px;">Remove</button>
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
+                                    <span class="badge bg-primary rounded-pill px-3 py-2" data-bs-toggle="collapse" data-bs-target="#studentSubjects3002">3 Lab Manuals</span>
+                                    <i class="fa-solid fa-chevron-down text-muted" data-bs-toggle="collapse" data-bs-target="#studentSubjects3002"></i>
+                                </div>
+                            </div>
+                            <div id="studentSubjects3002" class="collapse">
+                                <div class="subject-list-container">
+                                    <p class="text-muted small fw-semibold mb-2 mt-3">SUBJECT WISE LAB MANUAL STATUS (3rd Year):</p>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">IS</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">CHASM</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                    <div class="subject-item d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="status-icon approved"><i class="fa-solid fa-check"></i></div>
+                                            <div><span class="fw-bold text-dark">ADDVC</span></div>
+                                        </div>
+                                        <span class="badge-status bg-success bg-opacity-10 text-success">Approved ✅</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!--            ADD STUDENT MODAL               -->
+<!-- ========================================== -->
+<div class="modal fade" id="addStudentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Add Student</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-2">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Enrollment No.</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control">
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <label class="form-label">Branch</label>
+                            <input type="text" class="form-control">
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Semester</label>
+                            <input type="text" class="form-control">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button class="btn btn-primary">Save Student</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Dynamic Modal Selection Logic ---
+    function showBatches(year, className, btnElement) {
+        let containers = document.querySelectorAll('.batch-container-' + year);
+        containers.forEach(el => el.classList.add('d-none'));
+        document.getElementById('students-container-' + year).classList.add('d-none');
+        document.getElementById('divider-' + year).classList.add('d-none');
+
+        document.getElementById('batches-' + year + '-' + className).classList.remove('d-none');
+
+        let classBtns = document.querySelectorAll('.class-btn-' + year);
+        classBtns.forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        });
+        btnElement.classList.remove('btn-outline-primary');
+        btnElement.classList.add('btn-primary');
+        
+        let batchBtns = document.querySelectorAll('.batch-btn-' + year);
+        batchBtns.forEach(b => b.classList.remove('active-batch'));
+    }
+
+    function showStudents(year, batchName, btnElement) {
+        document.getElementById('divider-' + year).classList.remove('d-none');
+        document.getElementById('students-container-' + year).classList.remove('d-none');
+        
+        document.getElementById('student-title-' + year).innerText = "Students of Batch " + batchName;
+
+        let studentGroups = document.querySelectorAll('.student-group-' + year);
+        studentGroups.forEach(el => el.classList.add('d-none'));
+
+        let selectedGroup = document.getElementById('students-' + year + '-' + batchName);
+        if(selectedGroup) {
+            selectedGroup.classList.remove('d-none');
+        }
+
+        let batchBtns = document.querySelectorAll('.batch-btn-' + year);
+        batchBtns.forEach(b => b.classList.remove('active-batch'));
+        btnElement.classList.add('active-batch');
+    }
+
+    function resetSelections(year) {
+        document.querySelectorAll('.batch-container-' + year).forEach(el => el.classList.add('d-none'));
+        document.getElementById('students-container-' + year).classList.add('d-none');
+        document.getElementById('divider-' + year).classList.add('d-none');
+        
+        document.querySelectorAll('.class-btn-' + year).forEach(btn => {
+            btn.classList.add('btn-primary');
+            btn.classList.remove('btn-outline-primary');
+        });
+        
+        document.querySelectorAll('.batch-btn-' + year).forEach(b => b.classList.remove('active-batch'));
+    }
+</script>
+
+<?php
+include 'footer.php';
+?>
