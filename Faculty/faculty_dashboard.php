@@ -236,7 +236,6 @@ if(!empty($safe_sub)) {
             
             <div class="dropdown-box">
                 <label><i class="fa-solid fa-book-open me-1"></i> Select Subject</label>
-                <!-- 🔥 FIX: Agar subject nahi hai toh error na aaye -->
                 <select id="subSelect" onchange="if(this.value !== '') window.location.href='?sem=<?php echo urlencode($selected_sem); ?>&subject=' + encodeURIComponent(this.value)">
                     <?php if(empty($available_subjects)) { ?>
                         <option value="">No Subjects Assigned</option>
@@ -278,8 +277,9 @@ if(!empty($safe_sub)) {
                         <td><i class="fa-solid fa-user-graduate text-muted me-2"></i> <?php echo htmlspecialchars($row['name']); ?></td>
                         <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($row['enrollment']); ?></span></td>        
                         <td><span class='badge <?php echo $status_class; ?>'><?php echo htmlspecialchars($row['status']); ?></span></td>
+                        <!-- 🔥 UPDATED TO /20 HERE -->
                         <td style="color:#2563eb; font-weight:bold;">
-                            <?php echo (isset($row['marks']) && $row['marks'] != '') ? htmlspecialchars($row['marks']) . '/10' : '-'; ?>
+                            <?php echo (isset($row['marks']) && $row['marks'] != '') ? htmlspecialchars($row['marks']) . '/20' : '-'; ?>
                         </td>
                     </tr>
                 <?php } } ?>
