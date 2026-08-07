@@ -478,9 +478,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <!-- Sidebar Navigation -->
     <div class="sidebar">
         <div class="brand">
-            <img src="college-logo.png"
+            <img src="logo_kdp.png"
                  alt="College Logo"
-                 style="width: 42px; height: 42px; object-fit: contain;">
+                 style="width: 50px; height: 50px; object-fit: contain;">
             <i class="fa-solid fa-microscope text-primary fs-4"></i>
             <span>DIGITAL LAB MANUAL</span>
         </div>
