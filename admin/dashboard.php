@@ -195,6 +195,7 @@ $recent_submissions = $conn->query("
                         </div>
                     </div>
                 </div>
+
             </div>
 
             <!-- RECENT SUBMISSIONS TABLE (DYNAMIC DATA) -->
