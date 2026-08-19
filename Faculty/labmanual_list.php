@@ -90,17 +90,15 @@ $safe_br = $conn->real_escape_string($selected_branch);
 $safe_sm = $conn->real_escape_string($selected_sem);
 
 // Note: Ensure your columns in subjects table match (department, semester, subject_name)
-$sub_query = "SELECT subject_name FROM subjects WHERE department = '$safe_br' AND semester = '$safe_sm'";
-$sub_res = $conn->query($sub_query);
-// Fallback if column is named 'sem' instead of 'semester'
-if(!$sub_res) {
-    $sub_res = $conn->query("SELECT subject_name FROM subjects WHERE department = '$safe_br' AND sem = '$safe_sm'");
-}
-if ($sub_res) {
-    while($r = $sub_res->fetch_assoc()) {
-        $available_subjects[] = $r['subject_name'];
+// STRICT ACCESS: Sirf wahi subjects aayenge jo is faculty ko assign hue hain
+    $sub_query = "SELECT subject_name FROM faculty_subjects WHERE faculty_id = '$faculty_id' AND branch = '$safe_br' AND semester = '$safe_sm'";
+    $sub_res = $conn->query($sub_query);
+
+    if ($sub_res && $sub_res->num_rows > 0) {
+        while($r = $sub_res->fetch_assoc()) {
+            $available_subjects[] = $r['subject_name'];
+        }
     }
-}
 
 $selected_subject = isset($_GET['subject']) ? $_GET['subject'] : (!empty($available_subjects) ? $available_subjects[0] : '');
 $status_filter = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'All';
