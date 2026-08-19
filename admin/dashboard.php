@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 include '../db.php';
 
@@ -134,12 +135,15 @@ $recent_submissions = $conn->query("
             </div>
             <div class="d-flex align-items-center gap-3">
                 <div class="notif-badge"><i class="far fa-bell"></i></div>
+<!-- Clicakble Profile Icon -->
                 <div class="user-profile">
-                    <div class="user-avatar">AM</div>
-                    <div>
-                        <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">System Administrator</div>
-                        <div class="text-muted" style="font-size: 11.5px;">University Tech</div>
-                    </div>
+                    <a href="Profile.php" class="d-flex align-items-center gap-2" style="text-decoration: none; color: inherit;">
+                        <div class="user-avatar">AM</div>
+                        <div>
+                            <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">Prof. M. C. Thakor</div>
+                            <div class="text-muted" style="font-size: 11.5px;">Computer Engineering Dept.</div>
+                        </div>
+                    </a>
                 </div>
             </div>
         </div>
