@@ -289,20 +289,32 @@ $profile_src = !empty($user['profile_pic']) ? $upload_dir . $user['profile_pic']
                         <h5 class="info-title"><i class="fa-solid fa-layer-group text-primary"></i> Assigned Modules</h5>
                         <div class="mt-3">
                             <?php 
-                            if (!empty($raw_subjects)) {
-                                foreach ($raw_subjects as $sub) {
-                                    $sub_text = is_array($sub) ? ($sub['name'] ?? '') : $sub;
-                                    if(preg_match('/(Sem\s*\d+)\s*[-:]\s*(.*)/i', $sub_text, $matches)) {
-                                        echo '<div class="subject-tag"><span class="sem-badge">' . htmlspecialchars(trim($matches[1])) . '</span> ' . htmlspecialchars(trim($matches[2])) . '</div>';
-                                    } else {
-                                        echo '<div class="subject-tag"><i class="fa-solid fa-hashtag text-muted me-2" style="font-size: 0.8rem;"></i> ' . htmlspecialchars($sub_text) . '</div>';
-                                    }
+                            // 🚀 SMART ID DETECTOR: Jo bhi variable available hoga, ye usko utha lega
+                            $active_id = "";
+                            if (isset($faculty_id)) { $active_id = $faculty_id; }
+                            elseif (isset($user_id)) { $active_id = $user_id; }
+                            elseif (isset($_SESSION['user_id'])) { $active_id = $_SESSION['user_id']; }
+
+                            // STRICT ACCESS TABLE SE DATA LA RAHE HAIN
+                            $fac_id = $conn->real_escape_string($active_id); 
+                            $mod_query = "SELECT subject_name, semester FROM faculty_subjects WHERE faculty_id = '$fac_id' ORDER BY semester ASC";
+                            $mod_res = $conn->query($mod_query);
+
+                            if ($mod_res && $mod_res->num_rows > 0) {
+                                while($row = $mod_res->fetch_assoc()) {
+                                    // "Semester 1" ko "Sem 1" me convert kar rahe hain tere badge design ke liye
+                                    $sem_text = str_ireplace('Semester', 'Sem', htmlspecialchars($row['semester']));
+                                    $sub_text = htmlspecialchars($row['subject_name']);
+                                    
+                                    // Tera exact UI class jo tune banaya hai
+                                    echo '<div class="subject-tag mb-2"><span class="sem-badge">' . $sem_text . '</span> ' . $sub_text . '</div>';
                                 }
                             } else {
                                 echo '<p class="text-muted mb-0"><i class="fa-solid fa-circle-info me-2"></i> No modules assigned by the admin yet.</p>';
                             }
                             ?>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
