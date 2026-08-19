@@ -22,7 +22,7 @@ if($branch_res) {
         $available_branches[] = $r['department'];
     }
 }
-print_r($available_branches);
+//print_r($available_branches);
 if(empty($available_branches)) $available_branches = ['Computer Engineering'];
 $selected_branch = isset($_GET['branch']) ? $_GET['branch'] : $available_branches[0];
 
@@ -30,20 +30,20 @@ $selected_branch = isset($_GET['branch']) ? $_GET['branch'] : $available_branche
 $available_semesters = ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4', 'Semester 5', 'Semester 6'];
 $selected_sem = isset($_GET['sem']) ? $_GET['sem'] : 'Semester 1';
 
-// 3. Fetch Subjects ONLY for Selected Branch & Semester
+// 3. Fetch STRICTLY Assigned Subjects for this Faculty
 $available_subjects = [];
 $safe_br = $conn->real_escape_string($selected_branch);
 $safe_sm = $conn->real_escape_string($selected_sem);
+$fac_id = $conn->real_escape_string($faculty_id);
 
-$sub_query = "SELECT subject_name FROM subjects WHERE department = '$safe_br' AND semester = '$safe_sm'";
+$sub_query = "SELECT subject_name FROM faculty_subjects WHERE faculty_id = '$fac_id' AND branch = '$safe_br' AND semester = '$safe_sm'";
 $sub_res = $conn->query($sub_query);
-if(!$sub_res) { $sub_res = $conn->query("SELECT subject_name FROM subjects WHERE department = '$safe_br' AND sem = '$safe_sm'"); }
-if ($sub_res) {
+
+if ($sub_res && $sub_res->num_rows > 0) {
     while($r = $sub_res->fetch_assoc()) {
         $available_subjects[] = $r['subject_name'];
     }
 }
-
 $selected_subject = isset($_GET['subject']) ? $_GET['subject'] : (!empty($available_subjects) ? $available_subjects[0] : '');
 
 // ==========================================
