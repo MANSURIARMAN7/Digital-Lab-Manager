@@ -127,7 +127,7 @@ if ($res) {
                 <div class="user-profile">
                     <div class="user-avatar">AM</div>
                     <div>
-                        <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">System Administrator</div>
+                        <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">Prof. M. C. Thakor</div>
                         <div class="text-muted" style="font-size: 11.5px;">University Tech</div>
                     </div>
                 </div>
