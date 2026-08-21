@@ -2,7 +2,7 @@
 $host = "localhost";
 $user = "root";       
 $pass = "";           
-$dbname = "kdp_college";
+$dbname = "kdp_collage";
 
 // Create connection
 $conn = new mysqli($host, $user, $pass);
