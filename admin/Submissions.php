@@ -1,32 +1,31 @@
 <?php
+include '../db.php';
 include 'header.php';
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header mt-2 mb-4">
     <div>
-        <h4 class="fw-bold text-dark mb-1">📤 Student Submissions</h4>
-        <p class="text-muted small mb-0">Monitor, review, and evaluate practical manual submissions uploaded by students.</p>
+        <h4 class="page-title">📤 Student Submissions</h4>
+        <p class="page-subtitle">Monitor, review, and evaluate practical manual submissions uploaded by students.</p>
     </div>
 </div>
 
-<div class="content-card border-0 shadow-sm">
+<div class="content-box">
     <!-- Advanced Search & Filters -->
     <div class="row g-3 align-items-center mb-4">
         <div class="col-md-5">
-            <div class="input-group">
-                <span class="input-group-text bg-light border-0 py-2">
-                    <i class="fa-solid fa-magnifying-glass text-muted"></i>
-                </span>
-                <input type="text" class="form-control bg-light border-0 shadow-none py-2" placeholder="Search by student name or enrollment...">
+            <div class="search-box w-100">
+                <i class="fa-solid fa-magnifying-glass text-muted"></i>
+                <input type="text" placeholder="Search by student name or enrollment...">
             </div>
         </div>
         <div class="col-md-7 d-flex justify-content-md-end gap-2">
-            <select class="form-select bg-light border-0 shadow-none w-auto text-muted font-sm py-2">
+            <select class="form-select w-auto">
                 <option value="">All Subjects</option>
                 <option value="DBMS">Database Systems (DBMS)</option>
                 <option value="DS">Data Structures (DS)</option>
             </select>
-            <select class="form-select bg-light border-0 shadow-none w-auto text-muted font-sm py-2">
+            <select class="form-select w-auto">
                 <option value="">Status: All</option>
                 <option value="pending">⏳ Under Review</option>
                 <option value="approved">✅ Approved</option>
@@ -36,8 +35,8 @@ include 'header.php';
     </div>
 
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
+        <table class="table-custom">
+            <thead>
                 <tr>
                     <th>Student</th>
                     <th>Practical No</th>
@@ -60,7 +59,7 @@ include 'header.php';
                     <td class="fw-semibold text-dark">Exp #01 - SQL Queries</td>
                     <td>Today, 11:00 AM</td>
                     <td>
-                        <span class="status-badge badge-pending">Under Review ⏳</span>
+                        <span class="badge-status badge-pending">Under Review ⏳</span>
                     </td>
                     <td class="text-end">
                         <a href="Review & Marks.php" class="btn btn-sm btn-primary py-1 px-3 shadow-none">
@@ -73,6 +72,4 @@ include 'header.php';
     </div>
 </div>
 
-<?php
-include 'footer.php';
-?>
+<?php include 'footer.php'; ?>
