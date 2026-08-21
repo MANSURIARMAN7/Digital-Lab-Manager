@@ -165,8 +165,8 @@ include 'header.php';
                 <div class="alert alert-success border-0 d-flex align-items-center mb-0" role="alert" style="border-radius: 8px;">
                     <i class="fa-solid fa-check-circle fs-4 me-3"></i>
                     <div>
-                        <span class="fw-bold d-block text-dark">Reviews Completed</span>
-                        <small class="text-dark opacity-75">3rd Year Batch B1 manuals reviewed.</small>
+                        <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">Prof. M. C. Thakor</div>
+                        <div class="text-muted" style="font-size: 11.5px;">University Tech</div>
                     </div>
                 </div>
 
