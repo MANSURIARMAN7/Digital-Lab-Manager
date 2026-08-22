@@ -263,3 +263,52 @@ function toggleDarkMode() {
                         <p><?php echo htmlspecialchars($academic_year); ?></p>
                     </div>
                 </div>
+   <!-- Personal Information -->
+                <div class="info-card">
+                    <h3>👤 Personal Details</h3>
+                    <div class="info-group">
+                        <label>Full Name</label>
+                        <p><?php echo htmlspecialchars($student_name); ?></p>
+                    </div>
+                    <div class="info-group">
+                        <label>Email Address</label>
+                        <p><?php echo htmlspecialchars($email); ?></p>
+                    </div>
+                    <div class="info-group">
+                        <label>Contact Number</label>
+                        <p><?php echo htmlspecialchars($contact); ?></p>
+                    </div>
+                    <div class="info-group">
+                        <label>Institute</label>
+                        <p>K.D. Polytechnic, Patan</p>
+                    </div>
+                </div>
+
+                <!-- Security / Password Update -->
+                <div class="info-card" style="grid-column: 1 / -1;">
+                    <h3>🔒 Security & Password</h3>
+                    <form action="" method="POST" onsubmit="alert('Password update functionality can be connected to database/json!'); return false;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                            <div class="info-group">
+                                <label>Current Password</label>
+                                <input type="password" class="info-input" placeholder="••••••••" required>
+                            </div>
+                            <div class="info-group">
+                                <label>New Password</label>
+                                <input type="password" class="info-input" placeholder="Enter new password" required>
+                            </div>
+                            <div class="info-group">
+                                <label>Confirm New Password</label>
+                                <input type="password" class="info-input" placeholder="Confirm new password" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-submit">Update Password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+</body>
+</html>
