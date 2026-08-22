@@ -9,9 +9,10 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
 $student_name = $_SESSION['name'] ?? 'Student';
 $student_id = $_SESSION['user_id'] ?? ''; 
 
-// 1. STATS LOGIC
+// 1. STATS & NOTIFICATIONS LOGIC
 $json_file = '../Faculty/submissions.json'; 
 $total_manuals = 0; $approved_manuals = 0; $pending_manuals = 0;
+$user_notifications = [];
 
 if (file_exists($json_file)) {
     $all_submissions = json_decode(file_get_contents($json_file), true);
@@ -22,10 +23,39 @@ if (file_exists($json_file)) {
                 $status = strtolower($sub['status']);
                 if ($status == 'approved') $approved_manuals++;
                 else if ($status == 'pending') $pending_manuals++;
+
+                // Build dynamic notifications from user submissions
+                $subject = $sub['subject'] ?? 'Manual';
+                $date = $sub['date'] ?? 'Recently';
+                
+                if ($status == 'approved') {
+                    $user_notifications[] = [
+                        'title' => 'Manual Approved ✅',
+                        'msg' => "Your submission for $subject has been approved.",
+                        'time' => $date,
+                        'type' => 'approved'
+                    ];
+                } else if ($status == 'rejected') {
+                    $user_notifications[] = [
+                        'title' => 'Manual Rejected ❌',
+                        'msg' => "Your submission for $subject was rejected. Please re-upload.",
+                        'time' => $date,
+                        'type' => 'rejected'
+                    ];
+                } else {
+                    $user_notifications[] = [
+                        'title' => 'Manual Pending ⏳',
+                        'msg' => "Your submission for $subject is under review.",
+                        'time' => $date,
+                        'type' => 'pending'
+                    ];
+                }
             }
         }
     }
 }
+
+$unread_count = count($user_notifications);
 
 // 2. SUBJECT LOGIC
 $student_subjects = [];
@@ -56,6 +86,76 @@ if (file_exists($users_file)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard | K.D. Polytechnic</title>
     <link rel="stylesheet" href="../assets/css/student.css?v=8">
+    <style>
+        /* Notification Popup Styling */
+        .notification-wrapper {
+            position: relative;
+        }
+
+        .notif-popup {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 50px;
+            width: 310px;
+            background: #ffffff;
+            color: #1e293b;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            border: 1px solid #e2e8f0;
+            z-index: 1000;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .notif-popup.active {
+            display: block;
+        }
+
+        .notif-header {
+            padding: 12px 16px;
+            background: #102a56;
+            color: #ffffff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notif-header h4 { margin: 0; font-size: 14px; font-weight: 600; }
+
+        .notif-body {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .notif-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .notif-item:hover {
+            background: #f8fafc;
+        }
+
+        .notif-item strong { display: block; color: #0f172a; margin-bottom: 2px; }
+        .notif-item p { margin: 0; color: #64748b; font-size: 12px; line-height: 1.4; }
+        .notif-time { font-size: 10px; color: #94a3b8; display: block; margin-top: 5px; }
+
+        /* Dark mode support for popup */
+        body.dark-mode .notif-popup {
+            background: #1e293b;
+            color: #f8fafc;
+            border-color: #334155;
+        }
+        body.dark-mode .notif-item {
+            border-bottom-color: #334155;
+        }
+        body.dark-mode .notif-item strong { color: #f1f5f9; }
+        body.dark-mode .notif-item p { color: #94a3b8; }
+        body.dark-mode .notif-item:hover { background: #334155; }
+    </style>
 </head>
 <body>
 
@@ -91,9 +191,38 @@ function toggleDarkMode() {
                 <h1>Student Dashboard</h1>
             </div>
             <div class="date-box" style="display: flex; align-items: center; gap: 10px; background: transparent; padding: 0; border: none; box-shadow: none;">
-                <div class="notification-box" style="position: relative; cursor: pointer; background: #102a56; color: white; padding: 10px 14px; border-radius: 9px; display: flex; align-items: center; justify-content: center; height: 42px; box-sizing: border-box;">
-                    🔔<span style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; line-height: 1;">2</span>
+                
+                <!-- NOTIFICATION CONTAINER -->
+                <div class="notification-wrapper">
+                    <div class="notification-box" id="notifBtn" onclick="toggleNotifications()" style="position: relative; cursor: pointer; background: #102a56; color: white; padding: 10px 14px; border-radius: 9px; display: flex; align-items: center; justify-content: center; height: 42px; box-sizing: border-box;">
+                        🔔<?php if ($unread_count > 0): ?>
+                            <span id="notifBadge" style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; line-height: 1;"><?php echo $unread_count; ?></span>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- NOTIFICATION DROPDOWN POPUP -->
+                    <div id="notifPopup" class="notif-popup">
+                        <div class="notif-header">
+                            <h4>Notifications</h4>
+                        </div>
+                        <div class="notif-body">
+                            <?php if (!empty($user_notifications)): ?>
+                                <?php foreach ($user_notifications as $notif): ?>
+                                    <div class="notif-item">
+                                        <strong><?php echo htmlspecialchars($notif['title']); ?></strong>
+                                        <p><?php echo htmlspecialchars($notif['msg']); ?></p>
+                                        <span class="notif-time"><?php echo htmlspecialchars($notif['time']); ?></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="notif-item" style="text-align: center; color: #94a3b8;">
+                                    No notifications found.
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
+
                 <button onclick="toggleDarkMode()" class="theme-toggle">🌙 Dark Mode</button>
             </div>
         </header>
@@ -197,6 +326,21 @@ function toggleDarkMode() {
             `;
         }
     }
+
+    // Toggle Notifications Dropdown
+    function toggleNotifications() {
+        const popup = document.getElementById('notifPopup');
+        popup.classList.toggle('active');
+    }
+
+    // Close notifications when clicking outside
+    window.addEventListener('click', function(e) {
+        const popup = document.getElementById('notifPopup');
+        const btn = document.getElementById('notifBtn');
+        if (popup && btn && !popup.contains(e.target) && !btn.contains(e.target)) {
+            popup.classList.remove('active');
+        }
+    });
 
     window.onload = function() {
         filterSubjects();
