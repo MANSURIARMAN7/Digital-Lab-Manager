@@ -326,12 +326,14 @@ function toggleDarkMode() {
             `;
         }
     }
-
-    // Toggle Notifications Dropdown
-    function toggleNotifications() {
-        const popup = document.getElementById('notifPopup');
-        popup.classList.toggle('active');
+// Toggle Notifications Dropdown
+function toggleNotifications(event) {
+    if (event) {
+        event.stopPropagation(); // Click event ko block hone se rokega
     }
+    const popup = document.getElementById('notifPopup');
+    popup.classList.toggle('active');
+}
 
     // Close notifications when clicking outside
     window.addEventListener('click', function(e) {
