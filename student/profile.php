@@ -114,3 +114,23 @@ if (file_exists($users_file)) {
             border-bottom: 2px solid #f1f5f9;
             padding-bottom: 10px;
         }
+        .info-group {
+            margin-bottom: 15px;
+        }
+
+        .info-group label {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-group p {
+            font-size: 14px;
+            color: #1e293b;
+            font-weight: 500;
+            margin: 0;
+        }
