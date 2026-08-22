@@ -48,3 +48,11 @@ if (file_exists($users_file)) {
             gap: 25px;
             margin-top: 20px;
         }
+        .profile-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
