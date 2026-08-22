@@ -164,3 +164,34 @@ if (file_exists($users_file)) {
         .btn-submit:hover {
             background: #1d4ed8;
         }
+ @media (max-width: 900px) {
+            .profile-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Dark Mode Support */
+        body.dark-mode .profile-card, 
+        body.dark-mode .info-card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+
+        body.dark-mode .profile-card h2,
+        body.dark-mode .info-group p {
+            color: #f8fafc;
+        }
+
+        body.dark-mode .info-card h3 {
+            color: #38bdf8;
+            border-bottom-color: #334155;
+        }
+
+        body.dark-mode .info-input {
+            background: #0f172a;
+            border-color: #334155;
+            color: white;
+        }
+    </style>
+</head>
+<body>
