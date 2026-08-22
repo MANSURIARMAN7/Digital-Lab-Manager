@@ -91,3 +91,8 @@ if (file_exists($users_file)) {
             font-weight: 600;
             display: inline-block;
         }
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
