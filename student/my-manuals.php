@@ -9,7 +9,36 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSI
 $student_name = $_SESSION['name'] ?? 'Student';
 $student_id = $_SESSION['user_id'] ?? '';
 
-// 1. Get Student's Current Semester from users.json
+// 1. DELETE LOGIC (Jab student Delete par click kare)
+if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['file_id'])) {
+    $delete_id = $_GET['file_id'];
+    $submissions_file = '../Faculty/submissions.json';
+
+    if (file_exists($submissions_file)) {
+        $all_subs = json_decode(file_get_contents($submissions_file), true);
+        if (is_array($all_subs)) {
+            $updated_subs = [];
+            foreach ($all_subs as $sub) {
+                // Match Enrollment & File Unique Identifier
+                if (isset($sub['enrollment']) && $sub['enrollment'] == $student_id && isset($sub['filename']) && $sub['filename'] === $delete_id) {
+                    // Physical file delete from uploads directory
+                    $file_path = "../uploads/" . $sub['filename'];
+                    if (file_exists($file_path)) {
+                        unlink($file_path);
+                    }
+                    continue; // Is entry ko array me include nahi karenge (Delete ho gayi)
+                }
+                $updated_subs[] = $sub;
+            }
+            // JSON file update karo
+            file_put_contents($submissions_file, json_encode($updated_subs, JSON_PRETTY_PRINT));
+            header("Location: my-manuals.php?status=deleted");
+            exit();
+        }
+    }
+}
+
+// 2. Get Student's Current Semester from users.json
 $student_sem = "Semester 5"; // Default fallback
 $users_file = '../users.json';
 if (file_exists($users_file)) {
@@ -26,7 +55,7 @@ if (file_exists($users_file)) {
     }
 }
 
-// 2. Load all submissions from submissions.json
+// 3. Load all submissions from submissions.json
 $submissions_file = '../Faculty/submissions.json';
 $my_submissions = [];
 
@@ -48,12 +77,13 @@ if (file_exists($submissions_file)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Manuals | K.D. Polytechnic</title>
     <link rel="stylesheet" href="../assets/css/student.css?v=8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .manuals-table-container {
             background: #fff;
-            padding: 20px;
+            padding: 24px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             margin-top: 20px;
         }
         .filter-box {
@@ -62,16 +92,23 @@ if (file_exists($submissions_file)) {
             justify-content: space-between;
             margin-bottom: 20px;
         }
+        .semester-select {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            outline: none;
+            font-size: 14px;
+        }
         .status-badge {
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 12px;
-            font-weight: bold;
+            font-weight: 600;
             display: inline-block;
         }
-        .status-approved { background: #dcfce7; color: #166534; }
-        .status-pending { background: #fef9c3; color: #854d0e; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-approved { background: #dcfce7; color: #15803d; }
+        .status-pending { background: #fef3c7; color: #b45309; }
+        .status-rejected { background: #fee2e2; color: #b91c1c; }
         
         table {
             width: 100%;
@@ -79,10 +116,82 @@ if (file_exists($submissions_file)) {
         }
         th, td {
             text-align: left;
-            padding: 12px;
+            padding: 14px 12px;
             border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
         }
-        th { background: #f8fafc; color: #475569; }
+        th { background: #f8fafc; color: #475569; font-weight: 600; }
+        
+        .action-cell {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .btn-action {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: #eff6ff;
+            border-radius: 6px;
+            transition: 0.2s;
+            font-size: 13px;
+        }
+        .btn-action:hover { background: #dbeafe; }
+
+        .btn-delete {
+            color: #dc2626;
+            background: #fef2f2;
+            text-decoration: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .btn-delete:hover { background: #fee2e2; }
+
+        .empty-container {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .empty-container i {
+            font-size: 48px;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+        }
+        .empty-container p {
+            color: #64748b;
+            margin-bottom: 16px;
+            font-size: 15px;
+        }
+        .btn-upload-now {
+            background: #1e3a8a;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-upload-now:hover { background: #1e40af; }
+        
+        .alert-success {
+            background: #dcfce7;
+            color: #15803d;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -115,8 +224,14 @@ if (file_exists($submissions_file)) {
         </header>
 
         <div class="manuals-table-container">
+            <?php if(isset($_GET['status']) && $_GET['status'] === 'deleted'): ?>
+                <div class="alert-success">
+                    <i class="fa-solid fa-check-circle"></i> Manual successfully deleted!
+                </div>
+            <?php endif; ?>
+
             <div class="filter-box">
-                <h2>Select Semester:</h2>
+                <h2 style="font-size: 18px; margin: 0;">Select Semester:</h2>
                 <select class="semester-select" id="semSelect" onchange="filterManuals()">
                     <option <?php echo ($student_sem == 'Semester 1') ? 'selected' : ''; ?>>Semester 1</option>
                     <option <?php echo ($student_sem == 'Semester 2') ? 'selected' : ''; ?>>Semester 2</option>
@@ -139,7 +254,7 @@ if (file_exists($submissions_file)) {
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    </tbody>
+                </tbody>
             </table>
         </div>
     </main>
@@ -147,6 +262,10 @@ if (file_exists($submissions_file)) {
 
 <script>
     const allManuals = <?php echo json_encode($my_submissions); ?>;
+
+    function confirmDelete(filename) {
+        return confirm("Kya aap sure hain ki is manual ko delete karna chahte hain?");
+    }
 
     function filterManuals() {
         const selectedSem = document.getElementById('semSelect').value;
@@ -161,18 +280,28 @@ if (file_exists($submissions_file)) {
 
                 if (mSem === selectedSem) {
                     let statusClass = 'status-pending';
-                    if (m.status.toLowerCase() === 'approved') statusClass = 'status-approved';
-                    if (m.status.toLowerCase() === 'rejected') statusClass = 'status-rejected';
+                    let statusText = m.status || 'Pending';
+                    if (statusText.toLowerCase() === 'approved') statusClass = 'status-approved';
+                    if (statusText.toLowerCase() === 'rejected') statusClass = 'status-rejected';
 
                     tbody.innerHTML += `
                         <tr>
                             <td><strong>${m.subject || 'N/A'}</strong></td>
                             <td>${m.title || 'Practical File'}</td>
                             <td>${m.date || 'N/A'}</td>
-                            <td><span class="status-badge ${statusClass}">${m.status || 'Pending'}</span></td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                             <td>${m.remarks || 'No remarks'}</td>
                             <td>
-                                <a href="../uploads/${m.filename || '#'}" target="_blank" style="color:#2563eb; text-decoration:none;">📄 View PDF</a>
+                                <div class="action-cell">
+                                    <a href="../uploads/${m.filename || '#'}" target="_blank" class="btn-action">
+                                        <i class="fa-regular fa-file-pdf"></i> View
+                                    </a>
+                                    <a href="my-manuals.php?action=delete&file_id=${encodeURIComponent(m.filename)}" 
+                                       onclick="return confirmDelete('${m.filename}')" 
+                                       class="btn-delete" title="Delete Manual">
+                                        <i class="fa-solid fa-trash"></i> Delete
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -184,8 +313,14 @@ if (file_exists($submissions_file)) {
         if (count === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align:center; color:#64748b; padding:20px;">
-                        No manuals uploaded for ${selectedSem} yet.
+                    <td colspan="6">
+                        <div class="empty-container">
+                            <i class="fa-solid fa-folder-open"></i>
+                            <p>No manuals uploaded for <strong>${selectedSem}</strong> yet.</p>
+                            <a href="upload-manual.php" class="btn-upload-now">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Upload Manual
+                            </a>
+                        </div>
                     </td>
                 </tr>
             `;
