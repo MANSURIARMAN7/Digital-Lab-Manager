@@ -74,3 +74,20 @@ if (file_exists($users_file)) {
             font-size: 20px;
             color: #0f172a;
             margin-bottom: 5px;
+            }
+
+        .profile-card p {
+            color: #64748b;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+
+        .badge-active {
+            background: #dcfce7;
+            color: #15803d;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
