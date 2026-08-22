@@ -33,3 +33,18 @@ if (file_exists($users_file)) {
         }
     }
 }
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | K.D. Polytechnic</title>
+    <link rel="stylesheet" href="../assets/css/student.css?v=8">
+    <style>
+        .profile-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 25px;
+            margin-top: 20px;
+        }
