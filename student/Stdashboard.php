@@ -89,27 +89,28 @@ if (file_exists($users_file)) {
     <style>
         /* Notification Popup Styling */
         .notification-wrapper {
-            position: relative;
+            position: relative !important;
+            display: inline-block !important;
         }
 
         .notif-popup {
             display: none;
-            position: absolute;
-            right: 0;
-            top: 50px;
-            width: 310px;
-            background: #ffffff;
-            color: #1e293b;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            border: 1px solid #e2e8f0;
-            z-index: 1000;
+            position: absolute !important;
+            right: 0 !important;
+            top: 50px !important;
+            width: 310px !important;
+            background: #ffffff !important;
+            color: #1e293b !important;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25) !important;
+            border: 1px solid #cbd5e1 !important;
+            z-index: 99999 !important;
             text-align: left;
             overflow: hidden;
         }
 
         .notif-popup.active {
-            display: block;
+            display: block !important;
         }
 
         .notif-header {
@@ -145,16 +146,16 @@ if (file_exists($users_file)) {
 
         /* Dark mode support for popup */
         body.dark-mode .notif-popup {
-            background: #1e293b;
-            color: #f8fafc;
-            border-color: #334155;
+            background: #1e293b !important;
+            color: #f8fafc !important;
+            border-color: #334155 !important;
         }
         body.dark-mode .notif-item {
-            border-bottom-color: #334155;
+            border-bottom-color: #334155 !important;
         }
-        body.dark-mode .notif-item strong { color: #f1f5f9; }
-        body.dark-mode .notif-item p { color: #94a3b8; }
-        body.dark-mode .notif-item:hover { background: #334155; }
+        body.dark-mode .notif-item strong { color: #f1f5f9 !important; }
+        body.dark-mode .notif-item p { color: #94a3b8 !important; }
+        body.dark-mode .notif-item:hover { background: #334155 !important; }
     </style>
 </head>
 <body>
@@ -194,7 +195,7 @@ function toggleDarkMode() {
                 
                 <!-- NOTIFICATION CONTAINER -->
                 <div class="notification-wrapper">
-                    <div class="notification-box" id="notifBtn" onclick="toggleNotifications()" style="position: relative; cursor: pointer; background: #102a56; color: white; padding: 10px 14px; border-radius: 9px; display: flex; align-items: center; justify-content: center; height: 42px; box-sizing: border-box;">
+                    <div class="notification-box" id="notifBtn" onclick="toggleNotifications(event)" style="position: relative; cursor: pointer; background: #102a56; color: white; padding: 10px 14px; border-radius: 9px; display: flex; align-items: center; justify-content: center; height: 42px; box-sizing: border-box;">
                         🔔<?php if ($unread_count > 0): ?>
                             <span id="notifBadge" style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; line-height: 1;"><?php echo $unread_count; ?></span>
                         <?php endif; ?>
@@ -288,7 +289,17 @@ function toggleDarkMode() {
 </div>
 
 <script>
-    const allSubjects = <?php echo json_encode($student_subjects); ?>;
+    // Default Subjects List for All Semesters
+    const defaultSemesterSubjects = {
+        'Semester 1': ['Basic Mathematics', 'Basic Physics', 'Basic Chemistry', 'Engineering Graphics', 'Computer Programming - I'],
+        'Semester 2': ['Advanced Mathematics', 'Basic Electronics', 'Web Page Designing', 'Programming in C', 'Environment & Sustainability'],
+        'Semester 3': ['Data Structure', 'Database Management System', 'Object Oriented Programming (Java)', 'Digital Electronics', 'Computer Network'],
+        'Semester 4': ['Operating System', 'Web Technology', 'Software Engineering', 'Computer Maintenance', 'Python Programming'],
+        'Semester 5': ['PHP & Dynamic Web Page', 'Android Application Development', 'Java Programming - II', 'Cyber Security', 'Project Work - I'],
+        'Semester 6': ['Advanced Web Technology', 'Cloud Computing', 'Network Security', 'Mobile Computing', 'Project Work - II']
+    };
+
+    const userSubjects = <?php echo json_encode($student_subjects); ?>;
     const icons = ['🌐', '🗄', '📡', '☕', '🐍', '💻', '📱', '⚙️'];
 
     function filterSubjects() {
@@ -296,44 +307,57 @@ function toggleDarkMode() {
         const container = document.getElementById('subjectContainer');
         container.innerHTML = ''; 
 
-        let count = 0;
+        let subjectsToDisplay = [];
 
-        if (allSubjects && allSubjects.length > 0) {
-            allSubjects.forEach((sub) => {
-                let subName = sub.name ? sub.name : sub;
-                let subSem = sub.sem ? sub.sem : 'Semester 5'; 
+        // 1. Check if user JSON has subjects for selected semester
+        if (Array.isArray(userSubjects) && userSubjects.length > 0) {
+            userSubjects.forEach(sub => {
+                let subName = (typeof sub === 'object' && sub.name) ? sub.name : sub;
+                let subSem = (typeof sub === 'object' && sub.sem) ? sub.sem : '';
 
                 if (subSem === selectedSem) {
-                    let icon = icons[count % icons.length];
-                    let encodedName = encodeURIComponent(subName);
-                    
-                    container.innerHTML += `
-                        <a href="upload-manual.php?subject=${encodedName}" class="subject-card">
-                            ${icon} <h3>${subName}</h3>
-                        </a>
-                    `;
-                    count++;
+                    subjectsToDisplay.push(subName);
                 }
             });
         }
 
-        if (count === 0) {
+        // 2. Fallback to default semester subject mapping
+        if (subjectsToDisplay.length === 0 && defaultSemesterSubjects[selectedSem]) {
+            subjectsToDisplay = defaultSemesterSubjects[selectedSem];
+        }
+
+        // 3. Render Subject Cards
+        if (subjectsToDisplay.length > 0) {
+            subjectsToDisplay.forEach((subName, index) => {
+                let icon = icons[index % icons.length];
+                let encodedName = encodeURIComponent(subName);
+
+                container.innerHTML += `
+                    <a href="upload-manual.php?subject=${encodedName}" class="subject-card">
+                        ${icon} <h3>${subName}</h3>
+                    </a>
+                `;
+            });
+        } else {
             container.innerHTML = `
                 <div style='grid-column: 1 / -1; background: #fff; padding: 20px; text-align: center; border-radius: 12px; color: #64748b;'>
                     <h3 style='margin-bottom:10px;'>No Subjects Found</h3>
-                    <p>No subjects assigned to you for ${selectedSem}.</p>
+                    <p>No subjects assigned for ${selectedSem}.</p>
                 </div>
             `;
         }
     }
-// Toggle Notifications Dropdown
-function toggleNotifications(event) {
-    if (event) {
-        event.stopPropagation(); // Click event ko block hone se rokega
+
+    // Toggle Notifications Dropdown
+    function toggleNotifications(event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        const popup = document.getElementById('notifPopup');
+        if (popup) {
+            popup.classList.toggle('active');
+        }
     }
-    const popup = document.getElementById('notifPopup');
-    popup.classList.toggle('active');
-}
 
     // Close notifications when clicking outside
     window.addEventListener('click', function(e) {
