@@ -70,3 +70,7 @@ if (file_exists($users_file)) {
             margin: 0 auto 15px auto;
             box-shadow: 0 8px 16px rgba(16, 42, 86, 0.2);
         }
+         .profile-card h2 {
+            font-size: 20px;
+            color: #0f172a;
+            margin-bottom: 5px;
