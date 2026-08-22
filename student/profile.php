@@ -241,3 +241,25 @@ function toggleDarkMode() {
                 <p>Enrollment: <strong><?php echo htmlspecialchars($student_id); ?></strong></p>
                 <span class="badge-active">Active Student</span>
             </div>
+  <!-- Right Side Information Cards -->
+            <div class="details-grid">
+                <!-- Academic Details -->
+                <div class="info-card">
+                    <h3>🎓 Academic Information</h3>
+                    <div class="info-group">
+                        <label>Department / Branch</label>
+                        <p><?php echo htmlspecialchars($branch); ?></p>
+                    </div>
+                    <div class="info-group">
+                        <label>Current Semester</label>
+                        <p><?php echo htmlspecialchars($semester); ?></p>
+                    </div>
+                    <div class="info-group">
+                        <label>Enrollment Number</label>
+                        <p><?php echo htmlspecialchars($student_id); ?></p>
+                    </div>
+                    <div class="info-group">
+                        <label>Academic Duration</label>
+                        <p><?php echo htmlspecialchars($academic_year); ?></p>
+                    </div>
+                </div>
