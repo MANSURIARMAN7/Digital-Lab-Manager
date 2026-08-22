@@ -195,3 +195,49 @@ if (file_exists($users_file)) {
     </style>
 </head>
 <body>
+    <script>
+function toggleDarkMode() {
+    document.body.classList.toggle("dark-mode");
+}
+</script>
+
+<div class="app">
+    <aside class="sidebar">
+        <div class="college-name">
+            <img src="../assets/images/KDP-Logo.png" alt="K.D. Polytechnic Logo" class="college-logo">
+            <div>
+                <h2>K.D. Polytechnic</h2>
+                <p>Student Portal</p>
+            </div>
+        </div>
+        <nav class="nav-links">
+            <a href="stdashboard.php">🏠 <span>Dashboard</span></a>
+            <a href="upload-manual.php">📤 <span>Upload Manual</span></a>
+            <a href="my-manuals.php">📚 <span>My Manuals</span></a>
+            <a href="submission-history.php">🕘 <span>History</span></a>
+            <a class="active" href="profile.php">👤 <span>My Profile</span></a>
+            <a href="../logout.php" class="logout">⇥ <span>Logout</span></a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <p class="small-text">Academic Session 2026</p>
+                <h1>My Profile</h1>
+            </div>
+            <div>
+                <button onclick="toggleDarkMode()" class="theme-toggle">🌙 Dark Mode</button>
+            </div>
+        </header>
+
+        <div class="profile-container">
+            <!-- Left Side Avatar Card -->
+            <div class="profile-card">
+                <div class="avatar-box">
+                    <?php echo strtoupper(substr($student_name, 0, 1)); ?>
+                </div>
+                <h2><?php echo htmlspecialchars($student_name); ?></h2>
+                <p>Enrollment: <strong><?php echo htmlspecialchars($student_id); ?></strong></p>
+                <span class="badge-active">Active Student</span>
+            </div>
