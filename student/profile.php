@@ -56,3 +56,17 @@ if (file_exists($users_file)) {
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             border: 1px solid #e2e8f0;
         }
+         .avatar-box {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #102a56, #2563eb);
+            color: white;
+            font-size: 38px;
+            font-weight: bold;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px auto;
+            box-shadow: 0 8px 16px rgba(16, 42, 86, 0.2);
+        }
