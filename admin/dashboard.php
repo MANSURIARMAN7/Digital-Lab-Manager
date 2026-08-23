@@ -19,10 +19,10 @@ $total_sub_res = $conn->query("SELECT COUNT(*) as total FROM submissions");
 $total_submissions = ($total_sub_res) ? $total_sub_res->fetch_assoc()['total'] : 0;
 
 $recent_submissions = $conn->query("
-    SELECT u.name, u.department, s.subject_name, s.status, s.submitted_at 
+    SELECT u.name, u.department, s.subject as subject_name, s.status, s.upload_date as submitted_at 
     FROM submissions s 
-    JOIN users u ON s.student_id = u.user_id 
-    ORDER BY s.submitted_at DESC 
+    JOIN users u ON s.enrollment = u.user_id 
+    ORDER BY s.upload_date DESC 
     LIMIT 5
 ");
 ?>

@@ -32,7 +32,16 @@ $createUsersTable = "CREATE TABLE IF NOT EXISTS `users` (
     `role` ENUM('admin', 'faculty', 'student') NOT NULL,
     `name` VARCHAR(100) NOT NULL,
     `subjects` TEXT DEFAULT NULL,
-    `sem` VARCHAR(50) DEFAULT NULL
+    `sem` VARCHAR(50) DEFAULT NULL,
+    `designation` VARCHAR(100) DEFAULT 'Assistant Professor',
+    `department` VARCHAR(50) DEFAULT 'CE',
+    `email` VARCHAR(100) DEFAULT NULL,
+    `phone` VARCHAR(20) DEFAULT NULL,
+    `status` VARCHAR(20) DEFAULT 'active',
+    `joined_date` VARCHAR(50) DEFAULT NULL,
+    `profile_pic` VARCHAR(255) DEFAULT NULL,
+    `cabin_no` VARCHAR(50) DEFAULT NULL,
+    `bio` TEXT DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 $conn->query($createUsersTable);
 
@@ -59,6 +68,21 @@ $checkSem = $conn->query("SHOW COLUMNS FROM `users` LIKE 'sem'");
 if ($checkSem && $checkSem->num_rows == 0) {
     $conn->query("ALTER TABLE `users` ADD COLUMN `sem` VARCHAR(50) DEFAULT NULL");
 }
+
+// Add department column if missing
+$checkDept = $conn->query("SHOW COLUMNS FROM `users` LIKE 'department'");
+if ($checkDept && $checkDept->num_rows == 0) {
+    $conn->query("ALTER TABLE `users` ADD COLUMN `department` VARCHAR(50) DEFAULT 'CE'");
+}
+
+// Ensure subjects table exists
+$createSubjectsTable = "CREATE TABLE IF NOT EXISTS `subjects` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `subject_name` VARCHAR(100) NOT NULL,
+    `department` VARCHAR(100) NOT NULL,
+    `semester` VARCHAR(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+$conn->query($createSubjectsTable);
 
 // Insert default Admin if it doesn't exist
 $checkAdmin = $conn->query("SELECT * FROM `users` WHERE `user_id` = 'admin'");
