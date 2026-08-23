@@ -33,8 +33,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <!-- ========== SIDEBAR ========== -->
     <div class="sidebar">
         <div class="sidebar-logo-container">
-            <div class="brand-icon">
-                <i class="fas fa-flask"></i>
+            <div class="brand-icon" style="background: transparent; box-shadow: none; width: auto; height: 45px;">
+                <img src="logo_kdp.png" alt="Logo" style="height: 100%; width: auto; max-width: 100%; object-fit: contain;">
             </div>
             <div class="sidebar-title">
                 <h2>Digital Lab<br>Manager</h2>
