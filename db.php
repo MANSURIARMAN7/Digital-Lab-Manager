@@ -75,6 +75,25 @@ if ($checkDept && $checkDept->num_rows == 0) {
     $conn->query("ALTER TABLE `users` ADD COLUMN `department` VARCHAR(50) DEFAULT 'CE'");
 }
 
+// Add other missing columns
+$columnsToAdd = [
+    'designation' => "VARCHAR(100) DEFAULT 'Assistant Professor'",
+    'email' => "VARCHAR(100) DEFAULT NULL",
+    'phone' => "VARCHAR(20) DEFAULT NULL",
+    'status' => "VARCHAR(20) DEFAULT 'active'",
+    'joined_date' => "VARCHAR(50) DEFAULT NULL",
+    'profile_pic' => "VARCHAR(255) DEFAULT NULL",
+    'cabin_no' => "VARCHAR(50) DEFAULT NULL",
+    'bio' => "TEXT DEFAULT NULL"
+];
+
+foreach ($columnsToAdd as $col => $def) {
+    $checkCol = $conn->query("SHOW COLUMNS FROM `users` LIKE '$col'");
+    if ($checkCol && $checkCol->num_rows == 0) {
+        $conn->query("ALTER TABLE `users` ADD COLUMN `$col` $def");
+    }
+}
+
 // Ensure subjects table exists
 $createSubjectsTable = "CREATE TABLE IF NOT EXISTS `subjects` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
