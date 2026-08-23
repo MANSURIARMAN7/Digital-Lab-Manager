@@ -74,4 +74,32 @@ iv class="college-name">
                             <?php 
                                 $status = strtolower($item['status'] ?? 'pending');
                                 $badgeClass = 'status-pending';
-                                if ($status === 'appro
+                                if ($status === 'appro       if ($status === 'rejected') $badgeClass = 'status-rejected';
+                            ?>
+                            <tr>
+                                <td><?php echo $index + 1; ?></td>
+                                <td><strong><?php echo htmlspecialchars($item['subject'] ?? 'N/A'); ?></strong></td>
+                                <td><?php echo htmlspecialchars($item['title'] ?? 'Practical File'); ?></td>
+                                <td><?php echo htmlspecialchars($item['date'] ?? date('Y-m-d')); ?></td>
+                                <td>
+                                    <span class="status-badge <?php echo $badgeClass; ?>">
+                                        <?php echo ucfirst($status); ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">
+                                No submission history found.
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+</body>
+</html>
