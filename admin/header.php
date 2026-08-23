@@ -75,11 +75,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <i class="fas fa-check-circle"></i> Review & Marks
                 </a>
             </li>
-            <li>
-                <a href="Reports.php" class="<?php echo ($current_page === 'Reports.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-chart-bar"></i> Reports
-                </a>
-            </li>
+
             <li class="mt-auto">
                 <a href="../logout.php" class="logout-link">
                     <i class="fas fa-sign-out-alt"></i> Logout
