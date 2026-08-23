@@ -8,41 +8,47 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
-// 2. Fetch Logged-in Admin Details (Dynamic Profile)
+// Fetch Admin Details for Profile Pill
 $admin_id = $_SESSION['user_id'];
 $admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = '$admin_id'");
-$admin_data = $admin_query->fetch_assoc();
+$admin_data = $admin_query ? $admin_query->fetch_assoc() : null;
 $admin_name = $admin_data['name'] ?? 'System Administrator';
-$admin_dept = $admin_data['department'] ?? 'K.D. Polytechnic';
 
-// 3. Total Students
-$student_count_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student'");
-$total_students = ($student_count_res) ? $student_count_res->fetch_assoc()['total'] : 0;
+// ==========================================
+// 📊 METRICS & COUNTERS QUERY
+// ==========================================
+// Total Students Count
+$students_count_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'student'");
+$total_students = ($students_count_res) ? $students_count_res->fetch_assoc()['total'] : 0;
 
-// 4. Active Faculty
-$faculty_count_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='faculty'");
-$active_faculty = ($faculty_count_res) ? $faculty_count_res->fetch_assoc()['total'] : 0;
+// Active Faculty Count
+$faculty_count_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'faculty'");
+$total_faculty = ($faculty_count_res) ? $faculty_count_res->fetch_assoc()['total'] : 0;
 
-// 5. Pending Reviews
-$pending_res = $conn->query("SELECT COUNT(*) as total FROM submissions WHERE status='Pending'");
-$pending_reviews = ($pending_res) ? $pending_res->fetch_assoc()['total'] : 0;
+// Pending Reviews Count
+$pending_count_res = $conn->query("SELECT COUNT(*) as total FROM student_submissions WHERE status = 'Pending'");
+$pending_reviews = ($pending_count_res) ? $pending_count_res->fetch_assoc()['total'] : 0;
 
-// 6. Rejected & Approved Submissions (For Dynamic Chart)
-$rejected_res = $conn->query("SELECT COUNT(*) as total FROM submissions WHERE status='Rejected'");
-$rejected_submissions = ($rejected_res) ? $rejected_res->fetch_assoc()['total'] : 0;
+// Rejected Submissions Count
+$rejected_count_res = $conn->query("SELECT COUNT(*) as total FROM student_submissions WHERE status = 'Rejected'");
+$rejected_submissions = ($rejected_count_res) ? $rejected_count_res->fetch_assoc()['total'] : 0;
 
-$approved_res = $conn->query("SELECT COUNT(*) as total FROM submissions WHERE status='Approved'");
-$approved_submissions = ($approved_res) ? $approved_res->fetch_assoc()['total'] : 0;
+// Approved Submissions Count (for chart/breakdown)
+$approved_count_res = $conn->query("SELECT COUNT(*) as total FROM student_submissions WHERE status = 'Approved'");
+$approved_submissions = ($approved_count_res) ? $approved_count_res->fetch_assoc()['total'] : 0;
 
-// Total Submissions
 $total_submissions = $pending_reviews + $rejected_submissions + $approved_submissions;
 
-// 7. Recent Submissions for Table (Joining users table to get name & department)
-$recent_submissions = $conn->query("
-    SELECT u.name, u.department, s.subject_name, s.status, s.submitted_at 
-    FROM submissions s 
-    JOIN users u ON s.student_id = u.user_id 
-    ORDER BY s.submitted_at DESC 
+// ==========================================
+// 🕒 RECENT SUBMISSIONS QUERY (FIXED LEFT JOIN)
+// ==========================================
+$recent_query = $conn->query("
+    SELECT sub.*, 
+           COALESCE(NULLIF(u.name, ''), 'Unknown Student') as student_name, 
+           COALESCE(NULLIF(u.email, ''), 'N/A') as student_enrollment 
+    FROM student_submissions sub 
+    LEFT JOIN users u ON sub.student_id = u.user_id 
+    ORDER BY sub.submitted_at DESC 
     LIMIT 5
 ");
 ?>
@@ -52,76 +58,45 @@ $recent_submissions = $conn->query("
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Digital Lab Manager</title>
+    <title>Admin Dashboard - Lab Manual Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Chart.js for Pro-Level Graphs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
-        :root { --sidebar-width: 260px; --bg-color: #f8fafc; }
+        :root { --sidebar-width: 260px; --bg-color: #f4f7fe; --sidebar-bg: #1a365d; --accent-blue: #2563eb; }
         body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
+        .sidebar { width: var(--sidebar-width); background-color: var(--sidebar-bg); color: #ffffff; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; }
+        .sidebar-logo-container { padding: 30px 20px 20px 20px; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
+        .sidebar-logo-container img { width: 90px; height: 90px; object-fit: contain; margin-bottom: 15px; border-radius: 50%; padding: 5px; background: rgba(255,255,255,0.1); }
+        .sidebar-title h2 { font-size: 18px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: 0.5px; color: #fff;}
+        .sidebar-subtitle { font-size: 13px; color: #94a3b8; margin-top: 5px; font-weight: 500;}
+        .nav-links { list-style: none; padding: 20px 15px; margin: 0; flex-grow: 1; }
+        .nav-links li { padding: 12px 20px; margin: 5px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 500; color: #a0aec0; transition: all 0.3s ease; }
+        .nav-links li:hover { color: white; background: rgba(255,255,255,0.08); }
+        .nav-links li.active { background: var(--accent-blue); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); font-weight: 600; }
+        .main { flex: 1; padding: 30px 40px; overflow-y: auto; }
         
-        /* SIDEBAR */
-        .sidebar { width: var(--sidebar-width); background-color: #0f172a; color: #ffffff; display: flex; flex-direction: column; padding: 20px 0; z-index: 10; overflow-y: auto; }
-        .sidebar-logo-container { padding: 0 20px 20px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .sidebar-title h2 { font-size: 15px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: 0.5px; }
-        .nav-links { list-style: none; padding: 15px 15px 0 15px; margin: 0; flex-grow: 1; }
-        .nav-links li { padding: 11px 16px; margin: 4px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 14px; font-size: 14px; font-weight: 500; color: #94a3b8; transition: 0.2s ease-in-out; }
-        .nav-links li:hover { color: white; background: rgba(255,255,255,0.05); }
-        .nav-links li.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
-
-        /* MAIN CONTENT AREA */
-        .main { flex: 1; padding: 25px 35px; overflow-y: auto; display: flex; flex-direction: column; gap: 25px; }
-        
-        /* TOP BAR */
-        .topbar { background: white; padding: 12px 25px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; }
-        .search-box { background: #f8fafc; border-radius: 8px; padding: 6px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; transition: all 0.2s; }
-        .search-box:focus-within { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .topbar { background: transparent; padding: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
+        .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
         .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
         
-        .user-profile { display: flex; align-items: center; gap: 12px; }
-        .user-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid #3b82f6; background: #fff; }
-        .notif-badge { position: relative; width: 36px; height: 36px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; color: #64748b; cursor: pointer; transition: 0.2s; }
-        .notif-badge:hover { background: #e2e8f0; color: #0f172a; }
-        .badge-count { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; font-size: 10px; font-weight: bold; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid white; }
+        .profile-pill { display: flex; align-items: center; background-color: #ffffff; padding: 6px 16px 6px 20px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s;}
+        .profile-text { text-align: right; margin-right: 15px; }
+        .profile-welcome { display: block; font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+        .profile-name { margin: 0; font-size: 14px; color: #1e293b; font-weight: 700; }
+        .profile-avatar { width: 42px; height: 42px; background-color: var(--accent-blue); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4); letter-spacing: 1px;}
 
-        /* DASHBOARD GRID CARDS */
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-        .stat-card { background: white; border-radius: 14px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.01); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
-        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-        
-        .stat-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
-        .stat-card:nth-child(1)::before { background: #3b82f6; }
-        .stat-card:nth-child(2)::before { background: #10b981; }
-        .stat-card:nth-child(3)::before { background: #f59e0b; }
-        .stat-card:nth-child(4)::before { background: #ef4444; }
+        .stat-card { background: white; border-radius: 12px; padding: 22px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s;}
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.05); }
+        .stat-card::before { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 4px; }
+        .stat-card.blue::before { background-color: #2563eb; }
+        .stat-card.green::before { background-color: #10b981; }
+        .stat-card.yellow::before { background-color: #f59e0b; }
+        .stat-card.red::before { background-color: #ef4444; }
 
-        .stat-title { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-value { font-size: 28px; font-weight: 700; color: #0f172a; margin-top: 8px; }
-        .stat-icon { position: absolute; right: 20px; top: 20px; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: 0.2s; }
-        .stat-card:nth-child(1) .stat-icon { background: rgba(59,130,246,0.1); color: #3b82f6; }
-        .stat-card:nth-child(2) .stat-icon { background: rgba(16,185,129,0.1); color: #10b981; }
-        .stat-card:nth-child(3) .stat-icon { background: rgba(245,158,11,0.1); color: #f59e0b; }
-        .stat-card:nth-child(4) .stat-icon { background: rgba(239,68,68,0.1); color: #ef4444; }
-
-        /* LOWER SECTION */
-        .lower-grid { display: grid; grid-template-columns: 4fr 6fr; gap: 20px; }
-        .content-box { background: white; border-radius: 14px; padding: 24px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.01); }
-        
-        /* TABLE STYLING */
-        .table-custom th { background: transparent; font-size: 12px; font-weight: 600; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
-        .table-custom td { vertical-align: middle; font-size: 14px; padding: 14px 0; color: #334155; border-bottom: 1px solid #f1f5f9; }
-        .table-custom tr:last-child td { border-bottom: none; }
-        
-        .badge-status { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
-        .badge-pending { background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.2); }
-        .badge-approved { background: rgba(16,185,129,0.1); color: #059669; border: 1px solid rgba(16,185,129,0.2); }
-        .badge-rejected { background: rgba(239,68,68,0.1); color: #dc2626; border: 1px solid rgba(239,68,68,0.2); }
-        
-        .chart-container { position: relative; width: 100%; max-width: 200px; margin: 0 auto; }
-        .chart-center-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .content-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+        .table-custom th { background: #f8fafc; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 14px; }
+        .table-custom td { vertical-align: middle; font-size: 14px; padding: 14px; color: #334155; border-bottom: 1px solid #f1f5f9; }
     </style>
 </head>
 <body>
@@ -129,11 +104,12 @@ $recent_submissions = $conn->query("
     <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="sidebar-logo-container">
-            <div style="background: #3b82f6; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">DL</div>
-            <div class="sidebar-title"><h2>DIGITAL LAB<br>MANUAL</h2></div>
+            <img src="../assets/images/college-logo.png" alt="KDP Logo">
+            <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
+            <div class="sidebar-subtitle">Admin Portal</div>
         </div>
         <ul class="nav-links">
-            <li class="active" onclick="window.location.href='dashboard.php'"><i class="fas fa-chart-pie"></i> Dashboard</li>
+            <li class="active" onclick="window.location.href='dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
             <li onclick="window.location.href='Student_Mgmt.php'"><i class="fas fa-user-graduate"></i> Student Mgmt</li>
             <li onclick="window.location.href='faculty_mgmt.php'"><i class="fas fa-chalkboard-teacher"></i> Faculty Mgmt</li>
             <li onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book"></i> Subject Mgmt</li>
@@ -141,213 +117,201 @@ $recent_submissions = $conn->query("
             <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
             <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
             <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
-            <li onclick="window.location.href='Expense Mgmt.php'"><i class="fas fa-wallet"></i> Expense Mgmt</li>
-            <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #ef4444;"><i class="fas fa-sign-out-alt"></i> Logout</li>
+            <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #f87171;"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
     </div>
 
     <!-- MAIN CONTENT -->
     <div class="main">
+        
         <!-- TOPBAR -->
-        <div class="topbar">
-            <!-- Search converts to functional GET request -->
-            <form action="Submissions.php" method="GET" class="search-box">
+        <div class="topbar mb-4">
+            <div class="search-box">
                 <i class="fas fa-search text-muted"></i>
-                <input type="text" name="search" placeholder="Search submissions by student...">
-                <button type="submit" class="d-none"></button>
-            </form>
+                <input type="text" placeholder="Search dashboard...">
+            </div>
             
-            <div class="d-flex align-items-center gap-3">
-                <!-- Smart Notification Bell -->
-                <div class="notif-badge" onclick="window.location.href='Submissions.php'">
-                    <i class="far fa-bell"></i>
+            <div class="d-flex align-items-center gap-4">
+                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'">
+                    <i class="far fa-bell text-secondary fs-5"></i>
                     <?php if($pending_reviews > 0): ?>
-                        <span class="badge-count"><?php echo $pending_reviews; ?></span>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 9px;"><?php echo $pending_reviews; ?></span>
                     <?php endif; ?>
                 </div>
 
-                <!-- DYNAMIC PROFILE SECTION (Yahan Maine 'Profile.php' add kiya hai) -->
-                <div class="user-profile">
-                    <a href="Profile.php" class="d-flex align-items-center gap-2" style="text-decoration: none; color: inherit;">
-                        <div class="user-avatar">
-                            <img src="../logo.png" alt="KDP" style="width: 100%; height: 100%; object-fit: cover;">
-                        </div>
-                        <div>
-                            <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;"><?php echo htmlspecialchars($admin_name); ?></div>
-                            <div class="text-muted" style="font-size: 11.5px;"><?php echo htmlspecialchars($admin_dept); ?></div>
-                        </div>
-                    </a>
-                </div>
+                <a href="Profile.php" class="profile-pill">
+                    <div class="profile-text">
+                        <span class="profile-welcome">Welcome Back,</span>
+                        <h4 class="profile-name">
+                            <?php 
+                                $name_parts = explode(' ', $admin_name);
+                                echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : 'Admin';
+                            ?>
+                        </h4>
+                    </div>
+                    <div class="profile-avatar">HOD</div>
+                </a>
             </div>
         </div>
 
-        <!-- HEADER TITLE -->
-        <div>
-            <h4 class="fw-bold text-dark mb-1">Overview Dashboard</h4>
-            <p class="text-muted small mb-0">Live tracking of students, lab manuals progress, and review analytics.</p>
+        <!-- PAGE HEADER -->
+        <div class="mb-4">
+            <h3 class="fw-bold text-dark mb-1" style="font-size: 24px;">Admin Dashboard</h3>
+            <p class="text-muted small mb-0">Overview and real-time system management for Computer Engineering Department.</p>
         </div>
 
-        <!-- STATS GRID (Clickable and Dynamic) -->
-        <div class="stats-grid">
-            <div class="stat-card" onclick="window.location.href='Student_Mgmt.php'">
-                <div>
-                    <div class="stat-title">Total Students</div>
-                    <div class="stat-value"><?php echo number_format($total_students); ?></div>
-                </div>
-                <div class="stat-icon"><i class="fas fa-user-graduate"></i></div>
-            </div>
-            
-            <div class="stat-card" onclick="window.location.href='faculty_mgmt.php'">
-                <div>
-                    <div class="stat-title">Active Faculty</div>
-                    <div class="stat-value"><?php echo number_format($active_faculty); ?></div>
-                </div>
-                <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
-            </div>
-            
-            <div class="stat-card" onclick="window.location.href='Submissions.php'">
-                <div>
-                    <div class="stat-title">Pending Reviews</div>
-                    <div class="stat-value"><?php echo number_format($pending_reviews); ?></div>
-                </div>
-                <div class="stat-icon"><i class="fas fa-clock"></i></div>
-            </div>
-            
-            <div class="stat-card" onclick="window.location.href='Submissions.php'">
-                <div>
-                    <div class="stat-title">Rejected Submissions</div>
-                    <div class="stat-value"><?php echo number_format($rejected_submissions); ?></div>
-                </div>
-                <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
-            </div>
-        </div>
-
-        <!-- LOWER SECTION -->
-        <div class="lower-grid">
-            <!-- DYNAMIC CHART.JS GRAPH CARD -->
-            <div class="content-box">
-                <h6 class="fw-bold text-dark mb-4">Submission Breakdown</h6>
-                <div class="d-flex flex-column align-items-center justify-content-center py-2">
-                    <div class="chart-container">
-                        <canvas id="submissionsChart"></canvas>
-                        <div class="chart-center-text">
-                            <span class="fw-bold text-dark" style="font-size: 22px;"><?php echo number_format($total_submissions); ?></span><br>
-                            <span class="text-muted" style="font-size: 11px;">Total</span>
+        <!-- STATS CARDS ROW (CLICKABLE BUTTONS) -->
+        <div class="row g-4 mb-4">
+            <!-- Total Students Card -> Redirects to Student Management -->
+            <div class="col-md-3">
+                <a href="Student_Mgmt.php" class="text-decoration-none">
+                    <div class="stat-card blue h-100">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted fw-bold" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Total Students</span>
+                                <h2 class="fw-bold text-dark mt-1 mb-0" style="font-size: 28px;"><?php echo $total_students; ?></h2>
+                            </div>
+                            <div class="p-3 rounded-circle bg-light text-primary fs-4"><i class="fas fa-user-graduate"></i></div>
                         </div>
                     </div>
-                </div>
-                <div class="d-flex justify-content-center gap-3 mt-4">
-                    <div class="d-flex align-items-center gap-1"><span style="width:10px; height:10px; border-radius:50%; background:#10b981;"></span><small class="text-muted">Approved</small></div>
-                    <div class="d-flex align-items-center gap-1"><span style="width:10px; height:10px; border-radius:50%; background:#f59e0b;"></span><small class="text-muted">Pending</small></div>
-                    <div class="d-flex align-items-center gap-1"><span style="width:10px; height:10px; border-radius:50%; background:#ef4444;"></span><small class="text-muted">Rejected</small></div>
+                </a>
+            </div>
+
+            <!-- Active Faculty Card -> Redirects to Faculty Management -->
+            <div class="col-md-3">
+                <a href="faculty_mgmt.php" class="text-decoration-none">
+                    <div class="stat-card green h-100">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted fw-bold" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Active Faculty</span>
+                                <h2 class="fw-bold text-dark mt-1 mb-0" style="font-size: 28px;"><?php echo $total_faculty; ?></h2>
+                            </div>
+                            <div class="p-3 rounded-circle bg-light text-success fs-4"><i class="fas fa-chalkboard-teacher"></i></div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Pending Reviews Card -> Redirects to Submissions filtered by Pending -->
+            <div class="col-md-3">
+                <a href="Submissions.php?status=Pending" class="text-decoration-none">
+                    <div class="stat-card yellow h-100">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted fw-bold" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Pending Reviews</span>
+                                <h2 class="fw-bold text-dark mt-1 mb-0" style="font-size: 28px;"><?php echo $pending_reviews; ?></h2>
+                            </div>
+                            <div class="p-3 rounded-circle bg-light text-warning fs-4"><i class="fas fa-clock"></i></div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Rejected Submissions Card -> Redirects to Submissions filtered by Rejected -->
+            <div class="col-md-3">
+                <a href="Submissions.php?status=Rejected" class="text-decoration-none">
+                    <div class="stat-card red h-100">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted fw-bold" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Rejected Submissions</span>
+                                <h2 class="fw-bold text-dark mt-1 mb-0" style="font-size: 28px;"><?php echo $rejected_submissions; ?></h2>
+                            </div>
+                            <div class="p-3 rounded-circle bg-light text-danger fs-4"><i class="fas fa-times-circle"></i></div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- TWO COLUMN LAYOUT: BREAKDOWN & RECENT SUBMISSIONS -->
+        <div class="row g-4">
+            <!-- SUBMISSION BREAKDOWN -->
+            <div class="col-md-5">
+                <div class="content-box h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1" style="font-size: 16px;"><i class="fas fa-chart-pie text-primary me-2"></i> Submission Breakdown</h5>
+                        <p class="text-muted small">Live status distribution of student lab files.</p>
+                    </div>
+                    
+                    <div class="text-center py-4">
+                        <div class="p-4 rounded-circle d-inline-block bg-light border mb-3">
+                            <h1 class="fw-bold text-primary mb-0" style="font-size: 36px;"><?php echo $total_submissions; ?></h1>
+                            <small class="text-muted text-uppercase fw-bold" style="font-size: 10px;">Total Submissions</small>
+                        </div>
+                        <div class="d-flex justify-content-around mt-3">
+                            <a href="Submissions.php?status=Approved" class="text-decoration-none"><span class="badge bg-success px-2 py-1" style="cursor: pointer;">Approved: <?php echo $approved_submissions; ?></span></a>
+                            <a href="Submissions.php?status=Pending" class="text-decoration-none"><span class="badge bg-warning text-dark px-2 py-1" style="cursor: pointer;">Pending: <?php echo $pending_reviews; ?></span></a>
+                            <a href="Submissions.php?status=Rejected" class="text-decoration-none"><span class="badge bg-danger px-2 py-1" style="cursor: pointer;">Rejected: <?php echo $rejected_submissions; ?></span></a>
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <a href="Reports.php" class="btn btn-sm btn-outline-primary fw-bold" style="border-radius: 6px;">View Full Reports <i class="fas fa-arrow-right ms-1"></i></a>
+                    </div>
                 </div>
             </div>
 
-            <!-- RECENT SUBMISSIONS TABLE (DYNAMIC DATA) -->
-            <div class="content-box">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="fw-bold text-dark mb-0">Recent Student Submissions</h6>
-                    <a href="Submissions.php" class="btn btn-sm btn-light" style="font-size: 12px; font-weight: 600;">View All</a>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-custom mb-0">
-                        <thead>
-                            <tr>
-                                <th>Student</th>
-                                <th>Subject</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if($recent_submissions && $recent_submissions->num_rows > 0): ?>
-                                <?php while($row = $recent_submissions->fetch_assoc()): ?>
+            <!-- RECENT STUDENT SUBMISSIONS TABLE -->
+            <div class="col-md-7">
+                <div class="content-box h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-dark mb-0" style="font-size: 16px;"><i class="fas fa-history text-success me-2"></i> Recent Student Submissions</h5>
+                        <a href="Submissions.php" class="btn btn-sm btn-light border fw-bold" style="border-radius: 6px;">View All</a>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-custom mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Subject</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if($recent_query && $recent_query->num_rows > 0): ?>
+                                    <?php while($row = $recent_query->fetch_assoc()): ?>
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-dark" style="font-size: 13.5px;"><?php echo htmlspecialchars($row['student_name']); ?></div>
+                                                <small class="text-muted" style="font-size: 11px;"><?php echo htmlspecialchars($row['student_enrollment']); ?></small>
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold text-primary" style="font-size: 13.5px;"><?php echo htmlspecialchars($row['subject_name']); ?></div>
+                                                <small class="text-secondary" style="font-size: 11px;"><?php echo htmlspecialchars($row['practical_no']); ?></small>
+                                            </td>
+                                            <td>
+                                                <small class="text-dark" style="font-size: 12px;"><?php echo date('d M Y, h:i A', strtotime($row['submitted_at'])); ?></small>
+                                            </td>
+                                            <td>
+                                                <?php if($row['status'] == 'Approved'): ?>
+                                                    <span class="badge bg-success text-white px-2 py-1" style="font-size: 10.5px; border-radius: 20px;">Approved</span>
+                                                <?php elseif($row['status'] == 'Rejected'): ?>
+                                                    <span class="badge bg-danger text-white px-2 py-1" style="font-size: 10.5px; border-radius: 20px;">Rejected</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-warning text-dark px-2 py-1" style="font-size: 10.5px; border-radius: 20px;">Pending</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
                                     <tr>
-                                        <td>
-                                            <div class="fw-bold text-dark"><?php echo htmlspecialchars($row['name']); ?></div>
-                                            <small class="text-muted" style="font-size: 11px;">
-                                                <?php 
-                                                    // Shows only the first word of department (e.g. Computer)
-                                                    $dept_parts = explode(' ', $row['department']);
-                                                    echo htmlspecialchars($dept_parts[0]); 
-                                                ?> Engg.
-                                            </small>
-                                        </td>
-                                        <td><?php echo htmlspecialchars($row['subject_name']); ?></td>
-                                        <td>
-                                            <div class="text-dark" style="font-size: 13px;"><?php echo date('d M Y', strtotime($row['submitted_at'])); ?></div>
-                                            <div class="text-muted" style="font-size: 11px;"><?php echo date('h:i A', strtotime($row['submitted_at'])); ?></div>
-                                        </td>
-                                        <td>
-                                            <?php 
-                                                $badge_class = 'badge-pending';
-                                                if($row['status'] == 'Approved') $badge_class = 'badge-approved';
-                                                if($row['status'] == 'Rejected') $badge_class = 'badge-rejected';
-                                            ?>
-                                            <span class="badge-status <?php echo $badge_class; ?>"><?php echo $row['status']; ?></span>
+                                        <td colspan="4" class="text-center text-muted py-5">
+                                            <i class="fas fa-folder-open mb-2" style="font-size: 32px; color: #cbd5e1;"></i><br>
+                                            <span>No recent submissions found.</span>
                                         </td>
                                     </tr>
-                                <?php endwhile; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted py-5">
-                                        <i class="fas fa-inbox mb-2" style="font-size: 24px; color: #cbd5e1;"></i><br>
-                                        No recent submissions found.
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
+
     </div>
 
-    <!-- INITIALIZE CHART.JS -->
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            var ctx = document.getElementById('submissionsChart').getContext('2d');
-            
-            var approved = <?php echo $approved_submissions; ?>;
-            var pending = <?php echo $pending_reviews; ?>;
-            var rejected = <?php echo $rejected_submissions; ?>;
-            
-            if(approved === 0 && pending === 0 && rejected === 0) {
-                var dataValues = [1];
-                var bgColors = ['#e2e8f0'];
-            } else {
-                var dataValues = [approved, pending, rejected];
-                var bgColors = ['#10b981', '#f59e0b', '#ef4444'];
-            }
-
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Approved', 'Pending', 'Rejected'],
-                    datasets: [{
-                        data: dataValues,
-                        backgroundColor: bgColors,
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    cutout: '75%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if(approved === 0 && pending === 0 && rejected === 0) return " No Data";
-                                    return " " + context.label + ": " + context.raw;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        });
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
