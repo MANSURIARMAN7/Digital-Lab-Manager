@@ -103,6 +103,17 @@ $createSubjectsTable = "CREATE TABLE IF NOT EXISTS `subjects` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 $conn->query($createSubjectsTable);
 
+// Ensure lab_manuals table exists
+$createLabManualsTable = "CREATE TABLE IF NOT EXISTS `lab_manuals` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `subject_name` VARCHAR(100) NOT NULL,
+    `practical_no` VARCHAR(50) NOT NULL,
+    `title` VARCHAR(255) NOT NULL,
+    `file_path` VARCHAR(255) NOT NULL,
+    `uploaded_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+$conn->query($createLabManualsTable);
+
 // Insert default Admin if it doesn't exist
 $checkAdmin = $conn->query("SELECT * FROM `users` WHERE `user_id` = 'admin'");
 if ($checkAdmin && $checkAdmin->num_rows == 0) {
