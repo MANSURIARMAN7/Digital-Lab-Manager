@@ -17,107 +17,133 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Lab Manager - Admin Panel</title>
+    <meta name="description" content="Digital Lab Manager - Admin Panel">
+    <title>Digital Lab Manager – Admin</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <!-- Custom Admin CSS -->
     <link rel="stylesheet" href="css/admin.css">
-    <!-- Chart.js CDN (used in some pages) -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-    <!-- SIDEBAR -->
+    <!-- ========== SIDEBAR ========== -->
     <div class="sidebar">
         <div class="sidebar-logo-container">
             <div class="brand-icon">
-                <i class="fas fa-microscope"></i>
+                <i class="fas fa-flask"></i>
             </div>
             <div class="sidebar-title">
-                <h2>DIGITAL LAB<br>MANAGER</h2>
+                <h2>Digital Lab<br>Manager</h2>
             </div>
         </div>
+
         <ul class="nav-links">
+            <span class="nav-section-label">Overview</span>
             <li>
                 <a href="dashboard.php" class="<?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-chart-pie"></i> Dashboard
+                    <i class="fas fa-chart-pie nav-icon"></i>
+                    Dashboard
+                </a>
+            </li>
+
+            <span class="nav-section-label">Management</span>
+            <li>
+                <a href="Student_Mgmt.php" class="<?php echo ($current_page === 'Student_Mgmt.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-graduate nav-icon"></i>
+                    Student Mgmt
                 </a>
             </li>
             <li>
-                <a href="Student_Mgmt.php" class="<?php echo ($current_page === 'Student_Mgmt.php' || $current_page === 'Student Mgmt.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-user-graduate"></i> Student Mgmt
+                <a href="faculty_mgmt.php" class="<?php echo ($current_page === 'faculty_mgmt.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-chalkboard-user nav-icon"></i>
+                    Faculty Mgmt
                 </a>
             </li>
             <li>
-                <a href="faculty_mgmt.php" class="<?php echo ($current_page === 'faculty_mgmt.php' || $current_page === 'Faculty Mgmt.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-chalkboard-teacher"></i> Faculty Mgmt
+                <a href="subject_mgmt.php" class="<?php echo ($current_page === 'subject_mgmt.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-book-open nav-icon"></i>
+                    Subject Mgmt
                 </a>
             </li>
             <li>
-                <a href="subject_mgmt.php" class="<?php echo ($current_page === 'subject_mgmt.php' || $current_page === 'Subject Mgmt.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-book"></i> Subject Mgmt
+                <a href="Lab_Manuals.php" class="<?php echo ($current_page === 'Lab_Manuals.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-file-lines nav-icon"></i>
+                    Lab Manuals
                 </a>
             </li>
-            <li>
-                <a href="Lab_Manuals.php" class="<?php echo ($current_page === 'Lab_Manuals.php' || $current_page === 'Lab Manuals.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-file-alt"></i> Lab Manuals
-                </a>
-            </li>
+
+            <span class="nav-section-label">Academic</span>
             <li>
                 <a href="Submissions.php" class="<?php echo ($current_page === 'Submissions.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-folder-open"></i> Submissions
+                    <i class="fas fa-folder-open nav-icon"></i>
+                    Submissions
                 </a>
             </li>
             <li>
                 <a href="Review & Marks.php" class="<?php echo ($current_page === 'Review & Marks.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-check-circle"></i> Review & Marks
-                </a>
-            </li>
-
-            <li class="mt-auto">
-                <a href="../logout.php" class="logout-link">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                    <i class="fas fa-circle-check nav-icon"></i>
+                    Review & Marks
                 </a>
             </li>
         </ul>
+
+        <div class="sidebar-footer">
+            <ul class="nav-links" style="padding: 0;">
+                <li>
+                    <a href="../logout.php" class="logout-link">
+                        <i class="fas fa-right-from-bracket nav-icon"></i>
+                        Logout
+                    </a>
+                </li>
+            </ul>
+        </div>
     </div>
 
-    <!-- MAIN CONTENT -->
+    <!-- ========== MAIN ========== -->
     <div class="main">
-        <!-- TOPBAR -->
+
+        <!-- TOP BAR -->
         <div class="topbar">
             <div class="search-box">
-                <i class="fas fa-search text-muted"></i>
-                <input type="text" placeholder="Search globally...">
+                <i class="fas fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search anything...">
             </div>
-            <div class="d-flex align-items-center gap-3">
+            <div class="topbar-right">
                 <div class="notif-badge">
                     <i class="far fa-bell"></i>
+                    <span class="dot"></span>
                 </div>
+                <div class="topbar-divider"></div>
                 <div class="user-profile">
                     <div class="user-avatar">AD</div>
-                    <div>
-                        <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">System Admin</div>
-                        <div class="text-muted" style="font-size: 11.5px;">KDP University</div>
+                    <div class="user-info">
+                        <div class="user-name">System Admin</div>
+                        <div class="user-role">KDP University</div>
                     </div>
+                    <i class="fas fa-chevron-down" style="font-size: 11px; color: var(--text-muted); margin-left: 2px;"></i>
                 </div>
             </div>
         </div>
-        
-        <!-- Alerts Handling -->
-        <?php if (isset($_SESSION['success_message'])): ?>
-            <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm" role="alert" style="border-left: 5px solid #10b981;">
-                <i class="fas fa-check-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['success_message']); unset($_SESSION['success_message']); ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        <?php endif; ?>
-        <?php if (isset($_SESSION['error_message'])): ?>
-            <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm" role="alert" style="border-left: 5px solid #ef4444;">
-                <i class="fas fa-exclamation-triangle me-2"></i> <?php echo htmlspecialchars($_SESSION['error_message']); unset($_SESSION['error_message']); ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        <?php endif; ?>
 
-        <!-- Dynamic Content Starts Here -->
+        <!-- CONTENT AREA -->
+        <div class="content-area">
+
+            <!-- Session Alerts -->
+            <?php if (isset($_SESSION['success_message'])): ?>
+                <div class="alert alert-success">
+                    <i class="fas fa-circle-check"></i>
+                    <?php echo htmlspecialchars($_SESSION['success_message']); unset($_SESSION['success_message']); ?>
+                </div>
+            <?php endif; ?>
+            <?php if (isset($_SESSION['error_message'])): ?>
+                <div class="alert alert-danger">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <?php echo htmlspecialchars($_SESSION['error_message']); unset($_SESSION['error_message']); ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- Dynamic Content Starts Here -->
