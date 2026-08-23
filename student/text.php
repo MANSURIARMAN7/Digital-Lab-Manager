@@ -29,3 +29,49 @@ if (file_exists($submissions_file)) {
         }
     }
 }
+iv class="college-name">
+            <img src="../assets/images/KDP-Logo.png" alt="Logo" class="college-logo">
+            <div>
+                <h2>K.D. Polytechnic</h2>
+                <p>Student Portal</p>
+            </div>
+        </div>
+        <nav class="nav-links">
+            <a href="stdashboard.php">🏠 <span>Dashboard</span></a>
+            <a href="upload-manual.php">📤 <span>Upload Manual</span></a>
+            <a href="my-manuals.php">📚 <span>My Manuals</span></a>
+            <a class="active" href="submission-history.php">🕘 <span>History</span></a>
+            <a href="profile.php">👤 <span>My Profile</span></a>
+            <a href="../logout.php" class="logout">⇥ <span>Logout</span></a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <p class="small-text">Academic Session 2026</p>
+                <h1>Submission History 🕘</h1>
+            </div>
+        </header>
+
+        <div class="history-card">
+            <h2>All Past Activity</h2>
+            <p style="color:#64748b; font-size:14px;">A complete log of all lab manuals you have submitted so far.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Subject</th>
+                        <th>Practical Title</th>
+                        <th>Submitted On</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (count($history_list) > 0): ?>
+                        <?php foreach ($history_list as $index => $item): ?>
+                            <?php 
+                                $status = strtolower($item['status'] ?? 'pending');
+                                $badgeClass = 'status-pending';
+                                if ($status === 'appro
