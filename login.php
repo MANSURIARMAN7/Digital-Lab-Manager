@@ -10,52 +10,52 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     } elseif ($_SESSION['role'] === 'student') {
         header("Location: student/stdashboard.php");
         exit();
+    } else {
+        header("Location: admin/dashboard.php");
+        exit();
     }
 }
 
 $error = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $user_id = $conn->real_escape_string($_POST['user_id']);
-    $password = $_POST['password'];
+    $user_input = $conn->real_escape_string(trim($_POST['user_id']));
+    $password = trim($_POST['password']);
 
-    // 🚀 MySQL se seedha User check kar rahe hain
-    $query = "SELECT * FROM users WHERE user_id = '$user_id' AND password = '$password'";
+    // 🚀 Flexible Query: Email, Short ID, ya Name teeno se check karega
+    $query = "SELECT * FROM users WHERE email = '$user_input' OR user_id = '$user_input' OR name LIKE '%$user_input%'";
     $result = $conn->query($query);
 
     if ($result && $result->num_rows > 0) {
         $user = $result->fetch_assoc();
+        $db_password = $user['password'];
         
-        // Purana session saaf karo
-        session_unset();
-        
-        // Session set kar rahe hain
-        $_SESSION['logged_in'] = true;
-        $_SESSION['user_id'] = $user['user_id'];
-        $_SESSION['name'] = $user['name'];
-        $_SESSION['role'] = strtolower($user['role']);
-        
-        // Subjects save karo
-        if (isset($user['subjects']) && !empty($user['subjects'])) {
-            $decoded = json_decode($user['subjects'], true);
-            if (is_array($decoded)) {
-                $_SESSION['subjects'] = $decoded;
+        // 🔐 Smart Password Check (Supports Plain Text, MD5, & Hashed Passwords)
+        if ($password === $db_password || md5($password) === $db_password || password_verify($password, $db_password)) {
+            
+            // Purana session saaf karo
+            session_unset();
+            
+            // Session set kar rahe hain
+            $_SESSION['logged_in'] = true;
+            $_SESSION['user_id'] = $user['user_id'];
+            $_SESSION['name'] = $user['name'];
+            $_SESSION['role'] = strtolower(trim($user['role']));
+            
+            // Role ke hisaab se redirect
+            if ($_SESSION['role'] == 'faculty') {
+                header("Location: Faculty/faculty_dashboard.php");
+            } elseif ($_SESSION['role'] == 'student') {
+                header("Location: student/stdashboard.php");
             } else {
-                $_SESSION['subjects'] = array_map('trim', explode(',', $user['subjects']));
+                header("Location: admin/dashboard.php"); // Redirect to admin dashboard
             }
-        }
-        
-        // Role ke hisaab se redirect
-        if ($_SESSION['role'] == 'faculty') {
-            header("Location: Faculty/faculty_dashboard.php");
-        } elseif ($_SESSION['role'] == 'student') {
-            header("Location: student/stdashboard.php");
+            exit();
         } else {
-            header("Location: admin/dashboard.php"); // Redirect to modular admin dashboard
+            $error = "Invalid Password! Please try again.";
         }
-        exit();
     } else {
-        $error = "Invalid User ID or Password!";
+        $error = "User ID / Enrollment not found in database!";
     }
 }
 ?>
@@ -73,7 +73,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         .login-container { background: #ffffff; width: 400px; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border-top: 5px solid #113460; text-align: center; }
         
-        /* Circular Logo Design */
         .logo-wrapper { width: 90px; height: 90px; background: #ffffff; border-radius: 50%; margin: 0 auto 20px auto; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 2px solid #e2e8f0; }
         .logo-wrapper img { width: 105%; height: auto; }
         
@@ -96,8 +95,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <div class="login-container">
         <div class="logo-wrapper">
-            <!-- Ensure KDP Logo path is correct -->
-            <img src="assets/images/KDP-Logo.png" alt="KDP Logo">
+            <img src="assets/images/KDP-Logo.png" alt="KDP Logo" onerror="this.src='../assets/images/college-logo.png'">
         </div>
         <h2>Welcome Back</h2>
         <p>Login to KDP Digital Lab Manager</p>
@@ -108,15 +106,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         <form action="" method="POST">
             <div class="input-group">
-                <label for="user_id">Enrollment No. / Faculty ID</label>
+                <label for="user_id">Enrollment No. / Faculty ID / Admin</label>
                 <i class="fas fa-user"></i>
-                <input type="text" name="user_id" id="user_id" placeholder="Enter your ID" required>
+                <input type="text" name="user_id" id="user_id" placeholder="e.g. admin, mct, or enrollment" required autocomplete="off">
             </div>
             
             <div class="input-group">
                 <label for="password">Password</label>
                 <i class="fas fa-lock"></i>
-                <input type="password" name="password" id="password" placeholder="Enter your password" required>
+                <input type="password" name="password" id="password" placeholder="Enter password (e.g. 123456)" required>
             </div>
             
             <button type="submit" class="btn-login">Secure Login</button>
