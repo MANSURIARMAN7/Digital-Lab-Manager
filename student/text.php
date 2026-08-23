@@ -1,3 +1,5 @@
+<?php echo "Server Working Perfectly!"; ?>
+
 <?php
 // Error display ON taaki koi issue ho toh turant dikhe
 ini_set('display_errors', 1);
@@ -27,53 +29,7 @@ if (file_exists($submissions_file)) {
         }
     }
 }
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Submission History | K.D. Polytechnic</title>
-    <link rel="stylesheet" href="../assets/css/student.css?v=8">
-    <style>
-        .history-card {
-            background: #fff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            margin-top: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        th {
-            background-color: #f8fafc;
-            color: #475569;
-            font-weight: 600;
-        }
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .status-approved { background: #dcfce7; color: #166534; }
-        .status-pending { background: #fef9c3; color: #854d0e; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
-    </style>
-</head>
-<body>
-
-<div class="app">
-    <aside class="sidebar">
-        <div class="college-name">
+iv class="college-name">
             <img src="../assets/images/KDP-Logo.png" alt="Logo" class="college-logo">
             <div>
                 <h2>K.D. Polytechnic</h2>
@@ -118,8 +74,7 @@ if (file_exists($submissions_file)) {
                             <?php 
                                 $status = strtolower($item['status'] ?? 'pending');
                                 $badgeClass = 'status-pending';
-                                if ($status === 'approved') $badgeClass = 'status-approved';
-                                if ($status === 'rejected') $badgeClass = 'status-rejected';
+                                if ($status === 'appro       if ($status === 'rejected') $badgeClass = 'status-rejected';
                             ?>
                             <tr>
                                 <td><?php echo $index + 1; ?></td>
