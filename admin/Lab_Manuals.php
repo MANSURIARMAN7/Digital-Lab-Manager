@@ -1,5 +1,6 @@
 <?php
 session_start();
+// 🔗 Database Connection 
 include '../db.php';
 
 // 1. Admin Login Check
@@ -8,81 +9,90 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
-// Fetch Admin Details for Profile Pill
+// ==========================================
+// 🗑️ DELETE LOGIC (With Physical File Deletion)
+// ==========================================
+$message = "";
+if (isset($_GET['delete_id'])) {
+    $del_id = (int)$_GET['delete_id'];
+    
+    $res = $conn->query("SELECT file_path FROM lab_manuals WHERE id = $del_id");
+    if ($res && $row = $res->fetch_assoc()) {
+        // Pura path theek karke file delete karo
+        if (!empty($row['file_path']) && file_exists($row['file_path'])) {
+            @unlink($row['file_path']);
+        }
+    }
+    
+    if($conn->query("DELETE FROM lab_manuals WHERE id = $del_id")) {
+        $_SESSION['msg'] = "<div class='alert alert-success alert-dismissible fade show' id='autoAlert'>Manual Deleted Successfully!</div>";
+    }
+    header("Location: Lab_Manuals.php");
+    exit();
+}
+
+// Show session message if exists
+if(isset($_SESSION['msg'])) {
+    $message = $_SESSION['msg'];
+    unset($_SESSION['msg']);
+}
+
+// Fetch Admin Details
 $admin_id = $_SESSION['user_id'];
 $admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = '$admin_id'");
 $admin_data = $admin_query ? $admin_query->fetch_assoc() : null;
 $admin_name = $admin_data['name'] ?? 'System Administrator';
 
-// Ensure lab_manuals table exists
-$conn->query("CREATE TABLE IF NOT EXISTS lab_manuals (
-    manual_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    subject_name VARCHAR(255) NOT NULL,
-    semester INT NOT NULL,
-    file_path VARCHAR(255) NOT NULL,
-    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)");
-
 // ==========================================
 // 🚀 UPLOAD / ADD NEW LAB MANUAL LOGIC
 // ==========================================
-$message = "";
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_manual'])) {
-    $title = $conn->real_escape_string($_POST['title']);
-    $subject_name = $conn->real_escape_string($_POST['subject_name']);
+    $title = $conn->real_escape_string(trim($_POST['title']));
+    $subject_name = $conn->real_escape_string(trim($_POST['subject_name']));
     $semester = (int)$_POST['semester'];
+    $branch = $conn->real_escape_string(trim($_POST['branch']));
+    $practical_no = $conn->real_escape_string(trim($_POST['practical_no']));
+    $end_date = $conn->real_escape_string($_POST['end_date']);
     
-    // File upload handling
     if (isset($_FILES['manual_file']) && $_FILES['manual_file']['error'] == 0) {
         $file_name = $_FILES['manual_file']['name'];
         $file_tmp = $_FILES['manual_file']['tmp_name'];
+        $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
         
-        $upload_dir = '../uploads/manuals/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-        
-        $new_file_name = time() . '_' . preg_replace("/\s+/", "_", $file_name);
-        $destination = $upload_dir . $new_file_name;
-        
-        if (move_uploaded_file($file_tmp, $destination)) {
-            $sql = "INSERT INTO lab_manuals (title, subject_name, semester, file_path) 
-                    VALUES ('$title', '$subject_name', '$semester', '$destination')";
-            if ($conn->query($sql)) {
-                $message = "<div class='alert alert-success alert-dismissible fade show' role='alert'>Lab Manual uploaded successfully!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+        // Strict PDF Check
+        if ($file_ext === 'pdf') {
+            $upload_dir = '../uploads/manuals/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            
+            // Generate clean unique filename
+            $clean_title = preg_replace("/[^a-zA-Z0-9]+/", "_", $title);
+            $new_file_name = time() . '_' . $clean_title . '.pdf';
+            $destination = $upload_dir . $new_file_name;
+            
+            if (move_uploaded_file($file_tmp, $destination)) {
+                $sql = "INSERT INTO lab_manuals (title, subject_name, semester, branch, practical_no, end_date, file_path) 
+                        VALUES ('$title', '$subject_name', '$semester', '$branch', '$practical_no', '$end_date', '$destination')";
+                
+                if ($conn->query($sql)) {
+                    $message = "<div class='alert alert-success alert-dismissible fade show' id='autoAlert'><i class='fas fa-check-circle'></i> Lab Manual published successfully!</div>";
+                } else {
+                    $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Database Error: " . $conn->error . "</div>";
+                }
             } else {
-                $message = "<div class='alert alert-danger alert-dismissible fade show' role='alert'>Database Error: " . $conn->error . "<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+                $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Failed to move file to server. Check folder permissions.</div>";
             }
         } else {
-            $message = "<div class='alert alert-danger alert-dismissible fade show' role='alert'>Failed to move uploaded file to server folder.<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+            $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'>Invalid format! Only PDF files are allowed.</div>";
         }
     } else {
-        $message = "<div class='alert alert-danger alert-dismissible fade show' role='alert'>Please select a valid PDF file to upload.<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+        $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Please select a valid PDF file.</div>";
     }
 }
 
-// ==========================================
-// 🗑️ DELETE LAB MANUAL LOGIC
-// ==========================================
-if (isset($_GET['delete_id'])) {
-    $del_id = (int)$_GET['delete_id'];
-    // Optional: fetch file path to unlink from folder if needed
-    $res = $conn->query("SELECT file_path FROM lab_manuals WHERE manual_id='$del_id'");
-    if($res && $row = $res->fetch_assoc()) {
-        if(file_exists($row['file_path'])) {
-            @unlink($row['file_path']);
-        }
-    }
-    $conn->query("DELETE FROM lab_manuals WHERE manual_id='$del_id'");
-    header("Location: Lab_Manuals.php");
-    exit();
-}
-
-// Fetch Subjects for dropdown
+// Fetch Subjects & Manuals
 $subjects_list = $conn->query("SELECT DISTINCT subject_name, semester FROM subjects ORDER BY semester ASC, subject_name ASC");
-
-// Fetch Lab Manuals from Database
 $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DESC");
 ?>
 
@@ -101,15 +111,16 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
         .sidebar { width: var(--sidebar-width); background-color: var(--sidebar-bg); color: #ffffff; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; }
         .sidebar-logo-container { padding: 30px 20px 20px 20px; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
         .sidebar-logo-container img { width: 90px; height: 90px; object-fit: contain; margin-bottom: 15px; border-radius: 50%; padding: 5px; background: rgba(255,255,255,0.1); }
-        .sidebar-title h2 { font-size: 18px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: 0.5px; color: #fff;}
+        .sidebar-title h2 { font-size: 18px; font-weight: 700; margin: 0; color: #fff;}
         .sidebar-subtitle { font-size: 13px; color: #94a3b8; margin-top: 5px; font-weight: 500;}
         .nav-links { list-style: none; padding: 20px 15px; margin: 0; flex-grow: 1; }
         .nav-links li { padding: 12px 20px; margin: 5px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 500; color: #a0aec0; transition: all 0.3s ease; }
         .nav-links li:hover { color: white; background: rgba(255,255,255,0.08); }
         .nav-links li.active { background: var(--accent-blue); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); font-weight: 600; }
+        
         .main { flex: 1; padding: 30px 40px; overflow-y: auto; }
         
-        .topbar { background: transparent; padding: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
+        .topbar { background: transparent; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
         .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
         .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
         
@@ -117,7 +128,7 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
         .profile-text { text-align: right; margin-right: 15px; }
         .profile-welcome { display: block; font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
         .profile-name { margin: 0; font-size: 14px; color: #1e293b; font-weight: 700; }
-        .profile-avatar { width: 42px; height: 42px; background-color: var(--accent-blue); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4); letter-spacing: 1px;}
+        .profile-avatar { width: 42px; height: 42px; background-color: var(--accent-blue); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
 
         .content-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
         .table-custom th { background: #f8fafc; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 14px; }
@@ -141,7 +152,6 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
             <li onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book"></i> Subject Mgmt</li>
             <li class="active" onclick="window.location.href='Lab_Manuals.php'"><i class="fas fa-file-alt"></i> Lab Manuals</li>
             <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
-            <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
             <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
             <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #f87171;"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
@@ -151,51 +161,45 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
     <div class="main">
         
         <!-- TOPBAR -->
-        <div class="topbar mb-3">
+        <div class="topbar">
+            <!-- 🔍 LIVE SEARCH INPUT -->
             <div class="search-box">
                 <i class="fas fa-search text-muted"></i>
-                <input type="text" placeholder="Search lab manuals...">
+                <input type="text" id="searchInput" placeholder="Search manuals by name or subject..." onkeyup="filterTable()">
             </div>
             
             <div class="d-flex align-items-center gap-4">
-                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'">
-                    <i class="far fa-bell text-secondary fs-5"></i>
-                </div>
-
                 <a href="Profile.php" class="profile-pill">
                     <div class="profile-text">
                         <span class="profile-welcome">Welcome Back,</span>
-                        <h4 class="profile-name">
-                            <?php 
-                                $name_parts = explode(' ', $admin_name);
-                                echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : 'Admin';
-                            ?>
-                        </h4>
+                        <h4 class="profile-name">Admin</h4>
                     </div>
-                    <div class="profile-avatar">HOD</div>
+                    <div class="profile-avatar"><i class="fas fa-user-shield"></i></div>
                 </a>
             </div>
         </div>
 
-        <?php echo $message; ?>
+        <!-- ⏳ AUTO-DISMISSING ALERT -->
+        <div id="alertContainer">
+            <?php echo $message; ?>
+        </div>
 
-        <!-- PAGE HEADER -->
-        <div class="mb-4">
+        <div class="mb-4 mt-2">
             <h3 class="fw-bold text-dark mb-1" style="font-size: 24px;">Lab Manuals Management</h3>
-            <p class="text-muted small mb-0">Upload and manage official practical lab manuals for students and faculty.</p>
+            <p class="text-muted small mb-0">Upload and manage official practical lab manuals.</p>
         </div>
 
         <!-- TWO COLUMN LAYOUT -->
         <div class="row g-4">
-            <!-- LEFT COLUMN: UPLOAD MANUAL FORM -->
+            <!-- LEFT: UPLOAD FORM -->
             <div class="col-md-4">
                 <div class="content-box">
                     <h5 class="fw-bold text-dark mb-3" style="font-size: 16px;"><i class="fas fa-upload text-primary me-2"></i> Upload Lab Manual</h5>
                     
                     <form action="" method="POST" enctype="multipart/form-data">
                         <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Manual Title / Practical Name</label>
-                            <input type="text" name="title" class="form-control" required placeholder="e.g. Database Lab Manual - Sem 1">
+                            <label class="form-label fw-bold small text-muted">Manual Title</label>
+                            <input type="text" name="title" class="form-control" required placeholder="e.g. Basic Math Practical">
                         </div>
                         
                         <div class="mb-3">
@@ -208,12 +212,6 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
                                             <?php echo htmlspecialchars($sub['subject_name']); ?> (Sem <?php echo $sub['semester']; ?>)
                                         </option>
                                     <?php endwhile; ?>
-                                <?php else: ?>
-                                    <option value="Mathematics-I">Mathematics-I</option>
-                                    <option value="Physics">Physics</option>
-                                    <option value="Computer Programming Fundamentals (CPF)">Computer Programming Fundamentals (CPF)</option>
-                                    <option value="Basics of Electronics (BOE)">Basics of Electronics (BOE)</option>
-                                    <option value="Computer Systems & Environment (CSE)">Computer Systems & Environment (CSE)</option>
                                 <?php endif; ?>
                             </select>
                         </div>
@@ -221,7 +219,7 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
                         <div class="mb-3">
                             <label class="form-label fw-bold small text-muted">Semester</label>
                             <select name="semester" class="form-select" required>
-                                <option value="1" selected>Semester 1</option>
+                                <option value="1">Semester 1</option>
                                 <option value="2">Semester 2</option>
                                 <option value="3">Semester 3</option>
                                 <option value="4">Semester 4</option>
@@ -230,68 +228,82 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
                             </select>
                         </div>
 
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Branch</label>
+                            <select name="branch" class="form-select" required>
+                                <option value="Computer Engineering">Computer Engineering</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                <option value="Civil Engineering">Civil Engineering</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Practical No.</label>
+                            <input type="text" name="practical_no" class="form-control" required placeholder="e.g. PR.1">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Due Date</label>
+                            <input type="date" name="end_date" class="form-control" required>
+                        </div>
+
                         <div class="mb-4">
                             <label class="form-label fw-bold small text-muted">Upload PDF File</label>
                             <input type="file" name="manual_file" class="form-control" accept=".pdf" required>
-                            <small class="text-muted" style="font-size: 11px;">Only PDF files allowed (Max 10MB).</small>
                         </div>
                         
-                        <button type="submit" name="add_manual" class="btn btn-primary w-100 fw-bold py-2" style="background: var(--accent-blue); border-radius: 8px;">
-                            <i class="fas fa-cloud-upload-alt me-1"></i> Upload Manual
+                        <button type="submit" name="add_manual" class="btn btn-primary w-100 fw-bold py-2">
+                            <i class="fas fa-cloud-upload-alt me-1"></i> Publish Manual
                         </button>
                     </form>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: LAB MANUALS TABLE -->
+            <!-- RIGHT: DATATABLE WITH SEARCH -->
             <div class="col-md-8">
                 <div class="content-box">
-                    <h5 class="fw-bold text-dark mb-3" style="font-size: 16px;"><i class="fas fa-file-pdf text-success me-2"></i> Published Lab Manuals</h5>
+                    <h5 class="fw-bold text-dark mb-3" style="font-size: 16px;"><i class="fas fa-list text-success me-2"></i> Published Manuals</h5>
                     
-                    <div class="table-responsive">
-                        <table class="table table-custom mb-0">
-                            <thead>
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-custom mb-0" id="manualsTable">
+                            <thead style="position: sticky; top: 0; background: white; z-index: 1;">
                                 <tr>
-                                    <th>Manual Title & Subject</th>
-                                    <th>Semester</th>
-                                    <th>Uploaded Date</th>
+                                    <th>Manual Info</th>
+                                    <th>Branch / Sem</th>
+                                    <th>Deadline</th>
                                     <th class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if($manuals_list && $manuals_list->num_rows > 0): ?>
-                                    <?php while($row = $manuals_list->fetch_assoc()): 
-                                        $man_id = $row['manual_id'] ?? ($row['id'] ?? 0);
-                                    ?>
-                                        <tr>
+                                    <?php while($row = $manuals_list->fetch_assoc()): ?>
+                                        <tr class="manual-row">
                                             <td>
-                                                <div class="fw-bold text-dark"><?php echo htmlspecialchars($row['title'] ?? ''); ?></div>
-                                                <small class="text-primary"><?php echo htmlspecialchars($row['subject_name'] ?? ''); ?></small>
+                                                <div class="fw-bold text-dark search-target"><?php echo htmlspecialchars($row['title']); ?></div>
+                                                <small class="text-primary search-target"><?php echo htmlspecialchars($row['subject_name']); ?> (<?php echo htmlspecialchars($row['practical_no']); ?>)</small>
                                             </td>
                                             <td>
-                                                <span class="badge-sem">Sem <?php echo htmlspecialchars($row['semester'] ?? '1'); ?></span>
+                                                <span class="badge-sem search-target"><?php echo htmlspecialchars($row['branch']); ?> - Sem <?php echo htmlspecialchars($row['semester']); ?></span>
                                             </td>
                                             <td>
-                                                <small class="text-muted"><i class="far fa-clock me-1"></i> <?php echo date('d M Y', strtotime($row['uploaded_at'])); ?></small>
+                                                <small class="text-danger fw-bold"><i class="far fa-calendar-alt me-1"></i> <?php echo date('d M Y', strtotime($row['end_date'])); ?></small>
                                             </td>
                                             <td class="text-end">
-                                                <a href="<?php echo htmlspecialchars($row['file_path']); ?>" target="_blank" class="btn btn-outline-primary btn-sm me-1" style="border-radius: 6px; padding: 4px 8px;" title="View PDF">
-                                                    <i class="fas fa-file-pdf"></i>
+                                                <a href="<?php echo htmlspecialchars($row['file_path']); ?>" target="_blank" class="btn btn-outline-primary btn-sm me-1" title="View">
+                                                    <i class="fas fa-eye"></i>
                                                 </a>
-                                                <a href="Lab_Manuals.php?delete_id=<?php echo $man_id; ?>" 
-                                                   class="btn btn-outline-danger btn-sm" 
-                                                   style="border-radius: 6px; padding: 4px 8px;"
-                                                   onclick="return confirm('Delete this lab manual?');" title="Delete">
+                                                <a href="Lab_Manuals.php?delete_id=<?php echo $row['id']; ?>" class="btn btn-outline-danger btn-sm" onclick="return confirm('Delete this lab manual forever?');" title="Delete">
                                                     <i class="fas fa-trash-alt"></i>
                                                 </a>
                                             </td>
                                         </tr>
                                     <?php endwhile; ?>
                                 <?php else: ?>
-                                    <tr>
+                                    <tr id="noDataRow">
                                         <td colspan="4" class="text-center text-muted py-5">
                                             <i class="fas fa-folder-open mb-2" style="font-size: 32px; color: #cbd5e1;"></i><br>
-                                            <span>No lab manuals uploaded yet. Use the upload form on the left.</span>
+                                            <span>No lab manuals uploaded yet.</span>
                                         </td>
                                     </tr>
                                 <?php endif; ?>
@@ -304,5 +316,33 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 1. AUTO-DISMISS ALERT (Fades out message after 3.5 seconds)
+        setTimeout(function() {
+            let alertMsg = document.getElementById('autoAlert');
+            if(alertMsg) {
+                alertMsg.style.transition = "opacity 0.5s ease";
+                alertMsg.style.opacity = "0";
+                setTimeout(() => alertMsg.remove(), 500);
+            }
+        }, 3500);
+
+        // 2. LIVE TABLE SEARCH (Filters rows based on user input)
+        function filterTable() {
+            let input = document.getElementById("searchInput").value.toLowerCase();
+            let rows = document.getElementsByClassName("manual-row");
+            
+            for (let i = 0; i < rows.length; i++) {
+                // Get all text content inside the row that has class 'search-target'
+                let text = rows[i].textContent.toLowerCase();
+                
+                if (text.includes(input)) {
+                    rows[i].style.display = "";
+                } else {
+                    rows[i].style.display = "none";
+                }
+            }
+        }
+    </script>
 </body>
 </html>
