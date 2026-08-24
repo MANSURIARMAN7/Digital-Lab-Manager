@@ -532,17 +532,74 @@ body {
     font-size:40px;
 }
 
-subject-card:hover{
-    background:#0d47a1;
-    color:#fff;
-    transform:translateY(-5px);
+/* Notification Fix Styles */
+.notification-wrapper {
+    position: relative !important;
+    display: inline-block !important;
 }
 
-.subject-card h3{
-    margin-top:15px;
-    font-size:18px;
+.notif-popup {
+    display: none;
+    position: absolute !important;
+    right: 0 !important;
+    top: 45px !important;
+    width: 300px !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid #cbd5e1 !important;
+    z-index: 99999 !important;
+    overflow: hidden;
 }
 
-.subject-card{
-    font-size:40px;
+.notif-popup.show-notif {
+    display: block !important;
+}
+
+.notif-header {
+    padding: 12px 16px;
+    background: #102a56;
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.notif-body {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.notif-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 13px;
+    color: #334155;
+    text-align: left;
+}
+
+.notif-item strong {
+    display: block;
+    color: #0f172a;
+    margin-bottom: 3px;
+}
+
+.notif-item p {
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* Dark Mode Support */
+body.dark-mode .notif-popup {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+body.dark-mode .notif-item {
+    border-bottom-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+body.dark-mode .notif-item strong {
+    color: #f8fafc !important;
 }
