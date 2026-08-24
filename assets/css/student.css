@@ -531,3 +531,18 @@ body {
 .subject-card{
     font-size:40px;
 }
+
+subject-card:hover{
+    background:#0d47a1;
+    color:#fff;
+    transform:translateY(-5px);
+}
+
+.subject-card h3{
+    margin-top:15px;
+    font-size:18px;
+}
+
+.subject-card{
+    font-size:40px;
+}
