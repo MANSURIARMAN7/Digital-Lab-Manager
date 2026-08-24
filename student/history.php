@@ -1,150 +1,102 @@
 <?php
-// Error display ON taaki koi issue ho toh turant dikhe
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
 session_start();
+include '../db.php';
 
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['role'] !== 'student') {
+// Check Login
+if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'student') {
     header("Location: ../login.php");
     exit();
 }
 
-$student_name = $_SESSION['name'] ?? 'Student';
-$student_id = $_SESSION['user_id'] ?? '';
+$enrollment = $conn->real_escape_string((string)$_SESSION['user_id']);
 
-// Load Submissions History
-$submissions_file = '../Faculty/submissions.json';
-$history_list = [];
-
-if (file_exists($submissions_file)) {
-    $all_subs = json_decode(file_get_contents($submissions_file), true);
-    if (is_array($all_subs)) {
-        foreach ($all_subs as $sub) {
-            if (isset($sub['enrollment']) && $sub['enrollment'] == $student_id) {
-                $history_list[] = $sub;
-            }
-        }
-    }
-}
+// Fetch Activity (Submissions)
+$history_query = $conn->query("SELECT * FROM student_submissions WHERE student_id = '$enrollment' ORDER BY submitted_at DESC");
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Submission History | K.D. Polytechnic</title>
-    <link rel="stylesheet" href="../assets/css/student.css?v=8">
+    <title>Activity History - K.D. Polytechnic</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .history-card {
-            background: #fff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            margin-top: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        th {
-            background-color: #f8fafc;
-            color: #475569;
-            font-weight: 600;
-        }
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .status-approved { background: #dcfce7; color: #166534; }
-        .status-pending { background: #fef9c3; color: #854d0e; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
+        :root { --sidebar-width: 260px; --bg-color: #f4f7f6; --sidebar-bg: #1b365d; --primary-blue: #3b82f6; }
+        body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
+        
+        /* SIDEBAR */
+        .sidebar { width: var(--sidebar-width); background-color: var(--sidebar-bg); color: #ffffff; display: flex; flex-direction: column; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+        .sidebar-header { padding: 30px 20px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px; }
+        .sidebar-header img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 15px; background: white; border-radius: 50%; padding: 5px; }
+        .sidebar-title { font-size: 18px; font-weight: 700; margin: 0 0 5px 0; }
+        
+        .nav-links { list-style: none; padding: 0 15px; margin: 0; flex-grow: 1; }
+        .nav-links li { padding: 14px 20px; margin: 5px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 500; color: #cbd5e1; transition: 0.2s; }
+        .nav-links li:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-links li.active { background-color: var(--primary-blue); color: white; box-shadow: 0 4px 10px rgba(59,130,246,0.3); }
+
+        /* MAIN CONTENT */
+        .main { flex: 1; overflow-y: auto; padding: 30px 40px; }
+        .header-title h2 { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0 0 5px 0; }
+        .header-title p { font-size: 14px; color: #64748b; margin: 0 0 30px 0; }
+
+        /* TIMELINE STYLES */
+        .timeline { position: relative; max-width: 800px; margin: 0 auto; padding-left: 30px; }
+        .timeline::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+        
+        .timeline-item { position: relative; margin-bottom: 30px; padding-left: 25px; }
+        .timeline-icon { position: absolute; left: -39px; top: 0; width: 20px; height: 20px; background: white; border: 4px solid var(--primary-blue); border-radius: 50%; }
+        
+        .timeline-content { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .timeline-date { font-size: 12px; font-weight: 700; color: #3b82f6; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        .timeline-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 5px 0; }
+        .timeline-desc { font-size: 14px; color: #64748b; margin: 0; }
     </style>
 </head>
 <body>
 
-<div class="app">
-    <aside class="sidebar">
-        <div class="college-name">
-            <img src="../assets/images/KDP-Logo.png" alt="Logo" class="college-logo">
-            <div>
-                <h2>K.D. Polytechnic</h2>
-                <p>Student Portal</p>
-            </div>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="../assets/images/college-logo.png" alt="Logo"> 
+            <h2 class="sidebar-title">K.D. Polytechnic</h2>
         </div>
-        <nav class="nav-links">
-            <a href="stdashboard.php">🏠 <span>Dashboard</span></a>
-            <a href="upload-manual.php">📤 <span>Upload Manual</span></a>
-            <a href="my-manuals.php">📚 <span>My Manuals</span></a>
-            <a class="active" href="submission-history.php">🕘 <span>History</span></a>
-            <a href="profile.php">👤 <span>My Profile</span></a>
-            <a href="../logout.php" class="logout">⇥ <span>Logout</span></a>
-        </nav>
-    </aside>
+        <ul class="nav-links">
+            <li onclick="window.location.href='Stdashboard.php'"><i class="fas fa-home" style="width: 20px;"></i> Dashboard</li>
+            <li onclick="window.location.href='my-manuals.php'"><i class="fas fa-book" style="width: 20px;"></i> My Submissions</li>
+            <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle" style="width: 20px;"></i> Profile</li>
+            <li class="active" onclick="window.location.href='history.php'"><i class="fas fa-history" style="width: 20px;"></i> History</li>
+            <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #fca5a5;"><i class="fas fa-sign-out-alt" style="width: 20px;"></i> Logout</li>
+        </ul>
+    </div>
 
-    <main class="main-content">
-        <header class="topbar">
-            <div>
-                <p class="small-text">Academic Session 2026</p>
-                <h1>Submission History 🕘</h1>
-            </div>
-        </header>
-
-        <div class="history-card">
-            <h2>All Past Activity</h2>
-            <p style="color:#64748b; font-size:14px;">A complete log of all lab manuals you have submitted so far.</p>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Subject</th>
-                        <th>Practical Title</th>
-                        <th>Submitted On</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (count($history_list) > 0): ?>
-                        <?php foreach ($history_list as $index => $item): ?>
-                            <?php 
-                                $status = strtolower($item['status'] ?? 'pending');
-                                $badgeClass = 'status-pending';
-                                if ($status === 'approved') $badgeClass = 'status-approved';
-                                if ($status === 'rejected') $badgeClass = 'status-rejected';
-                            ?>
-                            <tr>
-                                <td><?php echo $index + 1; ?></td>
-                                <td><strong><?php echo htmlspecialchars($item['subject'] ?? 'N/A'); ?></strong></td>
-                                <td><?php echo htmlspecialchars($item['title'] ?? 'Practical File'); ?></td>
-                                <td><?php echo htmlspecialchars($item['date'] ?? date('Y-m-d')); ?></td>
-                                <td>
-                                    <span class="status-badge <?php echo $badgeClass; ?>">
-                                        <?php echo ucfirst($status); ?>
-                                    </span>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">
-                                No submission history found.
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+    <div class="main">
+        <div class="header-title text-center mb-5">
+            <h2>Activity Log</h2>
+            <p>Timeline of your recent activities and submissions on the portal.</p>
         </div>
-    </main>
-</div>
+
+        <div class="timeline">
+            <?php if($history_query && $history_query->num_rows > 0): ?>
+                <?php while($row = $history_query->fetch_assoc()): ?>
+                    <div class="timeline-item">
+                        <div class="timeline-icon"></div>
+                        <div class="timeline-content">
+                            <span class="timeline-date"><i class="far fa-calendar-alt me-1"></i> <?php echo date('d M Y, h:i A', strtotime($row['submitted_at'])); ?></span>
+                            <h3 class="timeline-title">Submitted <?php echo htmlspecialchars($row['practical_no']); ?></h3>
+                            <p class="timeline-desc">You successfully uploaded the document for <strong><?php echo htmlspecialchars($row['subject_name']); ?></strong>. The current status is <?php echo htmlspecialchars($row['status']); ?>.</p>
+                        </div>
+                    </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="text-center text-muted mt-5">
+                    <i class="fas fa-history mb-3" style="font-size: 40px; opacity: 0.3;"></i>
+                    <p>No activity found. Submit a practical to see your history!</p>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 
 </body>
 </html>
