@@ -31,3 +31,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (!empty($new_phone)) {
                     $user['phone'] = $new_phone;
                 }
+                  // Profile Picture Upload Logic
+                if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] == 0) {
+                    $allowed = ['jpg', 'jpeg', 'png', 'gif'];
+                    $ext = strtolower(pathinfo($_FILES['profile_pic']['name'], PATHINFO_EXTENSION));
+                    if (in_array($ext, $allowed)) {
+                        $pic_name = 'student_' . $student_id . '_' . time() . '.' . $ext;
+                        $upload_dir = '../uploads/profile_pics/';
+                        if (!is_dir($upload_dir)) { mkdir($upload_dir, 0777, true); }
+                        move_uploaded_file($_FILES['profile_pic']['tmp_name'], $upload_dir . $pic_name);
+                        $user['profile_pic'] = $pic_name; // Save pic name in JSON
+                    }
+                }
+
+                $updated = true;
+                break;
+            }
+        }
