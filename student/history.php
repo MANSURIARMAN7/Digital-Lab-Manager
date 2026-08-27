@@ -48,3 +48,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 break;
             }
         }
+        unset($user); // Break reference
+
+        if ($updated) {
+            file_put_contents($users_file, json_encode($users_data, JSON_PRETTY_PRINT));
+            $success_msg = "Profile updated successfully!";
+            // Session update karo taaki sidebar mein naya naam dikhe
+            $_SESSION['name'] = $new_name;
+            $_SESSION['email'] = $new_email;
+        } else {
+            $error_msg = "User data not found in database.";
+        }
+    }
+}
+// 2. Current Data Load Karne ka Logic (Pehle se saved data)
+$student_name = "Student";
+$student_email = "";
+$student_branch = "Computer Engineering";
+$student_sem = "Semester 5";
+$student_phone = "";
+$profile_pic = "";
