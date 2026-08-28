@@ -8,51 +8,57 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
-$msg = "";
+// Fetch Admin Details for Profile Pill
+$admin_id = $_SESSION['user_id'];
+$admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = '$admin_id'");
+$admin_data = $admin_query ? $admin_query->fetch_assoc() : null;
+$admin_name = $admin_data['name'] ?? 'System Administrator';
 
-// 2. Handle Add Subject
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_subject'])) {
-    $sub_name = $conn->real_escape_string($_POST['subject_name']);
-    $dept = $conn->real_escape_string($_POST['department']);
-    $sem = $conn->real_escape_string($_POST['semester']);
+// Ensure subjects table exists with faculty_name column
+$conn->query("CREATE TABLE IF NOT EXISTS subjects (
+    subject_id INT AUTO_INCREMENT PRIMARY KEY,
+    subject_name VARCHAR(255) NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    semester INT NOT NULL,
+    faculty_name VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)");
 
-    // Check if subject already exists in that semester and branch
-    $check = $conn->query("SELECT id FROM subjects WHERE subject_name = '$sub_name' AND department = '$dept' AND semester = '$sem'");
+// ==========================================
+// 🚀 ADD NEW SUBJECT LOGIC
+// ==========================================
+$message = "";
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_subject'])) {
+    $subject_name = $conn->real_escape_string($_POST['subject_name']);
+    $department = $conn->real_escape_string($_POST['department']);
+    $semester = (int)$_POST['semester'];
+    $faculty_name = $conn->real_escape_string($_POST['faculty_name']);
     
-    if ($check->num_rows > 0) {
-        $msg = "<div class='alert alert-danger shadow-sm border-0' style='border-radius: 10px;'><i class='fas fa-exclamation-circle me-2'></i> Subject already exists in this branch & semester!</div>";
+    $sql = "INSERT INTO subjects (subject_name, department, semester, faculty_name) 
+            VALUES ('$subject_name', '$department', '$semester', '$faculty_name')";
+            
+    if ($conn->query($sql)) {
+        $message = "<div class='alert alert-success alert-dismissible fade show' role='alert'>Subject added and assigned successfully!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
     } else {
-        $insert_query = "INSERT INTO subjects (subject_name, department, semester) VALUES ('$sub_name', '$dept', '$sem')";
-        if ($conn->query($insert_query)) {
-            $msg = "<div class='alert alert-success shadow-sm border-0' style='border-radius: 10px;'><i class='fas fa-check-circle me-2'></i> Subject Added Successfully!</div>";
-        } else {
-            $msg = "<div class='alert alert-danger shadow-sm border-0' style='border-radius: 10px;'>Error: " . $conn->error . "</div>";
-        }
+        $message = "<div class='alert alert-danger alert-dismissible fade show' role='alert'>Error: " . $conn->error . "<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
     }
 }
 
-// 3. Handle Delete Subject
-if (isset($_GET['delete'])) {
-    $del_id = $conn->real_escape_string($_GET['delete']);
-    $conn->query("DELETE FROM subjects WHERE id = '$del_id'");
+// ==========================================
+// 🗑️ DELETE SUBJECT LOGIC
+// ==========================================
+if (isset($_GET['delete_id'])) {
+    $del_id = (int)$_GET['delete_id'];
+    $conn->query("DELETE FROM subjects WHERE subject_id='$del_id'");
     header("Location: subject_mgmt.php");
     exit();
 }
 
-// 4. Fetch Subjects based on filters
-$dept_filter = isset($_GET['department']) ? $_GET['department'] : 'Computer Engineering';
-$sem_filter = isset($_GET['semester']) ? $_GET['semester'] : 'Semester 3';
+// Fetch Faculty list for dropdown assignment
+$faculty_list = $conn->query("SELECT name FROM users WHERE role = 'faculty' ORDER BY name ASC");
 
-$safe_dept = $conn->real_escape_string($dept_filter);
-$safe_sem = $conn->real_escape_string($sem_filter);
-
-$subjects = [];
-$res = $conn->query("SELECT * FROM subjects WHERE department = '$safe_dept' AND semester = '$safe_sem' ORDER BY id DESC");
-if ($res) {
-    while ($row = $res->fetch_assoc()) {
-        $subjects[] = $row;
-    }
-}
+// Fetch Subjects from Database
+$subjects_list = $conn->query("SELECT * FROM subjects ORDER BY semester ASC, subject_name ASC");
 ?>
 
 <!DOCTYPE html>
@@ -60,48 +66,38 @@ if ($res) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subject Management - Digital Lab</title>
+    <title>Subject Management - Admin Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        :root { --sidebar-width: 260px; --bg-color: #f8fafc; }
+        :root { --sidebar-width: 260px; --bg-color: #f4f7fe; --sidebar-bg: #1a365d; --accent-blue: #2563eb; }
         body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
+        .sidebar { width: var(--sidebar-width); background-color: var(--sidebar-bg); color: #ffffff; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; }
+        .sidebar-logo-container { padding: 30px 20px 20px 20px; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
+        .sidebar-logo-container img { width: 90px; height: 90px; object-fit: contain; margin-bottom: 15px; border-radius: 50%; padding: 5px; background: rgba(255,255,255,0.1); }
+        .sidebar-title h2 { font-size: 18px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: 0.5px; color: #fff;}
+        .sidebar-subtitle { font-size: 13px; color: #94a3b8; margin-top: 5px; font-weight: 500;}
+        .nav-links { list-style: none; padding: 20px 15px; margin: 0; flex-grow: 1; }
+        .nav-links li { padding: 12px 20px; margin: 5px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 500; color: #a0aec0; transition: all 0.3s ease; }
+        .nav-links li:hover { color: white; background: rgba(255,255,255,0.08); }
+        .nav-links li.active { background: var(--accent-blue); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); font-weight: 600; }
+        .main { flex: 1; padding: 30px 40px; overflow-y: auto; }
         
-        /* SIDEBAR */
-        .sidebar { width: var(--sidebar-width); background-color: #0f172a; color: #ffffff; display: flex; flex-direction: column; padding: 20px 0; z-index: 10; overflow-y: auto; }
-        .sidebar-logo-container { padding: 0 20px 20px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .sidebar-title h2 { font-size: 15px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: 0.5px; }
-        .nav-links { list-style: none; padding: 15px 15px 0 15px; margin: 0; flex-grow: 1; }
-        .nav-links li { padding: 11px 16px; margin: 4px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 14px; font-size: 14px; font-weight: 500; color: #94a3b8; transition: 0.2s ease-in-out; }
-        .nav-links li:hover { color: white; background: rgba(255,255,255,0.05); }
-        .nav-links li.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
-
-        /* MAIN CONTENT AREA */
-        .main { flex: 1; padding: 25px 35px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        
-        /* TOP BAR */
-        .topbar { background: white; padding: 12px 25px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; }
-        .search-box { background: #f8fafc; border-radius: 8px; padding: 6px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; }
+        .topbar { background: transparent; padding: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
+        .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
         .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
-        .user-profile { display: flex; align-items: center; gap: 12px; }
-        .user-avatar { width: 38px; height: 38px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
         
-        /* CONTENT BOXES */
-        .content-box { background: white; border-radius: 14px; padding: 24px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.01); }
-        
-        /* CUSTOM FORM INPUTS */
-        .form-control, .form-select { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 15px; font-size: 14px; box-shadow: none; }
-        .form-control:focus, .form-select:focus { border-color: #3b82f6; background-color: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
-        
-        /* TABLE STYLING */
-        .table-custom th { background: transparent; font-size: 12px; font-weight: 600; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
-        .table-custom td { vertical-align: middle; font-size: 14px; padding: 14px 0; color: #334155; border-bottom: 1px solid #f1f5f9; }
-        .table-custom tr:last-child td { border-bottom: none; }
-        
-        .badge-status { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; background: rgba(59,130,246,0.1); color: #3b82f6; }
-        
-        .btn-delete { background: rgba(239,68,68,0.1); color: #dc2626; border: none; padding: 6px 12px; border-radius: 6px; transition: 0.2s; }
-        .btn-delete:hover { background: #dc2626; color: white; }
+        .profile-pill { display: flex; align-items: center; background-color: #ffffff; padding: 6px 16px 6px 20px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s;}
+        .profile-text { text-align: right; margin-right: 15px; }
+        .profile-welcome { display: block; font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+        .profile-name { margin: 0; font-size: 14px; color: #1e293b; font-weight: 700; }
+        .profile-avatar { width: 42px; height: 42px; background-color: var(--accent-blue); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4); letter-spacing: 1px;}
+
+        .content-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+        .table-custom th { background: #f8fafc; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 14px; }
+        .table-custom td { vertical-align: middle; font-size: 14px; padding: 14px; color: #334155; border-bottom: 1px solid #f1f5f9; }
+        .badge-sem { background: rgba(37,99,235,0.1); color: var(--accent-blue); border: 1px solid rgba(37,99,235,0.2); padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -109,11 +105,12 @@ if ($res) {
     <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="sidebar-logo-container">
-            <div style="background: #3b82f6; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">DL</div>
-            <div class="sidebar-title"><h2>DIGITAL LAB<br>MANUAL</h2></div>
+            <img src="../assets/images/college-logo.png" alt="KDP Logo">
+            <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
+            <div class="sidebar-subtitle">Admin Portal</div>
         </div>
         <ul class="nav-links">
-            <li onclick="window.location.href='dashboard.php'"><i class="fas fa-chart-pie"></i> Dashboard</li>
+            <li onclick="window.location.href='dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
             <li onclick="window.location.href='Student_Mgmt.php'"><i class="fas fa-user-graduate"></i> Student Mgmt</li>
             <li onclick="window.location.href='faculty_mgmt.php'"><i class="fas fa-chalkboard-teacher"></i> Faculty Mgmt</li>
             <li class="active" onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book"></i> Subject Mgmt</li>
@@ -121,127 +118,159 @@ if ($res) {
             <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
             <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
             <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
-            <li onclick="window.location.href='Expense Mgmt.php'"><i class="fas fa-wallet"></i> Expense Mgmt</li>
-            <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #ef4444;"><i class="fas fa-sign-out-alt"></i> Logout</li>
+            <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #f87171;"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
     </div>
 
     <!-- MAIN CONTENT -->
     <div class="main">
+        
         <!-- TOPBAR -->
-        <div class="topbar">
+        <div class="topbar mb-3">
             <div class="search-box">
                 <i class="fas fa-search text-muted"></i>
                 <input type="text" placeholder="Search subjects...">
             </div>
-            <div class="d-flex align-items-center gap-3">
-                <div class="user-profile">
-                    <div class="user-avatar">AM</div>
-                    <div>
-                        <div class="fw-bold text-dark" style="font-size: 13.5px; line-height: 1.2;">System Administrator</div>
-                        <div class="text-muted" style="font-size: 11.5px;">University Tech</div>
-                    </div>
+            
+            <div class="d-flex align-items-center gap-4">
+                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'">
+                    <i class="far fa-bell text-secondary fs-5"></i>
                 </div>
+
+                <a href="Profile.php" class="profile-pill">
+                    <div class="profile-text">
+                        <span class="profile-welcome">Welcome Back,</span>
+                        <h4 class="profile-name">
+                            <?php 
+                                $name_parts = explode(' ', $admin_name);
+                                echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : 'Admin';
+                            ?>
+                        </h4>
+                    </div>
+                    <div class="profile-avatar">HOD</div>
+                </a>
             </div>
         </div>
 
-        <!-- HEADER TITLE -->
-        <div class="mb-2">
-            <h4 class="fw-bold text-dark mb-1">Subject Management</h4>
-            <p class="text-muted small mb-0">Add new curriculum subjects and filter them by branch and semester.</p>
+        <?php echo $message; ?>
+
+        <!-- PAGE HEADER -->
+        <div class="mb-4">
+            <h3 class="fw-bold text-dark mb-1" style="font-size: 24px;">Subject Management</h3>
+            <p class="text-muted small mb-0">Manage curriculum subjects, semesters, and assign respective faculty members.</p>
         </div>
 
-        <?php if($msg != "") echo $msg; ?>
-
+        <!-- TWO COLUMN LAYOUT -->
         <div class="row g-4">
-            <!-- ADD SUBJECT FORM -->
+            <!-- LEFT COLUMN: ADD SUBJECT FORM -->
             <div class="col-md-4">
                 <div class="content-box">
-                    <h6 class="fw-bold text-dark mb-4">Add New Subject</h6>
-                    <form method="POST">
+                    <h5 class="fw-bold text-dark mb-3" style="font-size: 16px;"><i class="fas fa-plus-circle text-primary me-2"></i> Add New Subject</h5>
+                    
+                    <form action="" method="POST">
                         <div class="mb-3">
-                            <label class="form-label text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">SUBJECT NAME</label>
-                            <input type="text" name="subject_name" class="form-control" placeholder="e.g. Data Structures" required>
+                            <label class="form-label fw-bold small text-muted">Subject Name</label>
+                            <input type="text" name="subject_name" class="form-control" required placeholder="e.g. Database Management System">
                         </div>
+                        
                         <div class="mb-3">
-                            <label class="form-label text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">DEPARTMENT / BRANCH</label>
-                            <select name="department" class="form-select">
+                            <label class="form-label fw-bold small text-muted">Department</label>
+                            <select name="department" class="form-select" required>
                                 <option value="Computer Engineering">Computer Engineering</option>
-                                <option value="Electrical Engineering">Electrical Engineering</option>
-                                <option value="Mechanical Engineering">Mechanical Engineering</option>
-                                <option value="Civil Engineering">Civil Engineering</option>
                             </select>
                         </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Semester</label>
+                            <select name="semester" class="form-select" required>
+                                <option value="1" selected>Semester 1</option>
+                                <option value="2">Semester 2</option>
+                                <option value="3">Semester 3</option>
+                                <option value="4">Semester 4</option>
+                                <option value="5">Semester 5</option>
+                                <option value="6">Semester 6</option>
+                            </select>
+                        </div>
+
                         <div class="mb-4">
-                            <label class="form-label text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">SEMESTER</label>
-                            <select name="semester" class="form-select">
-                                <?php for($i=1; $i<=6; $i++): ?>
-                                    <option value="Semester <?php echo $i; ?>" <?php if($i == 3) echo 'selected'; ?>>Semester <?php echo $i; ?></option>
-                                <?php endfor; ?>
+                            <label class="form-label fw-bold small text-muted">Assign Faculty</label>
+                            <select name="faculty_name" class="form-control">
+                                <option value="">Select Faculty (Optional)</option>
+                                <?php if($faculty_list && $faculty_list->num_rows > 0): ?>
+                                    <?php while($fac = $faculty_list->fetch_assoc()): ?>
+                                        <option value="<?php echo htmlspecialchars($fac['name']); ?>"><?php echo htmlspecialchars($fac['name']); ?></option>
+                                    <?php endwhile; ?>
+                                <?php endif; ?>
                             </select>
                         </div>
-                        <button type="submit" name="add_subject" class="btn btn-primary w-100 fw-bold py-2" style="border-radius: 8px;">Add Subject</button>
+                        
+                        <button type="submit" name="add_subject" class="btn btn-primary w-100 fw-bold py-2" style="background: var(--accent-blue); border-radius: 8px;">
+                            <i class="fas fa-save me-1"></i> Save Subject
+                        </button>
                     </form>
                 </div>
             </div>
 
-            <!-- SUBJECTS LIST TABLE -->
+            <!-- RIGHT COLUMN: SUBJECTS TABLE -->
             <div class="col-md-8">
-                <div class="content-box h-100">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h6 class="fw-bold text-dark mb-0">Curriculum Subjects</h6>
-                        
-                        <!-- FILTER FORM -->
-                        <form method="GET" class="d-flex gap-2">
-                            <select name="department" class="form-select form-select-sm shadow-none" style="width: auto; font-size: 12px; padding: 6px 30px 6px 12px;" onchange="this.form.submit()">
-                                <option value="Computer Engineering" <?php if($dept_filter == 'Computer Engineering') echo 'selected'; ?>>Computer Engineering</option>
-                                <option value="Electrical Engineering" <?php if($dept_filter == 'Electrical Engineering') echo 'selected'; ?>>Electrical Engineering</option>
-                                <option value="Mechanical Engineering" <?php if($dept_filter == 'Mechanical Engineering') echo 'selected'; ?>>Mechanical Engineering</option>
-                                <option value="Civil Engineering" <?php if($dept_filter == 'Civil Engineering') echo 'selected'; ?>>Civil Engineering</option>
-                            </select>
-                            <select name="semester" class="form-select form-select-sm shadow-none" style="width: auto; font-size: 12px; padding: 6px 30px 6px 12px;" onchange="this.form.submit()">
-                                <?php for($i=1; $i<=6; $i++): ?>
-                                    <option value="Semester <?php echo $i; ?>" <?php if($sem_filter == "Semester $i") echo 'selected'; ?>>Semester <?php echo $i; ?></option>
-                                <?php endfor; ?>
-                            </select>
-                        </form>
-                    </div>
-
-                    <table class="table table-custom mb-0">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Subject Name</th>
-                                <th>Department & Sem</th>
-                                <th>Status</th>
-                                <th class="text-end">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if(empty($subjects)): ?>
-                                <tr><td colspan="5" class="text-center text-muted py-4">No subjects found for this selection.</td></tr>
-                            <?php else: foreach($subjects as $index => $sub): ?>
+                <div class="content-box">
+                    <h5 class="fw-bold text-dark mb-3" style="font-size: 16px;"><i class="fas fa-list text-success me-2"></i> Active Subjects List</h5>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-custom mb-0">
+                            <thead>
                                 <tr>
-                                    <td class="text-muted fw-semibold"><?php echo $index + 1; ?></td>
-                                    <td class="fw-bold text-dark"><?php echo htmlspecialchars($sub['subject_name']); ?></td>
-                                    <td>
-                                        <div style="font-size: 13px; color: #475569;"><?php echo htmlspecialchars($sub['department']); ?></div>
-                                        <small class="text-muted" style="font-size: 11px;"><?php echo htmlspecialchars($sub['semester']); ?></small>
-                                    </td>
-                                    <td><span class="badge-status">Active</span></td>
-                                    <td class="text-end">
-                                        <a href="?delete=<?php echo urlencode($sub['id']); ?>" class="btn-delete text-decoration-none" onclick="return confirm('Kya aap yeh subject remove karna chahte hain?');">
-                                            <i class="fa-solid fa-trash"></i>
-                                        </a>
-                                    </td>
+                                    <th>Subject Name</th>
+                                    <th>Department</th>
+                                    <th>Semester</th>
+                                    <th>Assigned Faculty</th>
+                                    <th class="text-end">Action</th>
                                 </tr>
-                            <?php endforeach; endif; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php if($subjects_list && $subjects_list->num_rows > 0): ?>
+                                    <?php while($row = $subjects_list->fetch_assoc()): 
+                                        $sub_id = $row['subject_id'] ?? ($row['id'] ?? 0);
+                                    ?>
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-dark"><?php echo htmlspecialchars($row['subject_name'] ?? ''); ?></div>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted"><?php echo htmlspecialchars($row['department'] ?? 'Computer Engineering'); ?></small>
+                                            </td>
+                                            <td>
+                                                <span class="badge-sem">Sem <?php echo htmlspecialchars($row['semester'] ?? '1'); ?></span>
+                                            </td>
+                                            <td>
+                                                <span class="text-primary fw-medium" style="font-size: 13.5px;"><?php echo !empty($row['faculty_name']) ? htmlspecialchars($row['faculty_name']) : '<span class="text-muted fst-italic">Not Assigned</span>'; ?></span>
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="subject_mgmt.php?delete_id=<?php echo $sub_id; ?>" 
+                                                   class="btn btn-outline-danger btn-sm" 
+                                                   style="border-radius: 6px; padding: 4px 10px;"
+                                                   onclick="return confirm('Delete this subject?');">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-5">
+                                            <i class="fas fa-book mb-2" style="font-size: 32px; color: #cbd5e1;"></i><br>
+                                            <span>No subjects found in database. Use the form on the left to add.</span>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

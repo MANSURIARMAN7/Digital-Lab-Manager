@@ -1,200 +1,161 @@
 <?php
 session_start();
+include '../db.php';
 
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || $_SESSION['role'] !== 'student') {
+// Check Login
+if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'student') {
     header("Location: ../login.php");
     exit();
 }
 
-$student_name = $_SESSION['name'] ?? 'Student';
-$student_id = $_SESSION['user_id'] ?? '';
+$enrollment = $conn->real_escape_string((string)$_SESSION['user_id']);
 
-// 1. Get Student's Current Semester from users.json
-$student_sem = "Semester 5"; // Default fallback
-$users_file = '../users.json';
-if (file_exists($users_file)) {
-    $users_data = json_decode(file_get_contents($users_file), true);
-    if (is_array($users_data)) {
-        foreach ($users_data as $u) {
-            if (isset($u['user_id']) && $u['user_id'] === $student_id) {
-                if (isset($u['sem'])) {
-                    $student_sem = $u['sem'];
-                }
-                break;
-            }
-        }
-    }
-}
-
-// 2. Load all submissions from submissions.json
-$submissions_file = '../Faculty/submissions.json';
-$my_submissions = [];
-
-if (file_exists($submissions_file)) {
-    $all_subs = json_decode(file_get_contents($submissions_file), true);
-    if (is_array($all_subs)) {
-        foreach ($all_subs as $sub) {
-            if (isset($sub['enrollment']) && $sub['enrollment'] == $student_id) {
-                $my_submissions[] = $sub;
-            }
-        }
-    }
-}
+// Fetch All Submissions
+$query = "SELECT * FROM student_submissions WHERE student_id = '$enrollment' ORDER BY submitted_at DESC";
+$submissions = $conn->query($query);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Manuals | K.D. Polytechnic</title>
-    <link rel="stylesheet" href="../assets/css/student.css?v=8">
+    <title>My Submissions - K.D. Polytechnic</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .manuals-table-container {
-            background: #fff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            margin-top: 20px;
-        }
-        .filter-box {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            display: inline-block;
-        }
-        .status-approved { background: #dcfce7; color: #166534; }
-        .status-pending { background: #fef9c3; color: #854d0e; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
+        :root { --sidebar-width: 260px; --bg-color: #f4f7f6; --sidebar-bg: #1b365d; --primary-blue: #3b82f6; }
+        body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
         
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            text-align: left;
-            padding: 12px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        th { background: #f8fafc; color: #475569; }
+        /* SIDEBAR */
+        .sidebar { width: var(--sidebar-width); background-color: var(--sidebar-bg); color: #ffffff; display: flex; flex-direction: column; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+        .sidebar-header { padding: 30px 20px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px; }
+        .sidebar-header img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 15px; background: white; border-radius: 50%; padding: 5px; }
+        .sidebar-title { font-size: 18px; font-weight: 700; margin: 0 0 5px 0; letter-spacing: 0.5px; }
+        
+        .nav-links { list-style: none; padding: 0 15px; margin: 0; flex-grow: 1; }
+        .nav-links li { padding: 14px 20px; margin: 5px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 500; color: #cbd5e1; transition: 0.2s; }
+        .nav-links li:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-links li.active { background-color: var(--primary-blue); color: white; box-shadow: 0 4px 10px rgba(59,130,246,0.3); }
+
+        /* MAIN CONTENT */
+        .main { flex: 1; overflow-y: auto; padding: 30px 40px; }
+        .header-title h2 { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0 0 5px 0; }
+        .header-title p { font-size: 14px; color: #64748b; margin: 0 0 25px 0; }
+
+        /* FILTERS & TABLE */
+        .content-box { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; }
+        
+        .filter-btn { background: white; border: 1px solid #cbd5e1; color: #64748b; padding: 6px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-right: 8px; }
+        .filter-btn.active, .filter-btn:hover { background: var(--primary-blue); color: white; border-color: var(--primary-blue); }
+        
+        .table-custom th { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding: 15px 10px; background: #f8fafc; }
+        .table-custom td { font-size: 14px; color: #334155; padding: 15px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        
+        .badge-status { padding: 5px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 700; display: inline-block; }
+        .status-Pending { background: rgba(245,158,11,0.1); color: #d97706; }
+        .status-Approved { background: rgba(16,185,129,0.1); color: #059669; }
+        .status-Rejected { background: rgba(239,68,68,0.1); color: #dc2626; }
+        
+        .btn-view { background: white; color: #3b82f6; border: 1px solid #3b82f6; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; transition: 0.2s;}
+        .btn-view:hover { background: #3b82f6; color: white; }
     </style>
 </head>
 <body>
 
-<div class="app">
-    <aside class="sidebar">
-        <div class="college-name">
-            <img src="../assets/images/KDP-Logo.png" alt="Logo" class="college-logo">
-            <div>
-                <h2>K.D. Polytechnic</h2>
-                <p>Student Portal</p>
-            </div>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="../assets/images/college-logo.png" alt="Logo"> 
+            <h2 class="sidebar-title">K.D. Polytechnic</h2>
         </div>
-        <nav class="nav-links">
-            <a href="stdashboard.php">🏠 <span>Dashboard</span></a>
-            <a href="upload-manual.php">📤 <span>Upload Manual</span></a>
-            <a class="active" href="my-manuals.php">📚 <span>My Manuals</span></a>
-            <a href="submission-history.php">🕘 <span>History</span></a>
-            <a href="profile.php">👤 <span>My Profile</span></a>
-            <a href="../logout.php" class="logout">⇥ <span>Logout</span></a>
-        </nav>
-    </aside>
+        <ul class="nav-links">
+            <li onclick="window.location.href='Stdashboard.php'"><i class="fas fa-home" style="width: 20px;"></i> Dashboard</li>
+            <li class="active" onclick="window.location.href='my-manuals.php'"><i class="fas fa-book" style="width: 20px;"></i> My Submissions</li>
+            <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle" style="width: 20px;"></i> Profile</li>
+            <li onclick="window.location.href='history.php'"><i class="fas fa-history" style="width: 20px;"></i> History</li>
+            <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #fca5a5;"><i class="fas fa-sign-out-alt" style="width: 20px;"></i> Logout</li>
+        </ul>
+    </div>
 
-    <main class="main-content">
-        <header class="topbar">
-            <div>
-                <p class="small-text">Academic Session 2026</p>
-                <h1>My Submitted Manuals 📚</h1>
-            </div>
-        </header>
-
-        <div class="manuals-table-container">
-            <div class="filter-box">
-                <h2>Select Semester:</h2>
-                <select class="semester-select" id="semSelect" onchange="filterManuals()">
-                    <option <?php echo ($student_sem == 'Semester 1') ? 'selected' : ''; ?>>Semester 1</option>
-                    <option <?php echo ($student_sem == 'Semester 2') ? 'selected' : ''; ?>>Semester 2</option>
-                    <option <?php echo ($student_sem == 'Semester 3') ? 'selected' : ''; ?>>Semester 3</option>
-                    <option <?php echo ($student_sem == 'Semester 4') ? 'selected' : ''; ?>>Semester 4</option>
-                    <option <?php echo ($student_sem == 'Semester 5') ? 'selected' : ''; ?>>Semester 5</option>
-                    <option <?php echo ($student_sem == 'Semester 6') ? 'selected' : ''; ?>>Semester 6</option>
-                </select>
-            </div>
-
-            <table id="manualsTable">
-                <thead>
-                    <tr>
-                        <th>Subject</th>
-                        <th>Practical Title</th>
-                        <th>Date Uploaded</th>
-                        <th>Status</th>
-                        <th>Remarks</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    </tbody>
-            </table>
+    <div class="main">
+        <div class="header-title">
+            <h2>My Submissions</h2>
+            <p>Track all your uploaded practicals and their review status.</p>
         </div>
-    </main>
-</div>
 
-<script>
-    const allManuals = <?php echo json_encode($my_submissions); ?>;
+        <div class="content-box">
+            <!-- Filter Buttons -->
+            <div class="mb-4">
+                <button class="filter-btn active" onclick="filterData('All', this)">All Submissions</button>
+                <button class="filter-btn" onclick="filterData('Pending', this)">Pending Review</button>
+                <button class="filter-btn" onclick="filterData('Approved', this)">Approved</button>
+                <button class="filter-btn" onclick="filterData('Rejected', this)">Rejected</button>
+            </div>
 
-    function filterManuals() {
-        const selectedSem = document.getElementById('semSelect').value;
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
-
-        let count = 0;
-
-        if (allManuals && allManuals.length > 0) {
-            allManuals.forEach((m) => {
-                let mSem = m.sem ? m.sem : 'Semester 5';
-
-                if (mSem === selectedSem) {
-                    let statusClass = 'status-pending';
-                    if (m.status.toLowerCase() === 'approved') statusClass = 'status-approved';
-                    if (m.status.toLowerCase() === 'rejected') statusClass = 'status-rejected';
-
-                    tbody.innerHTML += `
+            <div class="table-responsive">
+                <table class="table table-custom mb-0">
+                    <thead>
                         <tr>
-                            <td><strong>${m.subject || 'N/A'}</strong></td>
-                            <td>${m.title || 'Practical File'}</td>
-                            <td>${m.date || 'N/A'}</td>
-                            <td><span class="status-badge ${statusClass}">${m.status || 'Pending'}</span></td>
-                            <td>${m.remarks || 'No remarks'}</td>
-                            <td>
-                                <a href="../uploads/${m.filename || '#'}" target="_blank" style="color:#2563eb; text-decoration:none;">📄 View PDF</a>
-                            </td>
+                            <th>Practical Details</th>
+                            <th>Subject</th>
+                            <th>Submission Date</th>
+                            <th>Status</th>
+                            <th class="text-end">Action</th>
                         </tr>
-                    `;
-                    count++;
+                    </thead>
+                    <tbody>
+                        <?php if($submissions && $submissions->num_rows > 0): ?>
+                            <?php while($row = $submissions->fetch_assoc()): ?>
+                                <tr class="sub-row" data-status="<?php echo htmlspecialchars($row['status']); ?>">
+                                    <td>
+                                        <div class="fw-bold text-dark"><?php echo htmlspecialchars($row['practical_no'] ?? 'Manual Submission'); ?></div>
+                                    </td>
+                                    <td><span class="text-muted"><?php echo htmlspecialchars($row['subject_name'] ?? '-'); ?></span></td>
+                                    <td><?php echo date('d M Y, h:i A', strtotime($row['submitted_at'])); ?></td>
+                                    <td>
+                                        <span class="badge-status status-<?php echo htmlspecialchars($row['status']); ?>">
+                                            <?php echo htmlspecialchars($row['status']); ?>
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="<?php echo htmlspecialchars($row['file_path']); ?>" target="_blank" class="btn-view" title="View PDF">
+                                            <i class="fas fa-eye me-1"></i> View File
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="fas fa-folder-open mb-3" style="font-size: 40px; opacity: 0.3;"></i><br>
+                                    You haven't submitted any practicals yet.
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JS Filter Logic
+        function filterData(status, btn) {
+            // Update active button styling
+            let buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Filter rows
+            let rows = document.querySelectorAll('.sub-row');
+            rows.forEach(row => {
+                if (status === 'All' || row.getAttribute('data-status') === status) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
                 }
             });
         }
-
-        if (count === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" style="text-align:center; color:#64748b; padding:20px;">
-                        No manuals uploaded for ${selectedSem} yet.
-                    </td>
-                </tr>
-            `;
-        }
-    }
-
-    window.onload = function() {
-        filterManuals();
-    };
-</script>
+    </script>
 </body>
 </html>
