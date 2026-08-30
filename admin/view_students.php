@@ -55,12 +55,14 @@ if (isset($_GET['delete_id'])) {
 }
 
 // ==========================================
-// 🗄️ FETCH STUDENTS WITH SEM & SEARCH QUERY
+// 🗄️ FETCH STUDENTS WITH SEM & SEARCH QUERY - FIXED! 🐛🔨
 // ==========================================
+// Ab dono columns check honge: `semester` aur `designation`
 if ($filter_sem !== 'all' && in_array($filter_sem, $allowed_sems)) {
-    $sql_sem_condition = "semester = '" . $conn->real_escape_string($filter_sem) . "'";
+    $safe_sem = $conn->real_escape_string($filter_sem);
+    $sql_sem_condition = "(semester = '$safe_sem' OR designation = '$safe_sem')";
 } else {
-    $sql_sem_condition = "semester IN ('" . $allowed_sems[0] . "', '" . $allowed_sems[1] . "')";
+    $sql_sem_condition = "(semester IN ('" . $allowed_sems[0] . "', '" . $allowed_sems[1] . "') OR designation IN ('" . $allowed_sems[0] . "', '" . $allowed_sems[1] . "'))";
 }
 
 // Add Search condition if user typed something
@@ -220,7 +222,10 @@ $students = $conn->query($sql);
                                             echo htmlspecialchars($dept[0]) . " Engg."; 
                                         ?>
                                     </td>
-                                    <td class="fw-semibold text-primary"><?php echo htmlspecialchars($row['semester']); ?></td>
+                                    <!-- DISPLAY SEMESTER EVEN IF IT'S IN DESIGNATION -->
+                                    <td class="fw-semibold text-primary">
+                                        <?php echo htmlspecialchars(!empty($row['semester']) ? $row['semester'] : $row['designation']); ?>
+                                    </td>
                                     <td><span class="badge-class">Class <?php echo !empty($row['class_name']) ? htmlspecialchars($row['class_name']) : 'N/A'; ?></span></td>
                                     <td><span class="badge-batch">Batch <?php echo !empty($row['batch']) ? htmlspecialchars($row['batch']) : 'N/A'; ?></span></td>
                                     <td class="text-end">

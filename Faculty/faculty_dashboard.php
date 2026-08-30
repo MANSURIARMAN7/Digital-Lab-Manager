@@ -93,9 +93,13 @@ if (!empty($selected_subject)) {
         .dropdown-box select { padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; background: #f8fafc; color: #113460; font-weight: 600; transition: 0.2s; width: 100%;}
         
         .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
-        .card { background: white; padding: 22px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border-left: 5px solid #2563eb; }
+        
+        /* 🔥 CARDS KO CLICKABLE & HOVERABLE BANAYA HAI 🔥 */
+        .card { background: white; padding: 22px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border-left: 5px solid #2563eb; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        
         .card h3 { color: #64748b; font-size: 14px; margin-bottom: 5px; font-weight: 600;}
-        .card p { color: #0f172a; font-size: 26px; font-weight: 700; }
+        .card p { color: #0f172a; font-size: 26px; font-weight: 700; margin: 0; }
         .card i { font-size: 35px; color: #e2e8f0; }
 
         .table-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
@@ -172,20 +176,21 @@ if (!empty($selected_subject)) {
             </div>
         </form>
 
+        <!-- 🔥 ONCLICK LINKS ADD KIYE HAIN HAR CARD ME 🔥 -->
         <div class="cards">
-            <div class="card" style="border-left-color: #3b82f6;">
+            <div class="card" style="border-left-color: #3b82f6;" onclick="window.location.href='labmanual_list.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>'">
                 <div><h3>Total Submissions</h3><p><?php echo $total_sub; ?></p></div>
                 <i class="fa-solid fa-file-pdf"></i>
             </div>
-            <div class="card" style="border-left-color: #f59e0b;">
+            <div class="card" style="border-left-color: #f59e0b;" onclick="window.location.href='labmanual_list.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&status=Pending'">
                 <div><h3>Pending</h3><p><?php echo $pending; ?></p></div>
                 <i class="fa-solid fa-clock"></i>
             </div>
-            <div class="card" style="border-left-color: #10b981;">
+            <div class="card" style="border-left-color: #10b981;" onclick="window.location.href='labmanual_list.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&status=Approved'">
                 <div><h3>Approved</h3><p><?php echo $approved; ?></p></div>
                 <i class="fa-solid fa-circle-check"></i>
             </div>
-            <div class="card" style="border-left-color: #ef4444;">
+            <div class="card" style="border-left-color: #ef4444;" onclick="window.location.href='labmanual_list.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&status=Rejected'">
                 <div><h3>Rejected</h3><p><?php echo $rejected; ?></p></div>
                 <i class="fa-solid fa-circle-xmark"></i>
             </div>
