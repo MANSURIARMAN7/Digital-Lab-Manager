@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
     $semester = $conn->real_escape_string($_POST['semester']);
     $class_name = $conn->real_escape_string($_POST['class_name']);
     $batch = $conn->real_escape_string($_POST['batch']);
-    
+
     // Check if email/enrollment already exists
     $check = $conn->query("SELECT * FROM users WHERE email='$email'");
     if($check->num_rows > 0) {
@@ -77,7 +77,7 @@ $live_notices = $conn->query("
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root { --sidebar-width: 260px; --bg-color: #f4f7fe; --sidebar-bg: #1a365d; --accent-blue: #2563eb; }
+        :root { --sidebar-width: 260px; --bg-color: #f4f7fe; --sidebar-bg: #1a365d; --accent-blue: #1d4ed8; }
         body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
         .sidebar { width: var(--sidebar-width); background-color: var(--sidebar-bg); color: #ffffff; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; }
         .sidebar-logo-container { padding: 30px 20px 20px 20px; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
@@ -183,7 +183,7 @@ $live_notices = $conn->query("
         <div class="row">
             <div class="col-md-7">
                 <h5 class="fw-bold mb-3" style="color: #1e293b;">Manage Students by Year</h5>
-                
+
                 <!-- CARDS LINKED TO VIEW_STUDENTS.PHP -->
                 <div class="year-card yr1-border" onclick="window.location.href='view_students.php?year=1'">
                     <div>
