@@ -24,7 +24,7 @@ if (isset($_GET['ajax_subjects'])) {
     }
     exit(); // AJAX call yahan se wapas chali jayegi, poora page load nahi hoga
 }
-// =======================================================================
+// ======================================================================
 
 // 1. Admin Login Check
 if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
