@@ -1,6 +1,5 @@
 <?php
 session_start();
-// 🔗 Database Connection 
 include '../db.php';
 
 // 1. Admin Login Check
@@ -9,129 +8,64 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
+// Fetch Admin Details for Profile
+$admin_id = $_SESSION['user_id'];
+$admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = '$admin_id'");
+$admin_data = $admin_query->fetch_assoc();
+$admin_name = $admin_data['name'] ?? 'System Administrator';
+
 // ==========================================
-// 🗑️ DELETE LOGIC (Prepared Statement + Secure File Deletion)
+// 🚀 ADD NEW STUDENT LOGIC (BACKEND)
 // ==========================================
 $message = "";
-if (isset($_GET['delete_id'])) {
-    $del_id = (int)$_GET['delete_id'];
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
+    $name = $conn->real_escape_string($_POST['name']);
+    $email = $conn->real_escape_string($_POST['email']); 
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT); 
+    $department = $conn->real_escape_string($_POST['department']);
+    $semester = $conn->real_escape_string($_POST['semester']);
+    $class_name = $conn->real_escape_string($_POST['class_name']);
+    $batch = $conn->real_escape_string($_POST['batch']);
 
-    $stmt_select = $conn->prepare("SELECT file_path FROM lab_manuals WHERE id = ?");
-    $stmt_select->bind_param("i", $del_id);
-    $stmt_select->execute();
-    $res = $stmt_select->get_result();
-
-    if ($res && $row = $res->fetch_assoc()) {
-        $file_target = $row['file_path'];
-        if (!empty($file_target) && file_exists($file_target)) {
-            $real_target = realpath($file_target);
-            $uploads_dir = realpath('../uploads/manuals/');
-            if ($real_target && $uploads_dir && strpos($real_target, $uploads_dir) === 0) {
-                @unlink($real_target);
-            }
-        }
-    }
-    $stmt_select->close();
-
-    $stmt_del = $conn->prepare("DELETE FROM lab_manuals WHERE id = ?");
-    $stmt_del->bind_param("i", $del_id);
-    if ($stmt_del->execute()) {
-        $_SESSION['msg'] = "<div class='alert alert-success alert-dismissible fade show' id='autoAlert'><i class='fas fa-check-circle me-1'></i> Manual deleted successfully!</div>";
+    // Check if email/enrollment already exists
+    $check = $conn->query("SELECT * FROM users WHERE email='$email'");
+    if($check->num_rows > 0) {
+        $message = "<div class='alert alert-danger alert-dismissible fade show' role='alert'>Student with this Enrollment/Email already exists!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
     } else {
-        $_SESSION['msg'] = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'><i class='fas fa-exclamation-triangle me-1'></i> Failed to delete manual.</div>";
-    }
-    $stmt_del->close();
-
-    header("Location: Lab_Manuals.php");
-    exit();
-}
-
-if (isset($_SESSION['msg'])) {
-    $message = $_SESSION['msg'];
-    unset($_SESSION['msg']);
-}
-
-// Fetch Admin Details
-$admin_id = $_SESSION['user_id'];
-$admin_name = 'System Administrator';
-$admin_stmt = $conn->prepare("SELECT name FROM users WHERE user_id = ?");
-if ($admin_stmt) {
-    $admin_stmt->bind_param("s", $admin_id);
-    $admin_stmt->execute();
-    $admin_res = $admin_stmt->get_result();
-    if ($admin_data = $admin_res->fetch_assoc()) {
-        $admin_name = $admin_data['name'] ?? 'System Administrator';
-    }
-    $admin_stmt->close();
-}
-
-// ==========================================
-// 🚀 UPLOAD / ADD NEW LAB MANUAL LOGIC
-// ==========================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
-    $title        = trim($_POST['title']);
-    $subject_name = trim($_POST['subject_name']);
-    $semester     = (int)$_POST['semester'];
-    $branch       = trim($_POST['branch']);
-    $practical_no = trim($_POST['practical_no']);
-    $end_date     = trim($_POST['end_date']);
-    $today        = date('Y-m-d');
-
-    if (empty($title) || empty($subject_name) || empty($branch) || empty($practical_no) || empty($end_date)) {
-        $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'><i class='fas fa-exclamation-circle me-1'></i> All fields are required!</div>";
-    } else if ($end_date < $today) {
-        $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'><i class='fas fa-exclamation-circle me-1'></i> Due date cannot be in the past!</div>";
-    } else if (isset($_FILES['manual_file']) && $_FILES['manual_file']['error'] === UPLOAD_ERR_OK) {
-        $file_name = $_FILES['manual_file']['name'];
-        $file_tmp  = $_FILES['manual_file']['tmp_name'];
-        $file_size = $_FILES['manual_file']['size'];
-        $file_ext  = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime  = finfo_file($finfo, $file_tmp);
-        finfo_close($finfo);
-
-        $max_size = 10 * 1024 * 1024; // 10MB Limit
-
-        if ($file_ext === 'pdf' && $mime === 'application/pdf') {
-            if ($file_size <= $max_size) {
-                $upload_dir = '../uploads/manuals/';
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0777, true);
-                }
-
-                $clean_title   = preg_replace("/[^a-zA-Z0-9]+/", "_", $title);
-                $new_file_name = time() . '_' . uniqid() . '_' . strtolower($clean_title) . '.pdf';
-                $destination   = $upload_dir . $new_file_name;
-
-                if (move_uploaded_file($file_tmp, $destination)) {
-                    $stmt_ins = $conn->prepare("INSERT INTO lab_manuals (title, subject_name, semester, branch, practical_no, end_date, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    $stmt_ins->bind_param("ssissss", $title, $subject_name, $semester, $branch, $practical_no, $end_date, $destination);
-
-                    if ($stmt_ins->execute()) {
-                        $message = "<div class='alert alert-success alert-dismissible fade show' id='autoAlert'><i class='fas fa-check-circle me-1'></i> Lab Manual published successfully!</div>";
-                    } else {
-                        $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'><i class='fas fa-exclamation-triangle me-1'></i> Database Error: " . htmlspecialchars($conn->error) . "</div>";
-                    }
-                    $stmt_ins->close();
-                } else {
-                    $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Failed to move file to server folder.</div>";
-                }
-            } else {
-                $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'>File size exceeds the 10MB limit.</div>";
-            }
+        // Insert Query with class_name and batch
+        $sql = "INSERT INTO users (name, email, password, role, department, semester, class_name, batch) 
+                VALUES ('$name', '$email', '$password', 'student', '$department', '$semester', '$class_name', '$batch')";
+        if ($conn->query($sql)) {
+            $message = "<div class='alert alert-success alert-dismissible fade show' role='alert'>Student Added Successfully to $semester - Class $class_name ($batch)!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
         } else {
-            $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'>Invalid format! Only PDF files are allowed.</div>";
+            $message = "<div class='alert alert-danger alert-dismissible fade show' role='alert'>Error: " . $conn->error . "<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
         }
-    } else {
-        $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Please select a valid PDF file.</div>";
     }
 }
 
-// Fetch Subjects & Manuals
-$subjects_list = $conn->query("SELECT DISTINCT subject_name, semester FROM subjects ORDER BY semester ASC, subject_name ASC");
-$manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DESC");
-$total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
+// ==========================================
+// 📊 LIVE DB COUNTS (BY YEAR) - FIXED! 🐛🔨
+// ==========================================
+// Ab yeh 'semester' aur 'designation' dono column check karega taaki 178 students count ho jayein
+$yr1_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND (semester IN ('Semester 1', 'Semester 2', '1', '2') OR designation IN ('Semester 1', 'Semester 2', '1', '2'))");
+$yr1_count = ($yr1_res) ? $yr1_res->fetch_assoc()['total'] : 0;
+
+$yr2_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND (semester IN ('Semester 3', 'Semester 4', '3', '4') OR designation IN ('Semester 3', 'Semester 4', '3', '4'))");
+$yr2_count = ($yr2_res) ? $yr2_res->fetch_assoc()['total'] : 0;
+
+$yr3_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND (semester IN ('Semester 5', 'Semester 6', '5', '6') OR designation IN ('Semester 5', 'Semester 6', '5', '6'))");
+$yr3_count = ($yr3_res) ? $yr3_res->fetch_assoc()['total'] : 0;
+
+// ==========================================
+// 📢 LIVE NOTICE BOARD - FIXED TABLE NAME! 🐛🔨
+// ==========================================
+// Table name 'submissions' ki jagah 'student_submissions' kar diya
+$live_notices = $conn->query("
+    SELECT s.subject_name, s.status, u.name, COALESCE(NULLIF(u.semester, ''), u.designation) AS semester 
+    FROM student_submissions s 
+    JOIN users u ON s.student_id = u.user_id 
+    ORDER BY s.submitted_at DESC LIMIT 3
+");
 ?>
 
 <!DOCTYPE html>
@@ -139,55 +73,54 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lab Manuals Management - Admin Portal</title>
+    <title>Student Management - Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <style>
         :root { --sidebar-width: 260px; --bg-color: #f4f7fe; --sidebar-bg: #1a365d; --accent-blue: #2563eb; }
         body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
         .sidebar { width: var(--sidebar-width); background-color: var(--sidebar-bg); color: #ffffff; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; }
         .sidebar-logo-container { padding: 30px 20px 20px 20px; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
         .sidebar-logo-container img { width: 90px; height: 90px; object-fit: contain; margin-bottom: 15px; border-radius: 50%; padding: 5px; background: rgba(255,255,255,0.1); }
-        .sidebar-title h2 { font-size: 18px; font-weight: 700; margin: 0; color: #fff;}
+        .sidebar-title h2 { font-size: 18px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: 0.5px; color: #fff;}
         .sidebar-subtitle { font-size: 13px; color: #94a3b8; margin-top: 5px; font-weight: 500;}
         .nav-links { list-style: none; padding: 20px 15px; margin: 0; flex-grow: 1; }
         .nav-links li { padding: 12px 20px; margin: 5px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 500; color: #a0aec0; transition: all 0.3s ease; }
         .nav-links li:hover { color: white; background: rgba(255,255,255,0.08); }
         .nav-links li.active { background: var(--accent-blue); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); font-weight: 600; }
-
         .main { flex: 1; padding: 30px 40px; overflow-y: auto; }
-
-        .topbar { background: transparent; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
+        .topbar { background: transparent; padding: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
         .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
         .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
-        .clear-search { cursor: pointer; display: none; color: #94a3b8; font-size: 14px; }
-        .clear-search:hover { color: #475569; }
-
         .profile-pill { display: flex; align-items: center; background-color: #ffffff; padding: 6px 16px 6px 20px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s;}
         .profile-text { text-align: right; margin-right: 15px; }
         .profile-welcome { display: block; font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
         .profile-name { margin: 0; font-size: 14px; color: #1e293b; font-weight: 700; }
-        .profile-avatar { width: 42px; height: 42px; background-color: var(--accent-blue); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
-
-        .content-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
-        .table-custom th { background: #f8fafc; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 14px; }
-        .table-custom td { vertical-align: middle; font-size: 14px; padding: 14px; color: #334155; border-bottom: 1px solid #f1f5f9; }
-        .badge-sem { background: rgba(37,99,235,0.1); color: var(--accent-blue); border: 1px solid rgba(37,99,235,0.2); padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
-        .badge-status { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-        .badge-active { background-color: #dcfce7; color: #15803d; }
-        .badge-soon { background-color: #fef9c3; color: #a16207; }
-        .badge-expired { background-color: #fee2e2; color: #b91c1c; }
-
-        /* Drag and Drop File Upload Area */
-        .drop-zone { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.2s ease; }
-        .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent-blue); background: #eff6ff; }
-        .file-info-box { font-size: 12px; background: #f1f5f9; border-radius: 6px; padding: 8px 10px; border: 1px solid #cbd5e1; }
+        .profile-avatar { width: 42px; height: 42px; background-color: var(--accent-blue); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4); letter-spacing: 1px;}
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .btn-primary-custom { background: var(--accent-blue); color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; border: none; box-shadow: 0 4px 10px rgba(37,99,235,0.2); transition: 0.2s; }
+        .btn-primary-custom:hover { background: #1d4ed8; transform: translateY(-2px); color: white;}
+        .year-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); position: relative; overflow: hidden; cursor: pointer; transition: 0.2s;}
+        .year-card:hover { transform: translateX(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .year-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
+        .yr1-border::before { background: var(--accent-blue); }
+        .yr2-border::before { background: #10b981; }
+        .yr3-border::before { background: #f59e0b; }
+        .card-icon { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .yr1-icon { background: rgba(37,99,235,0.1); color: var(--accent-blue); }
+        .yr2-icon { background: rgba(16,185,129,0.1); color: #10b981; }
+        .yr3-icon { background: rgba(245,158,11,0.1); color: #f59e0b; }
+        .panel-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); margin-bottom: 25px;}
+        .search-btn { background: var(--accent-blue); color: white; border: none; border-radius: 0 8px 8px 0; padding: 0 20px; }
+        .notice-alert { padding: 15px 20px; border-radius: 10px; display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; }
+        .notice-icon { font-size: 18px; margin-top: 2px; }
+        .notice-warning { background: #fef3c7; color: #92400e; }
+        .notice-info { background: #e0f2fe; color: #075985; }
+        .notice-success { background: #dcfce3; color: #166534; }
     </style>
 </head>
 <body>
 
-    <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
@@ -196,10 +129,10 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
         </div>
         <ul class="nav-links">
             <li onclick="window.location.href='dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
-            <li onclick="window.location.href='Student_Mgmt.php'"><i class="fas fa-user-graduate"></i> Student Mgmt</li>
+            <li class="active" onclick="window.location.href='Student_Mgmt.php'"><i class="fas fa-user-graduate"></i> Student Mgmt</li>
             <li onclick="window.location.href='faculty_mgmt.php'"><i class="fas fa-chalkboard-teacher"></i> Faculty Mgmt</li>
             <li onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book"></i> Subject Mgmt</li>
-            <li class="active" onclick="window.location.href='Lab_Manuals.php'"><i class="fas fa-file-alt"></i> Lab Manuals</li>
+            <li onclick="window.location.href='Lab_Manuals.php'"><i class="fas fa-file-alt"></i> Lab Manuals</li>
             <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
             <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
             <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
@@ -207,333 +140,200 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
         </ul>
     </div>
 
-    <!-- MAIN CONTENT -->
     <div class="main">
-
-        <!-- TOPBAR -->
-        <div class="topbar">
+        <div class="topbar mb-4">
             <div class="search-box">
                 <i class="fas fa-search text-muted"></i>
-                <input type="text" id="searchInput" placeholder="Search manuals by name or subject..." onkeyup="filterTable()">
-                <i class="fas fa-times clear-search" id="clearBtn" onclick="clearSearch()"></i>
+                <input type="text" placeholder="Search globally...">
             </div>
-
             <div class="d-flex align-items-center gap-4">
+                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'">
+                    <i class="far fa-bell text-secondary fs-5"></i>
+                </div>
                 <a href="Profile.php" class="profile-pill">
                     <div class="profile-text">
                         <span class="profile-welcome">Welcome Back,</span>
-                        <h4 class="profile-name"><?php echo htmlspecialchars($admin_name); ?></h4>
+                        <h4 class="profile-name">
+                            <?php 
+                                $name_parts = explode(' ', $admin_name);
+                                echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : 'Admin';
+                            ?>
+                        </h4>
                     </div>
-                    <div class="profile-avatar"><i class="fas fa-user-shield"></i></div>
+                    <div class="profile-avatar">HOD</div>
                 </a>
             </div>
         </div>
 
-        <div id="alertContainer">
-            <?php echo $message; ?>
+        <?php echo $message; ?>
+
+        <div class="page-header">
+            <div class="d-flex align-items-center gap-3">
+                <div style="font-size: 28px;">👨‍🎓</div>
+                <div>
+                    <h3 class="fw-bold text-dark mb-1" style="font-size: 22px;">Student Management & Tracker</h3>
+                    <p class="text-muted small mb-0">Track student laboratory manuals, academic branch details, and submission progress.</p>
+                </div>
+            </div>
+            <button class="btn-primary-custom" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+                <i class="fas fa-plus me-2"></i> Add New Student
+            </button>
         </div>
 
-        <div class="mb-4 mt-2">
-            <h3 class="fw-bold text-dark mb-1" style="font-size: 24px;">Lab Manuals Management</h3>
-            <p class="text-muted small mb-0">Upload and manage official practical lab manuals.</p>
-        </div>
+        <div class="row">
+            <div class="col-md-7">
+                <h5 class="fw-bold mb-3" style="color: #1e293b;">Manage Students by Year</h5>
 
-        <div class="row g-4">
-            <!-- LEFT: UPLOAD FORM -->
-            <div class="col-md-4">
-                <div class="content-box">
-                    <h5 class="fw-bold text-dark mb-3" style="font-size: 16px;"><i class="fas fa-upload text-primary me-2"></i> Upload Lab Manual</h5>
+                <!-- CARDS LINKED TO VIEW_STUDENTS.PHP -->
+                <div class="year-card yr1-border" onclick="window.location.href='view_students.php?year=1'">
+                    <div>
+                        <small class="text-muted fw-semibold">Manage Sem 1 & 2</small>
+                        <h4 class="fw-bold text-dark mb-0 mt-1">1st Year Students</h4>
+                        <small class="text-primary fw-bold"><?php echo $yr1_count; ?> Students Enrolled</small>
+                    </div>
+                    <div class="card-icon yr1-icon"><i class="fas fa-users"></i></div>
+                </div>
 
-                    <form action="" method="POST" enctype="multipart/form-data" id="manualUploadForm">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Manual Title</label>
-                            <input type="text" name="title" class="form-control" required placeholder="e.g. Basic Math Practical">
-                        </div>
+                <div class="year-card yr2-border" onclick="window.location.href='view_students.php?year=2'">
+                    <div>
+                        <small class="text-muted fw-semibold">Manage Sem 3 & 4</small>
+                        <h4 class="fw-bold text-dark mb-0 mt-1">2nd Year Students</h4>
+                        <small class="text-success fw-bold"><?php echo $yr2_count; ?> Students Enrolled</small>
+                    </div>
+                    <div class="card-icon yr2-icon"><i class="fas fa-user-friends"></i></div>
+                </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Select Subject</label>
-                            <select name="subject_name" class="form-select" required>
-                                <option value="">Choose Subject...</option>
-                                <?php if($subjects_list && $subjects_list->num_rows > 0): ?>
-                                    <?php while($sub = $subjects_list->fetch_assoc()): ?>
-                                        <option value="<?php echo htmlspecialchars($sub['subject_name']); ?>">
-                                            <?php echo htmlspecialchars($sub['subject_name']); ?> (Sem <?php echo $sub['semester']; ?>)
-                                        </option>
-                                    <?php endwhile; ?>
-                                <?php endif; ?>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Semester</label>
-                            <select name="semester" class="form-select" required>
-                                <option value="1">Semester 1</option>
-                                <option value="2">Semester 2</option>
-                                <option value="3">Semester 3</option>
-                                <option value="4">Semester 4</option>
-                                <option value="5">Semester 5</option>
-                                <option value="6">Semester 6</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Branch</label>
-                            <select name="branch" class="form-select" required>
-                                <option value="Computer Engineering">Computer Engineering</option>
-                                <option value="Information Technology">Information Technology</option>
-                                <option value="Mechanical Engineering">Mechanical Engineering</option>
-                                <option value="Civil Engineering">Civil Engineering</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Practical No.</label>
-                            <input type="text" name="practical_no" class="form-control" required placeholder="e.g. PR.1">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Due Date</label>
-                            <input type="date" name="end_date" class="form-control" min="<?php echo date('Y-m-d'); ?>" required>
-                        </div>
-
-                        <!-- Drag & Drop Upload Zone -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">Upload PDF File <span class="text-muted fw-normal">(Max 10MB)</span></label>
-                            <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click();">
-                                <i class="fas fa-file-pdf text-danger fa-2x mb-2"></i>
-                                <div class="small fw-bold text-dark">Click or Drag PDF here</div>
-                                <span class="text-muted" style="font-size: 11px;">Supports PDF up to 10MB</span>
-                            </div>
-                            <input type="file" name="manual_file" id="fileInput" class="d-none" accept=".pdf,application/pdf" required>
-                            <div id="fileSizeError" class="text-danger small mt-1" style="display: none;">File size exceeds 10MB limit!</div>
-                            <div id="fileInfoDisplay" class="file-info-box mt-2 text-dark" style="display: none;"></div>
-                        </div>
-
-                        <button type="submit" name="add_manual" class="btn btn-primary w-100 fw-bold py-2 mb-2">
-                            <i class="fas fa-cloud-upload-alt me-1"></i> Publish Manual
-                        </button>
-                        <button type="reset" class="btn btn-light w-100 text-muted btn-sm fw-semibold" onclick="resetFilePreview()">
-                            <i class="fas fa-undo me-1"></i> Reset Form
-                        </button>
-                    </form>
+                <div class="year-card yr3-border" onclick="window.location.href='view_students.php?year=3'">
+                    <div>
+                        <small class="text-muted fw-semibold">Manage Sem 5 & 6</small>
+                        <h4 class="fw-bold text-dark mb-0 mt-1">3rd Year Students</h4>
+                        <small class="text-warning fw-bold" style="color: #d97706 !important;"><?php echo $yr3_count; ?> Students Enrolled</small>
+                    </div>
+                    <div class="card-icon yr3-icon"><i class="fas fa-users-cog"></i></div>
                 </div>
             </div>
 
-            <!-- RIGHT: DATATABLE WITH SEARCH & FILTERS -->
-            <div class="col-md-8">
-                <div class="content-box">
-                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <h5 class="fw-bold text-dark mb-0" style="font-size: 16px;"><i class="fas fa-list text-success me-2"></i> Published Manuals</h5>
-                            <span class="badge bg-primary px-3 py-2 rounded-pill" id="totalCounter">Showing: <?php echo $total_manuals; ?></span>
-                        </div>
-                        
-                        <!-- Dynamic Dropdown Filters & Reset Button -->
-                        <div class="d-flex gap-2">
-                            <select id="filterBranch" class="form-select form-select-sm" onchange="filterTable()">
-                                <option value="">All Branches</option>
-                                <option value="Computer Engineering">Computer Eng.</option>
-                                <option value="Information Technology">IT</option>
-                                <option value="Mechanical Engineering">Mechanical Eng.</option>
-                                <option value="Civil Engineering">Civil Eng.</option>
-                            </select>
-                            <select id="filterSem" class="form-select form-select-sm" onchange="filterTable()">
-                                <option value="">All Sem</option>
-                                <option value="Sem 1">Sem 1</option>
-                                <option value="Sem 2">Sem 2</option>
-                                <option value="Sem 3">Sem 3</option>
-                                <option value="Sem 4">Sem 4</option>
-                                <option value="Sem 5">Sem 5</option>
-                                <option value="Sem 6">Sem 6</option>
-                            </select>
-                            <button class="btn btn-outline-secondary btn-sm" title="Reset Filters" onclick="resetAllFilters()">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                    </div>
+            <div class="col-md-5">
+                <h5 class="fw-bold mb-3" style="color: #1e293b;">Quick Actions & Updates</h5>
+                <div class="panel-box mb-4">
+                    <h6 class="fw-bold mb-3"><i class="fas fa-search text-primary me-2"></i> Quick Student Search</h6>
+                    <form action="search_student.php" method="GET" class="d-flex">
+                        <input type="text" name="query" class="form-control bg-light" placeholder="Enter Enrollment No..." style="border-radius: 8px 0 0 8px; border: 1px solid #e2e8f0; border-right: none;" required>
+                        <button type="submit" class="search-btn">Search</button>
+                    </form>
+                    <small class="text-muted mt-2 d-block">Directly find any student from any year.</small>
+                </div>
 
-                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
-                        <table class="table table-custom mb-0" id="manualsTable">
-                            <thead style="position: sticky; top: 0; background: white; z-index: 1;">
-                                <tr>
-                                    <th>Manual Info</th>
-                                    <th>Branch / Sem</th>
-                                    <th>Deadline & Status</th>
-                                    <th class="text-end">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBody">
-                                <?php if($manuals_list && $manuals_list->num_rows > 0): ?>
-                                    <?php 
-                                    $today_ts = strtotime(date('Y-m-d'));
-                                    while($row = $manuals_list->fetch_assoc()): 
-                                        $due_ts = strtotime($row['end_date']);
-                                        $days_diff = floor(($due_ts - $today_ts) / 86400);
-                                    ?>
-                                        <tr class="manual-row" data-branch="<?php echo htmlspecialchars($row['branch']); ?>" data-sem="Sem <?php echo htmlspecialchars($row['semester']); ?>">
-                                            <td>
-                                                <div class="fw-bold text-dark search-target"><?php echo htmlspecialchars($row['title']); ?></div>
-                                                <small class="text-primary search-target"><?php echo htmlspecialchars($row['subject_name']); ?> (<?php echo htmlspecialchars($row['practical_no']); ?>)</small>
-                                            </td>
-                                            <td>
-                                                <span class="badge-sem search-target"><?php echo htmlspecialchars($row['branch']); ?> - Sem <?php echo htmlspecialchars($row['semester']); ?></span>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex flex-column align-items-start gap-1">
-                                                    <small class="text-secondary fw-semibold"><i class="far fa-calendar-alt me-1"></i> <?php echo date('d M Y', strtotime($row['end_date'])); ?></small>
-                                                    <?php if($days_diff < 0): ?>
-                                                        <span class="badge-status badge-expired">Expired</span>
-                                                    <?php elseif($days_diff <= 3): ?>
-                                                        <span class="badge-status badge-soon">Due Soon (<?php echo $days_diff == 0 ? 'Today' : $days_diff . 'd left'; ?>)</span>
-                                                    <?php else: ?>
-                                                        <span class="badge-status badge-active">Active</span>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </td>
-                                            <td class="text-end">
-                                                <a href="<?php echo htmlspecialchars($row['file_path']); ?>" target="_blank" class="btn btn-outline-primary btn-sm me-1" title="View PDF">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                                <a href="Lab_Manuals.php?delete_id=<?php echo $row['id']; ?>" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this lab manual?');" title="Delete">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    <?php endwhile; ?>
-                                <?php else: ?>
-                                    <tr id="noDataRow">
-                                        <td colspan="4" class="text-center text-muted py-5">
-                                            <i class="fas fa-folder-open mb-2" style="font-size: 32px; color: #cbd5e1;"></i><br>
-                                            <span>No lab manuals uploaded yet.</span>
-                                        </td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
+                <h6 class="fw-bold mb-3"><i class="fas fa-bullhorn text-warning me-2"></i> Notice Board (Live)</h6>
+                <?php if($live_notices && $live_notices->num_rows > 0): ?>
+                    <?php 
+                    $colors = ['notice-warning', 'notice-info', 'notice-success'];
+                    $icons = ['fa-exclamation-triangle', 'fa-info-circle', 'fa-check-circle'];
+                    $i = 0;
+                    while($notice = $live_notices->fetch_assoc()): 
+                        $colorClass = $colors[$i % 3];
+                        $iconClass = $icons[$i % 3];
+                    ?>
+                        <div class="notice-alert <?php echo $colorClass; ?>">
+                            <i class="fas <?php echo $iconClass; ?> notice-icon"></i>
+                            <div>
+                                <h6 class="fw-bold mb-1" style="font-size: 14px;">New Submission: <?php echo htmlspecialchars($notice['subject_name']); ?></h6>
+                                <p class="mb-0" style="font-size: 13px;"><?php echo htmlspecialchars($notice['name']); ?> (<?php echo htmlspecialchars($notice['semester']); ?>) - <?php echo $notice['status']; ?></p>
+                            </div>
+                        </div>
+                    <?php $i++; endwhile; ?>
+                <?php else: ?>
+                    <div class="notice-alert notice-info">
+                        <i class="fas fa-info-circle notice-icon"></i>
+                        <div>
+                            <h6 class="fw-bold mb-1" style="font-size: 14px;">System Update</h6>
+                            <p class="mb-0" style="font-size: 13px;">No recent submissions found in the database.</p>
+                        </div>
                     </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD STUDENT MODAL -->
+    <div class="modal fade" id="addStudentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="border-radius: 12px; border: none;">
+                <div class="modal-header" style="background: var(--bg-color); border-bottom: 1px solid #e2e8f0;">
+                    <h5 class="modal-title fw-bold" style="color: #1e293b;"><i class="fas fa-user-plus text-primary me-2"></i> Add New Student</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form action="" method="POST">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Full Name</label>
+                                <input type="text" name="name" class="form-control" required placeholder="e.g. Arman Mansuri">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Enrollment No / Email</label>
+                                <input type="text" name="email" class="form-control" required placeholder="e.g. 236170307001">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Branch / Department</label>
+                                <select name="department" class="form-select" required>
+                                    <option value="" selected disabled>Select Branch</option>
+                                    <option value="Computer Engineering">Computer Engg.</option>
+                                    <option value="IT Engineering">IT Engg.</option>
+                                    <option value="Civil Engineering">Civil Engg.</option>
+                                    <option value="Mechanical Engineering">Mechanical Engg.</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Semester</label>
+                                <select name="semester" class="form-select" required>
+                                    <option value="" selected disabled>Select Semester</option>
+                                    <option value="Semester 1">Semester 1 (1st Year)</option>
+                                    <option value="Semester 2">Semester 2 (1st Year)</option>
+                                    <option value="Semester 3">Semester 3 (2nd Year)</option>
+                                    <option value="Semester 4">Semester 4 (2nd Year)</option>
+                                    <option value="Semester 5">Semester 5 (3rd Year)</option>
+                                    <option value="Semester 6">Semester 6 (3rd Year)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted">Class</label>
+                                <select name="class_name" class="form-select" required>
+                                    <option value="" selected disabled>Select Class</option>
+                                    <option value="A">Class A</option>
+                                    <option value="B">Class B</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted">Batch</label>
+                                <select name="batch" class="form-select" required>
+                                    <option value="" selected disabled>Select Batch</option>
+                                    <option value="A1">Batch A1</option>
+                                    <option value="A2">Batch A2</option>
+                                    <option value="B1">Batch B1</option>
+                                    <option value="B2">Batch B2</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted">Login Password</label>
+                                <input type="password" name="password" class="form-control" required placeholder="Default Password">
+                            </div>
+                        </div>
+                        <button type="submit" name="add_student" class="btn btn-primary w-100 fw-bold" style="padding: 10px; border-radius: 8px;">
+                            <i class="fas fa-save me-1"></i> Save Student Record
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // 1. AUTO-DISMISS ALERT
-        setTimeout(function() {
-            let alertMsg = document.getElementById('autoAlert');
-            if(alertMsg) {
-                alertMsg.style.transition = "opacity 0.5s ease";
-                alertMsg.style.opacity = "0";
-                setTimeout(() => alertMsg.remove(), 500);
-            }
-        }, 3500);
-
-        // 2. FILE INPUT & DRAG-AND-DROP PREVIEW
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); }, false);
-        });
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false);
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            if(files.length > 0) {
-                fileInput.files = files;
-                handleFileSelect(files[0]);
-            }
-        });
-
-        fileInput.addEventListener('change', function() {
-            if(this.files.length > 0) handleFileSelect(this.files[0]);
-        });
-
-        function handleFileSelect(file) {
-            let errorDiv = document.getElementById('fileSizeError');
-            let infoDiv = document.getElementById('fileInfoDisplay');
-            if (file) {
-                if (file.size > 10 * 1024 * 1024) {
-                    errorDiv.style.display = 'block';
-                    infoDiv.style.display = 'none';
-                    fileInput.value = '';
-                } else {
-                    errorDiv.style.display = 'none';
-                    let fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                    infoDiv.innerHTML = `<i class="fas fa-file-pdf text-danger me-1"></i> <strong>Selected:</strong> ${file.name} (${fileSizeMB} MB)`;
-                    infoDiv.style.display = 'block';
-                }
-            } else {
-                infoDiv.style.display = 'none';
-            }
-        }
-
-        function resetFilePreview() {
-            document.getElementById('fileInfoDisplay').style.display = 'none';
-            document.getElementById('fileSizeError').style.display = 'none';
-        }
-
-        // 3. COMBINED MULTI-FILTER SEARCH & COUNTER UPDATE
-        function filterTable() {
-            let searchTxt = document.getElementById("searchInput").value.toLowerCase().trim();
-            let branchVal = document.getElementById("filterBranch").value;
-            let semVal = document.getElementById("filterSem").value;
-            let clearBtn = document.getElementById("clearBtn");
-            let rows = document.getElementsByClassName("manual-row");
-            let visibleCount = 0;
-
-            clearBtn.style.display = searchTxt.length > 0 ? "inline" : "none";
-
-            for (let i = 0; i < rows.length; i++) {
-                let rowText = rows[i].textContent.toLowerCase();
-                let rowBranch = rows[i].getAttribute("data-branch");
-                let rowSem = rows[i].getAttribute("data-sem");
-
-                let matchesText = searchTxt === "" || rowText.includes(searchTxt);
-                let matchesBranch = branchVal === "" || rowBranch === branchVal;
-                let matchesSem = semVal === "" || rowSem === semVal;
-
-                if (matchesText && matchesBranch && matchesSem) {
-                    rows[i].style.display = "";
-                    visibleCount++;
-                } else {
-                    rows[i].style.display = "none";
-                }
-            }
-
-            document.getElementById("totalCounter").innerText = `Showing: ${visibleCount}`;
-
-            let noMatchRow = document.getElementById("noSearchMatchRow");
-            if (visibleCount === 0 && rows.length > 0) {
-                if (!noMatchRow) {
-                    let tbody = document.getElementById("tableBody");
-                    noMatchRow = document.createElement("tr");
-                    noMatchRow.id = "noSearchMatchRow";
-                    noMatchRow.innerHTML = `<td colspan="4" class="text-center text-muted py-4"><i class="fas fa-search me-2"></i>No manuals matched your search/filter criteria.</td>`;
-                    tbody.appendChild(noMatchRow);
-                }
-            } else if (noMatchRow) {
-                noMatchRow.remove();
-            }
-        }
-
-        function clearSearch() {
-            document.getElementById("searchInput").value = "";
-            filterTable();
-        }
-
-        function resetAllFilters() {
-            document.getElementById("searchInput").value = "";
-            document.getElementById("filterBranch").value = "";
-            document.getElementById("filterSem").value = "";
-            filterTable();
-        }
-    </script>
 </body>
 </html>
-
 
 
