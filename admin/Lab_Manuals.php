@@ -23,7 +23,6 @@ if (isset($_GET['delete_id'])) {
 
     if ($res && $row = $res->fetch_assoc()) {
         $file_target = $row['file_path'];
-        // Security: Path Traversal Protection
         if (!empty($file_target) && file_exists($file_target)) {
             $real_target = realpath($file_target);
             $uploads_dir = realpath('../uploads/manuals/');
@@ -78,7 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
     $end_date     = trim($_POST['end_date']);
     $today        = date('Y-m-d');
 
-    // Enhanced Input Validation
     if (empty($title) || empty($subject_name) || empty($branch) || empty($practical_no) || empty($end_date)) {
         $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'><i class='fas fa-exclamation-circle me-1'></i> All fields are required!</div>";
     } else if ($end_date < $today) {
@@ -89,7 +87,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
         $file_size = $_FILES['manual_file']['size'];
         $file_ext  = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
 
-        // MIME Type Verification
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime  = finfo_file($finfo, $file_tmp);
         finfo_close($finfo);
@@ -103,7 +100,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
                     mkdir($upload_dir, 0777, true);
                 }
 
-                // 🌟 Collision-proof Unique Filename
                 $clean_title   = preg_replace("/[^a-zA-Z0-9]+/", "_", $title);
                 $new_file_name = time() . '_' . uniqid() . '_' . strtolower($clean_title) . '.pdf';
                 $destination   = $upload_dir . $new_file_name;
@@ -180,8 +176,13 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
         .badge-sem { background: rgba(37,99,235,0.1); color: var(--accent-blue); border: 1px solid rgba(37,99,235,0.2); padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
         .badge-status { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
         .badge-active { background-color: #dcfce7; color: #15803d; }
+        .badge-soon { background-color: #fef9c3; color: #a16207; }
         .badge-expired { background-color: #fee2e2; color: #b91c1c; }
-        .file-info-box { font-size: 12px; background: #f1f5f9; border-radius: 6px; padding: 6px 10px; border: 1px solid #cbd5e1; }
+
+        /* Drag and Drop File Upload Area */
+        .drop-zone { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.2s ease; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent-blue); background: #eff6ff; }
+        .file-info-box { font-size: 12px; background: #f1f5f9; border-radius: 6px; padding: 8px 10px; border: 1px solid #cbd5e1; }
     </style>
 </head>
 <body>
@@ -295,9 +296,15 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
                             <input type="date" name="end_date" class="form-control" min="<?php echo date('Y-m-d'); ?>" required>
                         </div>
 
+                        <!-- Drag & Drop Upload Zone -->
                         <div class="mb-3">
                             <label class="form-label fw-bold small text-muted">Upload PDF File <span class="text-muted fw-normal">(Max 10MB)</span></label>
-                            <input type="file" name="manual_file" id="fileInput" class="form-control" accept=".pdf,application/pdf" required>
+                            <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click();">
+                                <i class="fas fa-file-pdf text-danger fa-2x mb-2"></i>
+                                <div class="small fw-bold text-dark">Click or Drag PDF here</div>
+                                <span class="text-muted" style="font-size: 11px;">Supports PDF up to 10MB</span>
+                            </div>
+                            <input type="file" name="manual_file" id="fileInput" class="d-none" accept=".pdf,application/pdf" required>
                             <div id="fileSizeError" class="text-danger small mt-1" style="display: none;">File size exceeds 10MB limit!</div>
                             <div id="fileInfoDisplay" class="file-info-box mt-2 text-dark" style="display: none;"></div>
                         </div>
@@ -318,10 +325,10 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                         <div class="d-flex align-items-center gap-2">
                             <h5 class="fw-bold text-dark mb-0" style="font-size: 16px;"><i class="fas fa-list text-success me-2"></i> Published Manuals</h5>
-                            <span class="badge bg-primary px-3 py-2 rounded-pill">Total: <?php echo $total_manuals; ?></span>
+                            <span class="badge bg-primary px-3 py-2 rounded-pill" id="totalCounter">Showing: <?php echo $total_manuals; ?></span>
                         </div>
                         
-                        <!-- Dynamic Dropdown Filters -->
+                        <!-- Dynamic Dropdown Filters & Reset Button -->
                         <div class="d-flex gap-2">
                             <select id="filterBranch" class="form-select form-select-sm" onchange="filterTable()">
                                 <option value="">All Branches</option>
@@ -339,6 +346,9 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
                                 <option value="Sem 5">Sem 5</option>
                                 <option value="Sem 6">Sem 6</option>
                             </select>
+                            <button class="btn btn-outline-secondary btn-sm" title="Reset Filters" onclick="resetAllFilters()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -355,9 +365,10 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
                             <tbody id="tableBody">
                                 <?php if($manuals_list && $manuals_list->num_rows > 0): ?>
                                     <?php 
-                                    $today_str = date('Y-m-d');
+                                    $today_ts = strtotime(date('Y-m-d'));
                                     while($row = $manuals_list->fetch_assoc()): 
-                                        $is_expired = ($row['end_date'] < $today_str);
+                                        $due_ts = strtotime($row['end_date']);
+                                        $days_diff = floor(($due_ts - $today_ts) / 86400);
                                     ?>
                                         <tr class="manual-row" data-branch="<?php echo htmlspecialchars($row['branch']); ?>" data-sem="Sem <?php echo htmlspecialchars($row['semester']); ?>">
                                             <td>
@@ -370,8 +381,10 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
                                             <td>
                                                 <div class="d-flex flex-column align-items-start gap-1">
                                                     <small class="text-secondary fw-semibold"><i class="far fa-calendar-alt me-1"></i> <?php echo date('d M Y', strtotime($row['end_date'])); ?></small>
-                                                    <?php if($is_expired): ?>
+                                                    <?php if($days_diff < 0): ?>
                                                         <span class="badge-status badge-expired">Expired</span>
+                                                    <?php elseif($days_diff <= 3): ?>
+                                                        <span class="badge-status badge-soon">Due Soon (<?php echo $days_diff == 0 ? 'Today' : $days_diff . 'd left'; ?>)</span>
                                                     <?php else: ?>
                                                         <span class="badge-status badge-active">Active</span>
                                                     <?php endif; ?>
@@ -415,17 +428,38 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
             }
         }, 3500);
 
-        // 2. FILE INPUT PREVIEW & SIZE CHECK
-        document.getElementById('fileInput').addEventListener('change', function() {
-            let file = this.files[0];
+        // 2. FILE INPUT & DRAG-AND-DROP PREVIEW
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); }, false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if(files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', function() {
+            if(this.files.length > 0) handleFileSelect(this.files[0]);
+        });
+
+        function handleFileSelect(file) {
             let errorDiv = document.getElementById('fileSizeError');
             let infoDiv = document.getElementById('fileInfoDisplay');
-            
             if (file) {
                 if (file.size > 10 * 1024 * 1024) {
                     errorDiv.style.display = 'block';
                     infoDiv.style.display = 'none';
-                    this.value = '';
+                    fileInput.value = '';
                 } else {
                     errorDiv.style.display = 'none';
                     let fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
@@ -435,14 +469,14 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
             } else {
                 infoDiv.style.display = 'none';
             }
-        });
+        }
 
         function resetFilePreview() {
             document.getElementById('fileInfoDisplay').style.display = 'none';
             document.getElementById('fileSizeError').style.display = 'none';
         }
 
-        // 3. COMBINED MULTI-FILTER SEARCH (Text, Branch, Semester)
+        // 3. COMBINED MULTI-FILTER SEARCH & COUNTER UPDATE
         function filterTable() {
             let searchTxt = document.getElementById("searchInput").value.toLowerCase().trim();
             let branchVal = document.getElementById("filterBranch").value;
@@ -470,6 +504,8 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
                 }
             }
 
+            document.getElementById("totalCounter").innerText = `Showing: ${visibleCount}`;
+
             let noMatchRow = document.getElementById("noSearchMatchRow");
             if (visibleCount === 0 && rows.length > 0) {
                 if (!noMatchRow) {
@@ -488,8 +524,16 @@ $total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
             document.getElementById("searchInput").value = "";
             filterTable();
         }
+
+        function resetAllFilters() {
+            document.getElementById("searchInput").value = "";
+            document.getElementById("filterBranch").value = "";
+            document.getElementById("filterSem").value = "";
+            filterTable();
+        }
     </script>
 </body>
 </html>
+
 
 
