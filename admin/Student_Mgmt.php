@@ -19,17 +19,18 @@ $admin_name = $admin_data['name'] ?? 'System Administrator';
 // ==========================================
 $message = "";
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
-    $name = $conn->real_escape_string($_POST['name']);
-    $email = $conn->real_escape_string($_POST['email']); 
+    // Applied trim() to remove unintended whitespace from inputs
+    $name = $conn->real_escape_string(trim($_POST['name']));
+    $email = $conn->real_escape_string(trim($_POST['email'])); 
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT); 
-    $department = $conn->real_escape_string($_POST['department']);
-    $semester = $conn->real_escape_string($_POST['semester']);
-    $class_name = $conn->real_escape_string($_POST['class_name']);
-    $batch = $conn->real_escape_string($_POST['batch']);
+    $department = $conn->real_escape_string(trim($_POST['department']));
+    $semester = $conn->real_escape_string(trim($_POST['semester']));
+    $class_name = $conn->real_escape_string(trim($_POST['class_name']));
+    $batch = $conn->real_escape_string(trim($_POST['batch']));
 
     // Check if email/enrollment already exists
-    $check = $conn->query("SELECT * FROM users WHERE email='$email'");
-    if($check->num_rows > 0) {
+    $check = $conn->query("SELECT user_id FROM users WHERE email='$email'");
+    if($check && $check->num_rows > 0) {
         $message = "<div class='alert alert-danger alert-dismissible fade show' role='alert'>Student with this Enrollment/Email already exists!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
     } else {
         // Insert Query with class_name and batch
@@ -44,9 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
 }
 
 // ==========================================
-// 📊 LIVE DB COUNTS (BY YEAR) - FIXED! 🐛🔨
+// 📊 LIVE DB COUNTS (BY YEAR)
 // ==========================================
-// Ab yeh 'semester' aur 'designation' dono column check karega taaki 178 students count ho jayein
 $yr1_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND (semester IN ('Semester 1', 'Semester 2', '1', '2') OR designation IN ('Semester 1', 'Semester 2', '1', '2'))");
 $yr1_count = ($yr1_res) ? $yr1_res->fetch_assoc()['total'] : 0;
 
@@ -57,9 +57,8 @@ $yr3_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student
 $yr3_count = ($yr3_res) ? $yr3_res->fetch_assoc()['total'] : 0;
 
 // ==========================================
-// 📢 LIVE NOTICE BOARD - FIXED TABLE NAME! 🐛🔨
+// 📢 LIVE NOTICE BOARD
 // ==========================================
-// Table name 'submissions' ki jagah 'student_submissions' kar diya
 $live_notices = $conn->query("
     SELECT s.subject_name, s.status, u.name, COALESCE(NULLIF(u.semester, ''), u.designation) AS semester 
     FROM student_submissions s 
@@ -88,7 +87,7 @@ $live_notices = $conn->query("
         .nav-links li { padding: 12px 20px; margin: 5px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 500; color: #a0aec0; transition: all 0.3s ease; }
         .nav-links li:hover { color: white; background: rgba(255,255,255,0.08); }
         .nav-links li.active { background: var(--accent-blue); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); font-weight: 600; }
-        .main { flex: 1; padding: 30px 40px; overflow-y: auto; }
+        .main { flex: 1; padding: 30px 40px; overflow-y: auto; scroll-behavior: smooth; }
         .topbar { background: transparent; padding: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
         .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: all 0.2s ease; }
         .search-box:focus-within { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
@@ -115,7 +114,8 @@ $live_notices = $conn->query("
         .panel-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); margin-bottom: 25px;}
         .search-btn { background: var(--accent-blue); color: white; border: none; border-radius: 0 8px 8px 0; padding: 0 20px; transition: 0.2s; }
         .search-btn:hover { background: #1d4ed8; }
-        .notice-alert { padding: 15px 20px; border-radius: 10px; display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; }
+        .notice-alert { padding: 15px 20px; border-radius: 10px; display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; transition: transform 0.2s ease; }
+        .notice-alert:hover { transform: translateX(3px); }
         .notice-icon { font-size: 18px; margin-top: 2px; }
         .notice-warning { background: #fef3c7; color: #92400e; }
         .notice-info { background: #e0f2fe; color: #075985; }
@@ -151,7 +151,7 @@ $live_notices = $conn->query("
                 <input type="text" placeholder="Search globally..." autocomplete="off">
             </div>
             <div class="d-flex align-items-center gap-4">
-                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'">
+                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'" title="View Notifications">
                     <i class="far fa-bell text-secondary fs-5"></i>
                 </div>
                 <a href="Profile.php" class="profile-pill">
@@ -188,7 +188,6 @@ $live_notices = $conn->query("
             <div class="col-md-7">
                 <h5 class="fw-bold mb-3" style="color: #1e293b;">Manage Students by Year</h5>
 
-                <!-- CARDS LINKED TO VIEW_STUDENTS.PHP -->
                 <div class="year-card yr1-border" onclick="window.location.href='view_students.php?year=1'">
                     <div>
                         <small class="text-muted fw-semibold">Manage Sem 1 & 2</small>
@@ -242,7 +241,7 @@ $live_notices = $conn->query("
                             <i class="fas <?php echo $iconClass; ?> notice-icon"></i>
                             <div>
                                 <h6 class="fw-bold mb-1" style="font-size: 14px;">New Submission: <?php echo htmlspecialchars($notice['subject_name']); ?></h6>
-                                <p class="mb-0" style="font-size: 13px;"><?php echo htmlspecialchars($notice['name']); ?> (<?php echo htmlspecialchars($notice['semester']); ?>) - <?php echo $notice['status']; ?></p>
+                                <p class="mb-0" style="font-size: 13px;"><?php echo htmlspecialchars($notice['name']); ?> (<?php echo htmlspecialchars($notice['semester']); ?>) - <?php echo htmlspecialchars($notice['status']); ?></p>
                             </div>
                         </div>
                     <?php $i++; endwhile; ?>
@@ -324,7 +323,7 @@ $live_notices = $conn->query("
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold small text-muted">Login Password</label>
-                                <input type="password" name="password" class="form-control" required placeholder="Default Password">
+                                <input type="password" name="password" class="form-control" required minlength="6" placeholder="Min 6 characters">
                             </div>
                         </div>
                         <button type="submit" name="add_student" class="btn btn-primary w-100 fw-bold" style="padding: 10px; border-radius: 8px;">
