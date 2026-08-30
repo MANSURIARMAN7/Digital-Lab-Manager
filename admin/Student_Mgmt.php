@@ -90,9 +90,11 @@ $live_notices = $conn->query("
         .nav-links li.active { background: var(--accent-blue); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); font-weight: 600; }
         .main { flex: 1; padding: 30px 40px; overflow-y: auto; }
         .topbar { background: transparent; padding: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
-        .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: all 0.2s ease; }
+        .search-box:focus-within { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
         .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
         .profile-pill { display: flex; align-items: center; background-color: #ffffff; padding: 6px 16px 6px 20px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s;}
+        .profile-pill:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
         .profile-text { text-align: right; margin-right: 15px; }
         .profile-welcome { display: block; font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
         .profile-name { margin: 0; font-size: 14px; color: #1e293b; font-weight: 700; }
@@ -111,7 +113,8 @@ $live_notices = $conn->query("
         .yr2-icon { background: rgba(16,185,129,0.1); color: #10b981; }
         .yr3-icon { background: rgba(245,158,11,0.1); color: #f59e0b; }
         .panel-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); margin-bottom: 25px;}
-        .search-btn { background: var(--accent-blue); color: white; border: none; border-radius: 0 8px 8px 0; padding: 0 20px; }
+        .search-btn { background: var(--accent-blue); color: white; border: none; border-radius: 0 8px 8px 0; padding: 0 20px; transition: 0.2s; }
+        .search-btn:hover { background: #1d4ed8; }
         .notice-alert { padding: 15px 20px; border-radius: 10px; display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; }
         .notice-icon { font-size: 18px; margin-top: 2px; }
         .notice-warning { background: #fef3c7; color: #92400e; }
@@ -144,7 +147,7 @@ $live_notices = $conn->query("
         <div class="topbar mb-4">
             <div class="search-box">
                 <i class="fas fa-search text-muted"></i>
-                <input type="text" placeholder="Search globally...">
+                <input type="text" placeholder="Search globally..." autocomplete="off">
             </div>
             <div class="d-flex align-items-center gap-4">
                 <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'">
@@ -218,7 +221,7 @@ $live_notices = $conn->query("
                 <div class="panel-box mb-4">
                     <h6 class="fw-bold mb-3"><i class="fas fa-search text-primary me-2"></i> Quick Student Search</h6>
                     <form action="search_student.php" method="GET" class="d-flex">
-                        <input type="text" name="query" class="form-control bg-light" placeholder="Enter Enrollment No..." style="border-radius: 8px 0 0 8px; border: 1px solid #e2e8f0; border-right: none;" required>
+                        <input type="text" name="query" class="form-control bg-light" placeholder="Enter Enrollment No..." style="border-radius: 8px 0 0 8px; border: 1px solid #e2e8f0; border-right: none;" required autocomplete="off">
                         <button type="submit" class="search-btn">Search</button>
                     </form>
                     <small class="text-muted mt-2 d-block">Directly find any student from any year.</small>
@@ -335,4 +338,5 @@ $live_notices = $conn->query("
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
