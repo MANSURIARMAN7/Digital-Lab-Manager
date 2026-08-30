@@ -11,9 +11,9 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
 // 2. Fetch Submissions Data (Joining with users table to get student details)
 $filter_status = isset($_GET['status']) ? $conn->real_escape_string($_GET['status']) : '';
 
-$query = "SELECT s.*, u.name, u.department 
+$query = "SELECT s.*, s.student_id as enrollment, s.subject_name as subject, u.name, u.department 
           FROM submissions s 
-          JOIN users u ON s.enrollment = u.user_id";
+          JOIN users u ON s.student_id = u.user_id";
 
 if ($filter_status != '') {
     $query .= " WHERE s.status = '$filter_status'";

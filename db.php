@@ -37,16 +37,24 @@ $createUsersTable = "CREATE TABLE IF NOT EXISTS `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 $conn->query($createUsersTable);
 
-// Ensure submissions table exists
+// Drop old submissions table if it uses the outdated schema
+$checkSubmissionsTable = $conn->query("SHOW COLUMNS FROM `submissions` LIKE 'student_id'");
+if ($checkSubmissionsTable && $checkSubmissionsTable->num_rows == 0) {
+    $conn->query("DROP TABLE IF EXISTS `submissions`");
+}
+
+// Ensure submissions table exists with the correct schema
 $createSubmissionsTable = "CREATE TABLE IF NOT EXISTS `submissions` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `enrollment` VARCHAR(50) NOT NULL,
-    `subject` VARCHAR(100) NOT NULL,
+    `student_id` VARCHAR(50) NOT NULL,
+    `subject_name` VARCHAR(100) NOT NULL,
+    `practical_no` INT DEFAULT NULL,
+    `answer_text` TEXT DEFAULT NULL,
     `file_path` VARCHAR(255) NOT NULL,
     `status` ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
     `marks` INT DEFAULT NULL,
     `remark` TEXT DEFAULT NULL,
-    `upload_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    `submitted_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 $conn->query($createSubmissionsTable);
 
