@@ -10,7 +10,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
 }
 
 // ==========================================
-// 🗑️ DELETE LOGIC (Prepared Statement + File Deletion)
+// 🗑️ DELETE LOGIC (Prepared Statement + Secure File Deletion)
 // ==========================================
 $message = "";
 if (isset($_GET['delete_id'])) {
@@ -22,8 +22,14 @@ if (isset($_GET['delete_id'])) {
     $res = $stmt_select->get_result();
 
     if ($res && $row = $res->fetch_assoc()) {
-        if (!empty($row['file_path']) && file_exists($row['file_path'])) {
-            @unlink($row['file_path']);
+        $file_target = $row['file_path'];
+        // Security: Ensure file is inside intended uploads directory
+        if (!empty($file_target) && file_exists($file_target)) {
+            $real_target = realpath($file_target);
+            $uploads_dir = realpath('../uploads/manuals/');
+            if ($real_target && $uploads_dir && strpos($real_target, $uploads_dir) === 0) {
+                @unlink($real_target);
+            }
         }
     }
     $stmt_select->close();
@@ -70,8 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
     $branch       = trim($_POST['branch']);
     $practical_no = trim($_POST['practical_no']);
     $end_date     = trim($_POST['end_date']);
+    $today        = date('Y-m-d');
 
-    if (isset($_FILES['manual_file']) && $_FILES['manual_file']['error'] === UPLOAD_ERR_OK) {
+    // Server-side Due Date Validation
+    if ($end_date < $today) {
+        $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'><i class='fas fa-exclamation-circle me-1'></i> Due date cannot be in the past!</div>";
+    } else if (isset($_FILES['manual_file']) && $_FILES['manual_file']['error'] === UPLOAD_ERR_OK) {
         $file_name = $_FILES['manual_file']['name'];
         $file_tmp  = $_FILES['manual_file']['tmp_name'];
         $file_size = $_FILES['manual_file']['size'];
@@ -123,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
 // Fetch Subjects & Manuals
 $subjects_list = $conn->query("SELECT DISTINCT subject_name, semester FROM subjects ORDER BY semester ASC, subject_name ASC");
 $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DESC");
+$total_manuals = $manuals_list ? $manuals_list->num_rows : 0;
 ?>
 
 <!DOCTYPE html>
@@ -152,6 +163,8 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
         .topbar { background: transparent; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
         .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
         .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
+        .clear-search { cursor: pointer; display: none; color: #94a3b8; font-size: 14px; }
+        .clear-search:hover { color: #475569; }
 
         .profile-pill { display: flex; align-items: center; background-color: #ffffff; padding: 6px 16px 6px 20px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s;}
         .profile-text { text-align: right; margin-right: 15px; }
@@ -163,6 +176,9 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
         .table-custom th { background: #f8fafc; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0; padding: 14px; }
         .table-custom td { vertical-align: middle; font-size: 14px; padding: 14px; color: #334155; border-bottom: 1px solid #f1f5f9; }
         .badge-sem { background: rgba(37,99,235,0.1); color: var(--accent-blue); border: 1px solid rgba(37,99,235,0.2); padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
+        .badge-status { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .badge-active { background-color: #dcfce7; color: #15803d; }
+        .badge-expired { background-color: #fee2e2; color: #b91c1c; }
     </style>
 </head>
 <body>
@@ -195,6 +211,7 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
             <div class="search-box">
                 <i class="fas fa-search text-muted"></i>
                 <input type="text" id="searchInput" placeholder="Search manuals by name or subject..." onkeyup="filterTable()">
+                <i class="fas fa-times clear-search" id="clearBtn" onclick="clearSearch()"></i>
             </div>
 
             <div class="d-flex align-items-center gap-4">
@@ -270,7 +287,6 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
                             <input type="text" name="practical_no" class="form-control" required placeholder="e.g. PR.1">
                         </div>
 
-                        <!-- 🌟 Added min date validation to prevent selecting past dates -->
                         <div class="mb-3">
                             <label class="form-label fw-bold small text-muted">Due Date</label>
                             <input type="date" name="end_date" class="form-control" min="<?php echo date('Y-m-d'); ?>" required>
@@ -292,7 +308,10 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
             <!-- RIGHT: DATATABLE WITH SEARCH -->
             <div class="col-md-8">
                 <div class="content-box">
-                    <h5 class="fw-bold text-dark mb-3" style="font-size: 16px;"><i class="fas fa-list text-success me-2"></i> Published Manuals</h5>
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold text-dark mb-0" style="font-size: 16px;"><i class="fas fa-list text-success me-2"></i> Published Manuals</h5>
+                        <span class="badge bg-primary px-3 py-2 rounded-pill">Total: <?php echo $total_manuals; ?></span>
+                    </div>
 
                     <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
                         <table class="table table-custom mb-0" id="manualsTable">
@@ -300,13 +319,17 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
                                 <tr>
                                     <th>Manual Info</th>
                                     <th>Branch / Sem</th>
-                                    <th>Deadline</th>
+                                    <th>Deadline & Status</th>
                                     <th class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="tableBody">
                                 <?php if($manuals_list && $manuals_list->num_rows > 0): ?>
-                                    <?php while($row = $manuals_list->fetch_assoc()): ?>
+                                    <?php 
+                                    $today_str = date('Y-m-d');
+                                    while($row = $manuals_list->fetch_assoc()): 
+                                        $is_expired = ($row['end_date'] < $today_str);
+                                    ?>
                                         <tr class="manual-row">
                                             <td>
                                                 <div class="fw-bold text-dark search-target"><?php echo htmlspecialchars($row['title']); ?></div>
@@ -316,7 +339,14 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
                                                 <span class="badge-sem search-target"><?php echo htmlspecialchars($row['branch']); ?> - Sem <?php echo htmlspecialchars($row['semester']); ?></span>
                                             </td>
                                             <td>
-                                                <small class="text-danger fw-bold"><i class="far fa-calendar-alt me-1"></i> <?php echo date('d M Y', strtotime($row['end_date'])); ?></small>
+                                                <div class="d-flex flex-column align-items-start gap-1">
+                                                    <small class="text-secondary fw-semibold"><i class="far fa-calendar-alt me-1"></i> <?php echo date('d M Y', strtotime($row['end_date'])); ?></small>
+                                                    <?php if($is_expired): ?>
+                                                        <span class="badge-status badge-expired">Expired</span>
+                                                    <?php else: ?>
+                                                        <span class="badge-status badge-active">Active</span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </td>
                                             <td class="text-end">
                                                 <a href="<?php echo htmlspecialchars($row['file_path']); ?>" target="_blank" class="btn btn-outline-primary btn-sm me-1" title="View PDF">
@@ -368,11 +398,14 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
             }
         });
 
-        // 3. ENHANCED LIVE TABLE SEARCH
+        // 3. ENHANCED LIVE TABLE SEARCH WITH CLEAR BUTTON
         function filterTable() {
             let input = document.getElementById("searchInput").value.toLowerCase().trim();
+            let clearBtn = document.getElementById("clearBtn");
             let rows = document.getElementsByClassName("manual-row");
             let visibleCount = 0;
+
+            clearBtn.style.display = input.length > 0 ? "inline" : "none";
 
             for (let i = 0; i < rows.length; i++) {
                 let text = rows[i].textContent.toLowerCase();
@@ -397,6 +430,12 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
                 noMatchRow.remove();
             }
         }
+
+        function clearSearch() {
+            document.getElementById("searchInput").value = "";
+            filterTable();
+        }
     </script>
 </body>
 </html>
+
