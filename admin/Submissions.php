@@ -3,6 +3,7 @@ session_start();
 include '../db.php';
 
 // 1. Admin Login Check
+// bhai rehan kiya h tuu
 if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../login.php");
     exit();
