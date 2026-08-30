@@ -44,23 +44,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
 }
 
 // ==========================================
-// 📊 LIVE DB COUNTS (BY YEAR)
+// 📊 LIVE DB COUNTS (BY YEAR) - FIXED! 🐛🔨
 // ==========================================
-$yr1_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND semester IN ('Semester 1', 'Semester 2', '1', '2')");
+// Ab yeh 'semester' aur 'designation' dono column check karega taaki 178 students count ho jayein
+$yr1_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND (semester IN ('Semester 1', 'Semester 2', '1', '2') OR designation IN ('Semester 1', 'Semester 2', '1', '2'))");
 $yr1_count = ($yr1_res) ? $yr1_res->fetch_assoc()['total'] : 0;
 
-$yr2_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND semester IN ('Semester 3', 'Semester 4', '3', '4')");
+$yr2_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND (semester IN ('Semester 3', 'Semester 4', '3', '4') OR designation IN ('Semester 3', 'Semester 4', '3', '4'))");
 $yr2_count = ($yr2_res) ? $yr2_res->fetch_assoc()['total'] : 0;
 
-$yr3_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND semester IN ('Semester 5', 'Semester 6', '5', '6')");
+$yr3_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND (semester IN ('Semester 5', 'Semester 6', '5', '6') OR designation IN ('Semester 5', 'Semester 6', '5', '6'))");
 $yr3_count = ($yr3_res) ? $yr3_res->fetch_assoc()['total'] : 0;
 
 // ==========================================
-// 📢 LIVE NOTICE BOARD
+// 📢 LIVE NOTICE BOARD - FIXED TABLE NAME! 🐛🔨
 // ==========================================
+// Table name 'submissions' ki jagah 'student_submissions' kar diya
 $live_notices = $conn->query("
-    SELECT s.subject_name, s.status, u.name, u.semester 
-    FROM submissions s 
+    SELECT s.subject_name, s.status, u.name, COALESCE(NULLIF(u.semester, ''), u.designation) AS semester 
+    FROM student_submissions s 
     JOIN users u ON s.student_id = u.user_id 
     ORDER BY s.submitted_at DESC LIMIT 3
 ");
