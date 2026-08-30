@@ -8,23 +8,94 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
+// ==========================================
+// 📥 EXPORT LOGIC (CSV / EXCEL DOWNLOADS)
+// ==========================================
+if (isset($_GET['export'])) {
+    $export_type = $_GET['export'];
+    $filter_dept = isset($_GET['department']) ? $conn->real_escape_string($_GET['department']) : 'all';
+    $filter_sem = isset($_GET['semester']) ? $conn->real_escape_string($_GET['semester']) : 'all';
+    
+    $filename = "KDP_" . ucfirst($export_type) . "_Report_" . date('Y-m-d') . ".csv";
+    
+    // Force browser to download file
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    $output = fopen('php://output', 'w');
+    
+    // Base Where clause for filters
+    $where_users = "1=1";
+    if($filter_dept !== 'all') $where_users .= " AND department = '$filter_dept'";
+    if($filter_sem !== 'all') $where_users .= " AND (semester = '$filter_sem' OR designation = '$filter_sem')"; // Fixed for 178 students
+
+    if ($export_type === 'students') {
+        fputcsv($output, array('Student ID', 'Full Name', 'Enrollment / Email', 'Branch', 'Semester', 'Class', 'Batch'));
+        $res = $conn->query("SELECT user_id, name, email, department, semester, class_name, batch FROM users WHERE role='student' AND $where_users ORDER BY name ASC");
+        if($res) { while ($row = $res->fetch_assoc()) fputcsv($output, $row); }
+    } 
+    elseif ($export_type === 'submissions') {
+        fputcsv($output, array('Submission ID', 'Student Name', 'Enrollment', 'Subject', 'Status', 'Marks', 'Submitted Date'));
+        $res = $conn->query("SELECT s.id, u.name, u.email, s.subject_name, s.status, s.marks, s.submitted_at FROM student_submissions s JOIN users u ON s.student_id = u.user_id WHERE $where_users ORDER BY s.submitted_at DESC");
+        if($res) { while ($row = $res->fetch_assoc()) fputcsv($output, $row); }
+    } 
+    elseif ($export_type === 'faculty') {
+        fputcsv($output, array('Faculty ID', 'Name', 'Email', 'Department'));
+        $res = $conn->query("SELECT user_id, name, email, department FROM users WHERE role='faculty' AND ($filter_dept = 'all' OR department = '$filter_dept') ORDER BY name ASC");
+        if($res) { while ($row = $res->fetch_assoc()) fputcsv($output, $row); }
+    } 
+    elseif ($export_type === 'master_excel') {
+        fputcsv($output, array('Student Name', 'Enrollment', 'Branch', 'Semester', 'Subject', 'Status', 'Marks', 'Date'));
+        $res = $conn->query("SELECT u.name, u.email, u.department, COALESCE(NULLIF(u.semester, ''), u.designation) as semester, s.subject_name, s.status, s.marks, s.submitted_at FROM student_submissions s JOIN users u ON s.student_id = u.user_id WHERE $where_users ORDER BY s.submitted_at DESC");
+        if($res) { while ($row = $res->fetch_assoc()) fputcsv($output, $row); }
+    }
+    
+    fclose($output);
+    exit(); // Stop script after download
+}
+
+
 // Fetch Admin Details for Profile Pill
 $admin_id = $_SESSION['user_id'];
 $admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = '$admin_id'");
 $admin_data = $admin_query ? $admin_query->fetch_assoc() : null;
 $admin_name = $admin_data['name'] ?? 'System Administrator';
 
+// Get Current Filters for Display
+$current_dept = isset($_GET['department']) ? $conn->real_escape_string($_GET['department']) : 'all';
+$current_sem = isset($_GET['semester']) ? $conn->real_escape_string($_GET['semester']) : 'all';
+
+// Base queries for metrics
+$base_users = "1=1";
+$base_subs = "1=1";
+if($current_dept !== 'all') { 
+    $base_users .= " AND department = '$current_dept'"; 
+    $base_subs .= " AND u.department = '$current_dept'"; 
+}
+if($current_sem !== 'all') { 
+    $base_users .= " AND (semester = '$current_sem' OR designation = '$current_sem')"; 
+    $base_subs .= " AND (u.semester = '$current_sem' OR u.designation = '$current_sem')"; 
+}
+
 // ==========================================
-// 📊 REAL DATABASE METRICS FOR REPORTS
+// 📊 SAFE DATABASE METRICS FOR REPORTS (BUG FIXED)
 // ==========================================
-$total_students = $conn->query("SELECT COUNT(*) as cnt FROM users WHERE role='student'")->fetch_assoc()['cnt'] ?? 0;
-$total_faculty = $conn->query("SELECT COUNT(*) as cnt FROM users WHERE role='faculty'")->fetch_assoc()['cnt'] ?? 0;
-$total_subs = $conn->query("SELECT COUNT(*) as cnt FROM student_submissions")->fetch_assoc()['cnt'] ?? 0;
-$pending_subs = $conn->query("SELECT COUNT(*) as cnt FROM student_submissions WHERE status='Pending'")->fetch_assoc()['cnt'] ?? 0;
-$approved_subs = $conn->query("SELECT COUNT(*) as cnt FROM student_submissions WHERE status='Approved'")->fetch_assoc()['cnt'] ?? 0;
+$q_stu = $conn->query("SELECT COUNT(*) as cnt FROM users WHERE role='student' AND $base_users");
+$total_students = $q_stu ? $q_stu->fetch_assoc()['cnt'] : 0;
+
+$q_fac = $conn->query("SELECT COUNT(*) as cnt FROM users WHERE role='faculty' " . ($current_dept !== 'all' ? "AND department='$current_dept'" : ""));
+$total_faculty = $q_fac ? $q_fac->fetch_assoc()['cnt'] : 0;
+
+$q_sub1 = $conn->query("SELECT COUNT(*) as cnt FROM student_submissions s JOIN users u ON s.student_id = u.user_id WHERE $base_subs");
+$total_subs = $q_sub1 ? $q_sub1->fetch_assoc()['cnt'] : 0;
+
+$q_sub2 = $conn->query("SELECT COUNT(*) as cnt FROM student_submissions s JOIN users u ON s.student_id = u.user_id WHERE s.status='Pending' AND $base_subs");
+$pending_subs = $q_sub2 ? $q_sub2->fetch_assoc()['cnt'] : 0;
+
+$q_sub3 = $conn->query("SELECT COUNT(*) as cnt FROM student_submissions s JOIN users u ON s.student_id = u.user_id WHERE s.status='Approved' AND $base_subs");
+$approved_subs = $q_sub3 ? $q_sub3->fetch_assoc()['cnt'] : 0;
 
 // Fetch Departments for Filters
-$departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE department IS NULL OR department != '' ORDER BY department ASC");
+$departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department != '' ORDER BY department ASC");
 ?>
 
 <!DOCTYPE html>
@@ -64,6 +135,13 @@ $departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE de
         /* CONTENT CARDS */
         .content-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
         .report-card { background: white; border-radius: 12px; padding: 22px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* Print styles for Master PDF Export */
+        @media print {
+            .sidebar, .topbar, .filter-box, .btn { display: none !important; }
+            .main { padding: 0 !important; margin: 0 !important; }
+            body { background: white !important; }
+        }
     </style>
 </head>
 <body>
@@ -124,17 +202,19 @@ $departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE de
             </div>
             
             <div class="d-flex gap-2">
-                <button onclick="alert('Master PDF Report Download Triggered Successfully!');" class="btn btn-outline-danger btn-sm fw-bold px-3 py-2" style="border-radius: 8px;">
+                <!-- Browser print acts as Master PDF Export natively -->
+                <button onclick="window.print()" class="btn btn-outline-danger btn-sm fw-bold px-3 py-2" style="border-radius: 8px;">
                     <i class="fas fa-file-pdf me-1"></i> Export Master PDF
                 </button>
-                <button onclick="alert('Master Excel Report Download Triggered Successfully!');" class="btn btn-outline-success btn-sm fw-bold px-3 py-2" style="border-radius: 8px;">
+                <!-- Triggers Master Excel CSV -->
+                <button onclick="window.location.href='Reports.php?export=master_excel&department=<?php echo urlencode($current_dept); ?>&semester=<?php echo urlencode($current_sem); ?>'" class="btn btn-outline-success btn-sm fw-bold px-3 py-2" style="border-radius: 8px;">
                     <i class="fas fa-file-excel me-1"></i> Export Master Excel
                 </button>
             </div>
         </div>
 
         <!-- FILTER BAR BOX -->
-        <div class="content-box mb-4 py-3">
+        <div class="content-box mb-4 py-3 filter-box">
             <form method="GET" action="Reports.php" class="row align-items-end g-3">
                 <div class="col-md-4">
                     <label class="form-label fw-bold small text-muted">Department</label>
@@ -142,7 +222,7 @@ $departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE de
                         <option value="all">All Departments</option>
                         <?php if($departments_list && $departments_list->num_rows > 0): ?>
                             <?php while($d = $departments_list->fetch_assoc()): ?>
-                                <option value="<?php echo htmlspecialchars($d['department']); ?>"><?php echo htmlspecialchars($d['department']); ?></option>
+                                <option value="<?php echo htmlspecialchars($d['department']); ?>" <?php if($current_dept == $d['department']) echo 'selected'; ?>><?php echo htmlspecialchars($d['department']); ?></option>
                             <?php endwhile; ?>
                         <?php endif; ?>
                     </select>
@@ -153,7 +233,7 @@ $departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE de
                     <select name="semester" class="form-select form-select-sm fw-bold">
                         <option value="all">All Semesters</option>
                         <?php for($i=1; $i<=6; $i++): ?>
-                            <option value="Semester <?php echo $i; ?>">Semester <?php echo $i; ?></option>
+                            <option value="Semester <?php echo $i; ?>" <?php if($current_sem == "Semester $i") echo 'selected'; ?>>Semester <?php echo $i; ?></option>
                         <?php endfor; ?>
                     </select>
                 </div>
@@ -185,7 +265,8 @@ $departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE de
                     </div>
                     <div class="d-flex gap-2 mt-3 pt-3 border-top">
                         <a href="Student_Mgmt.php" class="btn btn-sm btn-outline-primary w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-eye me-1"></i> View</a>
-                        <button onclick="alert('Student Report CSV exported successfully!');" class="btn btn-sm btn-outline-success w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-download me-1"></i> CSV</button>
+                        <!-- Real CSV Download -->
+                        <button onclick="window.location.href='Reports.php?export=students&department=<?php echo urlencode($current_dept); ?>&semester=<?php echo urlencode($current_sem); ?>'" class="btn btn-sm btn-outline-success w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-download me-1"></i> CSV</button>
                     </div>
                 </div>
             </div>
@@ -207,7 +288,8 @@ $departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE de
                     </div>
                     <div class="d-flex gap-2 mt-3 pt-3 border-top">
                         <a href="Submissions.php" class="btn btn-sm btn-outline-primary w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-eye me-1"></i> View</a>
-                        <button onclick="alert('Submission Status CSV exported successfully!');" class="btn btn-sm btn-outline-success w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-download me-1"></i> CSV</button>
+                        <!-- Real CSV Download -->
+                        <button onclick="window.location.href='Reports.php?export=submissions&department=<?php echo urlencode($current_dept); ?>&semester=<?php echo urlencode($current_sem); ?>'" class="btn btn-sm btn-outline-success w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-download me-1"></i> CSV</button>
                     </div>
                 </div>
             </div>
@@ -229,7 +311,8 @@ $departments_list = $conn->query("SELECT DISTINCT department FROM users WHERE de
                     </div>
                     <div class="d-flex gap-2 mt-3 pt-3 border-top">
                         <a href="faculty_mgmt.php" class="btn btn-sm btn-outline-primary w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-eye me-1"></i> View</a>
-                        <button onclick="alert('Faculty Workload CSV exported successfully!');" class="btn btn-sm btn-outline-success w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-download me-1"></i> CSV</button>
+                        <!-- Real CSV Download -->
+                        <button onclick="window.location.href='Reports.php?export=faculty&department=<?php echo urlencode($current_dept); ?>&semester=<?php echo urlencode($current_sem); ?>'" class="btn btn-sm btn-outline-success w-50 fw-bold" style="border-radius: 6px;"><i class="fas fa-download me-1"></i> CSV</button>
                     </div>
                 </div>
             </div>
