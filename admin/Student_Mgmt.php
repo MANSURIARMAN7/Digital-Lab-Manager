@@ -19,18 +19,17 @@ $admin_name = $admin_data['name'] ?? 'System Administrator';
 // ==========================================
 $message = "";
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
-    // Applied trim() to remove unintended whitespace from inputs
-    $name = $conn->real_escape_string(trim($_POST['name']));
-    $email = $conn->real_escape_string(trim($_POST['email'])); 
+    $name = $conn->real_escape_string($_POST['name']);
+    $email = $conn->real_escape_string($_POST['email']); 
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT); 
-    $department = $conn->real_escape_string(trim($_POST['department']));
-    $semester = $conn->real_escape_string(trim($_POST['semester']));
-    $class_name = $conn->real_escape_string(trim($_POST['class_name']));
-    $batch = $conn->real_escape_string(trim($_POST['batch']));
+    $department = $conn->real_escape_string($_POST['department']);
+    $semester = $conn->real_escape_string($_POST['semester']);
+    $class_name = $conn->real_escape_string($_POST['class_name']);
+    $batch = $conn->real_escape_string($_POST['batch']);
 
     // Check if email/enrollment already exists
-    $check = $conn->query("SELECT user_id FROM users WHERE email='$email'");
-    if($check && $check->num_rows > 0) {
+    $check = $conn->query("SELECT * FROM users WHERE email='$email'");
+    if($check->num_rows > 0) {
         $message = "<div class='alert alert-danger alert-dismissible fade show' role='alert'>Student with this Enrollment/Email already exists!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
     } else {
         // Insert Query with class_name and batch
@@ -45,8 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
 }
 
 // ==========================================
-// 📊 LIVE DB COUNTS (BY YEAR)
+// 📊 LIVE DB COUNTS (BY YEAR) - FIXED! 🐛🔨
 // ==========================================
+// Ab yeh 'semester' aur 'designation' dono column check karega taaki 178 students count ho jayein
 $yr1_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student' AND (semester IN ('Semester 1', 'Semester 2', '1', '2') OR designation IN ('Semester 1', 'Semester 2', '1', '2'))");
 $yr1_count = ($yr1_res) ? $yr1_res->fetch_assoc()['total'] : 0;
 
@@ -57,8 +57,9 @@ $yr3_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='student
 $yr3_count = ($yr3_res) ? $yr3_res->fetch_assoc()['total'] : 0;
 
 // ==========================================
-// 📢 LIVE NOTICE BOARD
+// 📢 LIVE NOTICE BOARD - FIXED TABLE NAME! 🐛🔨
 // ==========================================
+// Table name 'submissions' ki jagah 'student_submissions' kar diya
 $live_notices = $conn->query("
     SELECT s.subject_name, s.status, u.name, COALESCE(NULLIF(u.semester, ''), u.designation) AS semester 
     FROM student_submissions s 
@@ -76,7 +77,7 @@ $live_notices = $conn->query("
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root { --sidebar-width: 260px; --bg-color: #f8fafc; --sidebar-bg: #1a365d; --accent-blue: #2563eb; }
+        :root { --sidebar-width: 260px; --bg-color: #f4f7fe; --sidebar-bg: #1a365d; --accent-blue: #2563eb; }
         body { background-color: var(--bg-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; }
         .sidebar { width: var(--sidebar-width); background-color: var(--sidebar-bg); color: #ffffff; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; }
         .sidebar-logo-container { padding: 30px 20px 20px 20px; display: flex; flex-direction: column; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
@@ -87,13 +88,11 @@ $live_notices = $conn->query("
         .nav-links li { padding: 12px 20px; margin: 5px 0; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 500; color: #a0aec0; transition: all 0.3s ease; }
         .nav-links li:hover { color: white; background: rgba(255,255,255,0.08); }
         .nav-links li.active { background: var(--accent-blue); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); font-weight: 600; }
-        .main { flex: 1; padding: 30px 40px; overflow-y: auto; scroll-behavior: smooth; }
+        .main { flex: 1; padding: 30px 40px; overflow-y: auto; }
         .topbar { background: transparent; padding: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
-        .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: all 0.2s ease; }
-        .search-box:focus-within { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+        .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
         .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
         .profile-pill { display: flex; align-items: center; background-color: #ffffff; padding: 6px 16px 6px 20px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s;}
-        .profile-pill:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
         .profile-text { text-align: right; margin-right: 15px; }
         .profile-welcome { display: block; font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
         .profile-name { margin: 0; font-size: 14px; color: #1e293b; font-weight: 700; }
@@ -101,8 +100,8 @@ $live_notices = $conn->query("
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .btn-primary-custom { background: var(--accent-blue); color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; border: none; box-shadow: 0 4px 10px rgba(37,99,235,0.2); transition: 0.2s; }
         .btn-primary-custom:hover { background: #1d4ed8; transform: translateY(-2px); color: white;}
-        .year-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); position: relative; overflow: hidden; cursor: pointer; transition: all 0.2s ease;}
-        .year-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+        .year-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); position: relative; overflow: hidden; cursor: pointer; transition: 0.2s;}
+        .year-card:hover { transform: translateX(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         .year-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
         .yr1-border::before { background: var(--accent-blue); }
         .yr2-border::before { background: #10b981; }
@@ -112,22 +111,19 @@ $live_notices = $conn->query("
         .yr2-icon { background: rgba(16,185,129,0.1); color: #10b981; }
         .yr3-icon { background: rgba(245,158,11,0.1); color: #f59e0b; }
         .panel-box { background: white; border-radius: 12px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); margin-bottom: 25px;}
-        .search-btn { background: var(--accent-blue); color: white; border: none; border-radius: 0 8px 8px 0; padding: 0 20px; transition: 0.2s; }
-        .search-btn:hover { background: #1d4ed8; }
-        .notice-alert { padding: 15px 20px; border-radius: 10px; display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; transition: transform 0.2s ease; }
-        .notice-alert:hover { transform: translateX(3px); }
+        .search-btn { background: var(--accent-blue); color: white; border: none; border-radius: 0 8px 8px 0; padding: 0 20px; }
+        .notice-alert { padding: 15px 20px; border-radius: 10px; display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; }
         .notice-icon { font-size: 18px; margin-top: 2px; }
         .notice-warning { background: #fef3c7; color: #92400e; }
         .notice-info { background: #e0f2fe; color: #075985; }
         .notice-success { background: #dcfce3; color: #166534; }
-        .form-control:focus, .form-select:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
         <div class="sidebar-logo-container">
-            <img src="../assets/images/college-logo.png" alt="KDP Logo" loading="lazy">
+            <img src="../assets/images/college-logo.png" alt="KDP Logo">
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
             <div class="sidebar-subtitle">Admin Portal</div>
         </div>
@@ -148,10 +144,10 @@ $live_notices = $conn->query("
         <div class="topbar mb-4">
             <div class="search-box">
                 <i class="fas fa-search text-muted"></i>
-                <input type="text" placeholder="Search globally..." autocomplete="off">
+                <input type="text" placeholder="Search globally...">
             </div>
             <div class="d-flex align-items-center gap-4">
-                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'" title="View Notifications">
+                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'">
                     <i class="far fa-bell text-secondary fs-5"></i>
                 </div>
                 <a href="Profile.php" class="profile-pill">
@@ -188,6 +184,7 @@ $live_notices = $conn->query("
             <div class="col-md-7">
                 <h5 class="fw-bold mb-3" style="color: #1e293b;">Manage Students by Year</h5>
 
+                <!-- CARDS LINKED TO VIEW_STUDENTS.PHP -->
                 <div class="year-card yr1-border" onclick="window.location.href='view_students.php?year=1'">
                     <div>
                         <small class="text-muted fw-semibold">Manage Sem 1 & 2</small>
@@ -221,7 +218,7 @@ $live_notices = $conn->query("
                 <div class="panel-box mb-4">
                     <h6 class="fw-bold mb-3"><i class="fas fa-search text-primary me-2"></i> Quick Student Search</h6>
                     <form action="search_student.php" method="GET" class="d-flex">
-                        <input type="text" name="query" class="form-control bg-light" placeholder="Enter Enrollment No..." style="border-radius: 8px 0 0 8px; border: 1px solid #e2e8f0; border-right: none;" required autocomplete="off">
+                        <input type="text" name="query" class="form-control bg-light" placeholder="Enter Enrollment No..." style="border-radius: 8px 0 0 8px; border: 1px solid #e2e8f0; border-right: none;" required>
                         <button type="submit" class="search-btn">Search</button>
                     </form>
                     <small class="text-muted mt-2 d-block">Directly find any student from any year.</small>
@@ -241,7 +238,7 @@ $live_notices = $conn->query("
                             <i class="fas <?php echo $iconClass; ?> notice-icon"></i>
                             <div>
                                 <h6 class="fw-bold mb-1" style="font-size: 14px;">New Submission: <?php echo htmlspecialchars($notice['subject_name']); ?></h6>
-                                <p class="mb-0" style="font-size: 13px;"><?php echo htmlspecialchars($notice['name']); ?> (<?php echo htmlspecialchars($notice['semester']); ?>) - <?php echo htmlspecialchars($notice['status']); ?></p>
+                                <p class="mb-0" style="font-size: 13px;"><?php echo htmlspecialchars($notice['name']); ?> (<?php echo htmlspecialchars($notice['semester']); ?>) - <?php echo $notice['status']; ?></p>
                             </div>
                         </div>
                     <?php $i++; endwhile; ?>
@@ -267,15 +264,15 @@ $live_notices = $conn->query("
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <form action="" method="POST" autocomplete="off">
+                    <form action="" method="POST">
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">Full Name</label>
-                                <input type="text" name="name" class="form-control" required placeholder="e.g. Arman Mansuri" autocomplete="off">
+                                <input type="text" name="name" class="form-control" required placeholder="e.g. Arman Mansuri">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">Enrollment No / Email</label>
-                                <input type="text" name="email" class="form-control" required placeholder="e.g. 236170307001" autocomplete="off">
+                                <input type="text" name="email" class="form-control" required placeholder="e.g. 236170307001">
                             </div>
                         </div>
                         <div class="row mb-3">
@@ -323,7 +320,7 @@ $live_notices = $conn->query("
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold small text-muted">Login Password</label>
-                                <input type="password" name="password" class="form-control" required minlength="6" placeholder="Min 6 characters">
+                                <input type="password" name="password" class="form-control" required placeholder="Default Password">
                             </div>
                         </div>
                         <button type="submit" name="add_student" class="btn btn-primary w-100 fw-bold" style="padding: 10px; border-radius: 8px;">
@@ -338,6 +335,5 @@ $live_notices = $conn->query("
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-
 
 
