@@ -102,8 +102,8 @@ $live_notices = $conn->query("
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .btn-primary-custom { background: var(--accent-blue); color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; border: none; box-shadow: 0 4px 10px rgba(37,99,235,0.2); transition: 0.2s; }
         .btn-primary-custom:hover { background: #1d4ed8; transform: translateY(-2px); color: white;}
-        .year-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); position: relative; overflow: hidden; cursor: pointer; transition: 0.2s;}
-        .year-card:hover { transform: translateX(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .year-card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); position: relative; overflow: hidden; cursor: pointer; transition: all 0.2s ease;}
+        .year-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
         .year-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
         .yr1-border::before { background: var(--accent-blue); }
         .yr2-border::before { background: #10b981; }
@@ -120,13 +120,14 @@ $live_notices = $conn->query("
         .notice-warning { background: #fef3c7; color: #92400e; }
         .notice-info { background: #e0f2fe; color: #075985; }
         .notice-success { background: #dcfce3; color: #166534; }
+        .form-control:focus, .form-select:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
         <div class="sidebar-logo-container">
-            <img src="../assets/images/college-logo.png" alt="KDP Logo">
+            <img src="../assets/images/college-logo.png" alt="KDP Logo" loading="lazy">
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
             <div class="sidebar-subtitle">Admin Portal</div>
         </div>
@@ -267,15 +268,15 @@ $live_notices = $conn->query("
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <form action="" method="POST">
+                    <form action="" method="POST" autocomplete="off">
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">Full Name</label>
-                                <input type="text" name="name" class="form-control" required placeholder="e.g. Arman Mansuri">
+                                <input type="text" name="name" class="form-control" required placeholder="e.g. Arman Mansuri" autocomplete="off">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">Enrollment No / Email</label>
-                                <input type="text" name="email" class="form-control" required placeholder="e.g. 236170307001">
+                                <input type="text" name="email" class="form-control" required placeholder="e.g. 236170307001" autocomplete="off">
                             </div>
                         </div>
                         <div class="row mb-3">
@@ -338,5 +339,6 @@ $live_notices = $conn->query("
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
