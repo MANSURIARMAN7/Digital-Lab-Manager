@@ -1,117 +1,235 @@
 <?php
-$json_file = 'submissions.json';
-$submissions = file_exists($json_file) ? json_decode(file_get_contents($json_file), true) : [];
-if (!is_array($submissions))
-    $submissions = [];
-?>
+session_start();
+include '../db.php';
 
+if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'faculty') {
+    header("Location: ../login.php");
+    exit();
+}
+$faculty_id = $_SESSION['user_id'];
+$faculty_name = isset($_SESSION['name']) ? htmlspecialchars($_SESSION['name']) : 'Faculty';
+
+$available_branches = [];
+$branch_res = $conn->query("SELECT DISTINCT department FROM subjects WHERE department IS NOT NULL AND department != ''");
+if($branch_res && $branch_res->num_rows > 0) {
+    while($r = $branch_res->fetch_assoc()) { $available_branches[] = $r['department']; }
+}
+if(empty($available_branches)) $available_branches = ['Computer Engineering'];
+$selected_branch = isset($_GET['branch']) ? $_GET['branch'] : $available_branches[0];
+
+$available_semesters = ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4', 'Semester 5', 'Semester 6'];
+$selected_sem = isset($_GET['sem']) ? $_GET['sem'] : 'Semester 1';
+$sem_number = (int) str_replace('Semester ', '', $selected_sem); 
+
+$available_subjects = [];
+$safe_br = $conn->real_escape_string($selected_branch);
+$fac_name_safe = $conn->real_escape_string($faculty_name);
+
+$sub_query = "SELECT subject_name FROM subjects WHERE faculty_name LIKE '%$fac_name_safe%' AND department = '$safe_br' AND semester = '$sem_number'";
+$sub_res = $conn->query($sub_query);
+if ($sub_res && $sub_res->num_rows > 0) {
+    while($r = $sub_res->fetch_assoc()) { $available_subjects[] = $r['subject_name']; }
+}
+$selected_subject = isset($_GET['subject']) ? $_GET['subject'] : (!empty($available_subjects) ? $available_subjects[0] : '');
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$selected_status = isset($_GET['status']) ? $_GET['status'] : 'All'; // 🔥 NEW FILTER ADDED FOR CARDS
+
+$reports = [];
+$total_eval = 0; $passed = 0; $rejected = 0;
+if (!empty($selected_subject)) {
+    $safe_sub = $conn->real_escape_string($selected_subject);
+    $q = "SELECT s.student_id, u.email as student_enrollment, u.name as student_name, s.status, s.marks 
+          FROM student_submissions s JOIN users u ON s.student_id = u.user_id 
+          WHERE s.subject_name = '$safe_sub' AND s.status != 'Pending'";
+          
+    if (!empty($search_query)) {
+        $safe_search = $conn->real_escape_string($search_query);
+        $q .= " AND (u.name LIKE '%$safe_search%' OR u.email LIKE '%$safe_search%')";
+    }
+    $q .= " ORDER BY u.email ASC";
+    
+    $r = $conn->query($q);
+    if ($r) {
+        while ($row = $r->fetch_assoc()) {
+            // Count total for the top cards
+            $total_eval++;
+            if($row['status'] == 'Approved') $passed++;
+            if($row['status'] == 'Rejected') $rejected++;
+            
+            // 🔥 Filter table display based on clicked card
+            if ($selected_status == 'All' || $row['status'] == $selected_status) {
+                $reports[] = $row;
+            }
+        }
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Term Work Reports - KDP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Version 503 for Cache Bypass -->
-    <link rel="stylesheet" href="assets/css/faculty_dashboard.css?v=503">
-</head>
-
-<body>
-
-    <div class="container">
+    <style>
+        /* ================= UNIFIED SIDEBAR & BODY CSS ================= */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f1f5f9; display: flex; height: 100vh; overflow: hidden; }
         
-        <!-- NAYA SIDEBAR START (Logo + Emojis) -->
-        <div class="sidebar" style="display: flex; flex-direction: column; height: 100vh;">
-            
-            <!-- Logo Section matching Student Portal -->
-            <div class="sidebar-logo-container">
-                <img src="assets/images/KDP-Logo.png" alt="K.D. Polytechnic Logo" class="sidebar-logo">
-                <div class="sidebar-title">
-                    <h2>K.D. Polytechnic</h2>
-                    <p>Faculty Portal</p>
-                </div>
+        .sidebar { width: 260px; min-width: 260px; background-color: #113460; color: #ffffff; display: flex; flex-direction: column; padding: 25px 0; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 10; flex-shrink: 0;}
+        .sidebar-logo-container { text-align: center; margin-bottom: 20px; }
+        .logo-wrapper { width: 90px; height: 90px; background: #ffffff; border-radius: 50%; margin: 0 auto 15px auto; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 0 15px rgba(255,255,255,0.15); border: 3px solid rgba(255,255,255,0.2); }
+        .sidebar-logo { width: 105%; height: auto; }
+        .sidebar-title h2 { font-size: 19px; font-weight: 600; letter-spacing: 0.5px; margin: 0; }
+        .sidebar-title p { font-size: 13px; color: #94a3b8; margin: 2px 0 0 0;}
+        .sidebar-divider { height: 1px; background: #1e4b85; margin: 15px 20px; }
+        
+        .nav-links { list-style: none; padding: 0; flex-grow: 1; margin: 10px 0 0 0; }
+        .nav-links li { padding: 15px 25px; margin: 5px 15px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 15px; transition: 0.3s; color: #cbd5e1; }
+        .nav-links li:hover { background: #1e4b85; color: white; }
+        .nav-links li.active { background: #2563eb; color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.3); }
+        .nav-links li i { font-size: 18px; width: 20px; text-align: center; }
+        .logout-btn { color: #fca5a5 !important; margin-top: auto; }
+        .logout-btn:hover { background: rgba(239, 68, 68, 0.1) !important; color: #ef4444 !important; }
+        
+        .main { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
+        /* =============================================================== */
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header-left h2 { color: #0f172a; font-size: 26px; font-weight: 700; margin:0;}
+        .header-left p { color: #64748b; font-size: 14px; margin: 5px 0 0 0; }
+        .header-profile { display: flex; align-items: center; gap: 15px; background: #ffffff; padding: 8px 10px 8px 20px; border-radius: 50px; border: 1px solid #e2e8f0; text-decoration:none; cursor:pointer;}
+        
+        .content-card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0; }
+        
+        /* 🔥 CARDS KO CLICKABLE BANAYA 🔥 */
+        .stat-card { background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex:1; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;}
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+        .stat-card.active { border: 2px solid #2563eb; box-shadow: 0 4px 15px rgba(37,99,235,0.1); }
+        
+        .stat-title { font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;}
+        .stat-val { font-size:26px; font-weight:700; color:#0f172a;}
+        .stat-icon { width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px;}
+        
+        .table-custom th { background: #f8fafc; color: #64748b; padding: 14px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; border-top:none; border-bottom:2px solid #e2e8f0;}
+        .table-custom td { vertical-align: middle; padding: 16px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; font-weight: 500;}
+        
+        @media print {
+            .sidebar, .header, .filter-area, .btn-print { display: none !important; }
+            .main { padding: 0; }
+            .print-area { display: block; }
+            .content-card { border:none; box-shadow:none; padding:0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo-container">
+            <div class="logo-wrapper">
+                <img src="../assets/images/KDP-Logo.png" class="sidebar-logo" onerror="this.src='../assets/images/college-logo.png'">
             </div>
-            
-            <!-- Divider Line -->
-            <div class="sidebar-divider"></div>
-
-            <!-- Menu Items using Emojis -->
-            <ul style="list-style: none; padding: 0; display: flex; flex-direction: column; flex-grow: 1;">
-                
-                <li onclick="window.location.href='faculty_dashboard.php'" style="cursor: pointer;">
-                    <span class="menu-icon">🏠</span> Dashboard
-                </li>
-                
-                <li onclick="window.location.href='labmanual_list.php'" style="cursor: pointer;">
-                    <span class="menu-icon">📘</span> Lab Manuals
-                </li>
-                
-                <!-- Is page par Reports active rahega -->
-                <li onclick="window.location.href='reports.php'" class="active" style="cursor: pointer;">
-                    <span class="menu-icon">📄</span> Reports
-                </li>
-                
-                <li onclick="alert('Logging out...')" style="cursor: pointer; margin-top: auto; color: #ff8ba7; font-weight: 400;">
-                    <span class="menu-icon" style="color: #ff8ba7; font-size: 16px;">➔</span> Logout
-                </li>
-            </ul>
+            <div class="sidebar-title">
+                <h2>K.D. Polytechnic</h2>
+                <p>Faculty Portal</p>
+            </div>
         </div>
-        <!-- SIDEBAR END -->
+        <div class="sidebar-divider"></div>
+        <ul class="nav-links">
+            <li onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
+            <li onclick="window.location.href='labmanual_list.php'"><i class="fas fa-check-circle"></i> Review & Evaluate</li>
+            <li class="active" onclick="window.location.href='reports.php'"><i class="fas fa-file-alt"></i> Reports</li>
+            <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> Profile</li>
+            <li class="logout-btn" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>    
+        </ul>
+    </div>
 
-        <div class="main">
-            <div class="header">
-                <div>
-                    <h2>Term Work & Reports</h2>
-                    <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Generate end-semester term work reports
-                        for GTU.</p>
-                </div>
-                <div class="faculty-profile">
-                    <i class="fas fa-moon dark-mode-toggle" id="themeToggle" title="Switch Theme"></i>
-                    <div class="profile-info">
-                        <img src="https://ui-avatars.com/api/?name=Faculty&background=2563eb&color=fff" alt="Profile"
-                            class="profile-pic">
-                        <span class="faculty-name">Welcome, Faculty</span>
-                    </div>
-                </div>
+    <div class="main">
+        <div class="header">
+            <div class="header-left">
+                <h2>Term Work Reports</h2>
+                <p>View, search and print evaluated student reports.</p>
             </div>
+            <a href="profile.php" class="header-profile">
+                <div style="text-align:right;"><div style="font-size:11px; color:#64748b; font-weight:600;">WELCOME BACK,</div><div style="font-size:15px; color:#0f172a; font-weight:700; margin:0;"><?php echo $faculty_name; ?></div></div>
+                <div style="width:42px; height:42px; border-radius:50%; background:#2563eb; color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid #2563eb;"><?php echo strtoupper(substr($faculty_name, 0, 1)); ?>.</div>
+            </a>
+        </div>
 
-            <div class="table-section">
-                <div class="table-header">
-                    <h3>Final Evaluated List</h3>
-                    <div class="table-actions">
-                        <button class="btn-export" id="downloadCSV" style="background:#10b981; padding: 10px 20px;"><i
-                                class="fas fa-download"></i> Generate Term Work (Excel)</button>
-                    </div>
+        <div class="content-card filter-area">
+            <form method="GET" id="filterForm" class="row g-3 align-items-end">
+                <input type="hidden" name="status" value="<?php echo htmlspecialchars($selected_status); ?>"> <!-- 🔥 KEEPS ACTIVE STATUS -->
+                
+                <div class="col-md-2">
+                    <label style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:6px;">BRANCH</label>
+                    <select name="branch" class="form-select" onchange="document.getElementById('filterForm').submit();" style="border-radius:8px; background:#f8fafc; font-weight:500;">
+                        <?php foreach($available_branches as $b) { echo "<option value='$b' ".($selected_branch==$b?'selected':'').">$b</option>"; } ?>
+                    </select>
                 </div>
-                <table>
-                    <tr>
-                        <th>Enrollment</th>
-                        <th>Student Name</th>
-                        <th>Subject</th>
-                        <th>Status</th>
-                        <th>Marks</th>
-                        <th>Remarks</th>
-                    </tr>
-                    <?php foreach ($submissions as $row) {
-                        $status_class = strtolower($row['status']); ?>
-                        <tr>
-                            <td style="font-weight: 600;"><?php echo $row['enrollment']; ?></td>
-                            <td><?php echo $row['name']; ?></td>
-                            <td><span class='subject-tag'><?php echo $row['subject']; ?></span></td>
-                            <td><span class='badge <?php echo $status_class; ?>'><?php echo $row['status']; ?></span></td>
-                            <td style="font-weight:bold; color:#2563eb;">
-                                <?php echo isset($row['marks']) && $row['marks'] != '' ? $row['marks'] . '/10' : '-'; ?></td>
-                            <td style="font-size: 13px; color:#ef4444;">
-                                <?php echo isset($row['remark']) ? $row['remark'] : '-'; ?></td>
-                        </tr>
-                    <?php } ?>
-                </table>
+                <div class="col-md-2">
+                    <label style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:6px;">SEMESTER</label>
+                    <select name="sem" class="form-select" onchange="document.getElementById('filterForm').submit();" style="border-radius:8px; background:#f8fafc; font-weight:500;">
+                        <?php foreach($available_semesters as $s) { echo "<option value='$s' ".($selected_sem==$s?'selected':'').">$s</option>"; } ?>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:6px;">SUBJECT</label>
+                    <select name="subject" class="form-select" onchange="document.getElementById('filterForm').submit();" style="border-radius:8px; background:#f8fafc; font-weight:500;">
+                        <?php if(empty($available_subjects)) echo "<option value=''>No Subjects Found</option>"; ?>
+                        <?php foreach($available_subjects as $sub) { echo "<option value='".htmlspecialchars($sub)."' ".($selected_subject==$sub?'selected':'').">".htmlspecialchars($sub)."</option>"; } ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:6px;">SEARCH ENROLLMENT</label>
+                    <input type="text" name="search" class="form-control" placeholder="Search..." value="<?php echo htmlspecialchars($search_query); ?>" onchange="document.getElementById('filterForm').submit();" style="border-radius:8px; background:#f8fafc; font-weight:500;">
+                </div>
+                <div class="col-md-1 text-end">
+                    <button type="button" onclick="window.print()" class="btn btn-print" style="background:#059669; color:white; font-weight:600; padding:9px 18px; border-radius:8px; border:none;"><i class="fa-solid fa-print"></i> Print</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 🔥 ONCLICK LINKS ADDED FOR CARDS 🔥 -->
+        <div class="d-flex gap-4 mb-4 filter-area">
+            <div class="stat-card <?php echo ($selected_status == 'All') ? 'active' : ''; ?>" onclick="window.location.href='reports.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&search=<?php echo urlencode($search_query); ?>&status=All'">
+                <div><div class="stat-title">Total Evaluated</div><div class="stat-val"><?php echo $total_eval; ?></div></div>
+                <div class="stat-icon" style="background:#eff6ff; color:#3b82f6;"><i class="fa-solid fa-users"></i></div>
             </div>
+            
+            <div class="stat-card <?php echo ($selected_status == 'Approved') ? 'active' : ''; ?>" onclick="window.location.href='reports.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&search=<?php echo urlencode($search_query); ?>&status=Approved'">
+                <div><div class="stat-title">Passed (Approved)</div><div class="stat-val"><?php echo $passed; ?></div></div>
+                <div class="stat-icon" style="background:#d1fae5; color:#059669;"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+            
+            <div class="stat-card <?php echo ($selected_status == 'Rejected') ? 'active' : ''; ?>" onclick="window.location.href='reports.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&search=<?php echo urlencode($search_query); ?>&status=Rejected'">
+                <div><div class="stat-title">Needs Revision (Rejected)</div><div class="stat-val"><?php echo $rejected; ?></div></div>
+                <div class="stat-icon" style="background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-circle-exclamation"></i></div>
+            </div>
+        </div>
+
+        <div class="content-card print-area flex-grow-1 pt-4">
+            <div class="text-center mb-4">
+                <h3 style="font-weight:700; color:#0f172a; margin-bottom:5px;">K.D. Polytechnic - Term Work Report</h3>
+                <p style="color:#64748b; font-weight:500;">Branch: <?php echo htmlspecialchars($selected_branch); ?> | Semester: <?php echo htmlspecialchars($selected_sem); ?> | Subject: <?php echo htmlspecialchars($selected_subject); ?> <?php echo ($selected_status != 'All') ? "| Status: " . htmlspecialchars($selected_status) : ''; ?></p>
+            </div>
+            <table class="table table-custom">
+                <thead><tr><th style="width:20%;">Enrollment No.</th><th style="width:40%;">Student Name</th><th style="width:20%; text-align:center;">Status</th><th style="width:20%; text-align:center;">Marks (Out of 20)</th></tr></thead>
+                <tbody>
+                    <?php if(empty($reports)) { 
+                        echo "<tr><td colspan='4' class='text-center py-5 text-muted'><i class='fa-solid fa-file-excel fs-1 mb-3' style='color:#e2e8f0;'></i><br>No report data available for this selection.</td></tr>"; 
+                    } else {
+                        foreach($reports as $r) {
+                            $color = $r['status'] == 'Approved' ? '#059669' : '#dc2626';
+                            echo "<tr>
+                                    <td style='color:#64748b;'>".htmlspecialchars($r['student_enrollment'])."</td>
+                                    <td class='fw-bold text-dark'>".htmlspecialchars($r['student_name'])."</td>
+                                    <td class='text-center fw-bold' style='color:$color;'>".htmlspecialchars($r['status'])."</td>
+                                    <td class='text-center fw-bold fs-6'>".htmlspecialchars($r['marks'])."</td>
+                                  </tr>";
+                        }
+                    } ?>
+                </tbody>
+            </table>
         </div>
     </div>
-    <div id="toastBox" class="toast-container"></div>
-    <script src="assets/js/faculty_dashboard.js?v=503"></script>
 </body>
-
 </html>
