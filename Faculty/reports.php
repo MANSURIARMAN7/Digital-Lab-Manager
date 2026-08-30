@@ -32,6 +32,7 @@ if ($sub_res && $sub_res->num_rows > 0) {
 }
 $selected_subject = isset($_GET['subject']) ? $_GET['subject'] : (!empty($available_subjects) ? $available_subjects[0] : '');
 $search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$selected_status = isset($_GET['status']) ? $_GET['status'] : 'All'; // 🔥 NEW FILTER ADDED FOR CARDS
 
 $reports = [];
 $total_eval = 0; $passed = 0; $rejected = 0;
@@ -50,10 +51,15 @@ if (!empty($selected_subject)) {
     $r = $conn->query($q);
     if ($r) {
         while ($row = $r->fetch_assoc()) {
-            $reports[] = $row;
+            // Count total for the top cards
             $total_eval++;
             if($row['status'] == 'Approved') $passed++;
             if($row['status'] == 'Rejected') $rejected++;
+            
+            // 🔥 Filter table display based on clicked card
+            if ($selected_status == 'All' || $row['status'] == $selected_status) {
+                $reports[] = $row;
+            }
         }
     }
 }
@@ -95,7 +101,12 @@ if (!empty($selected_subject)) {
         .header-profile { display: flex; align-items: center; gap: 15px; background: #ffffff; padding: 8px 10px 8px 20px; border-radius: 50px; border: 1px solid #e2e8f0; text-decoration:none; cursor:pointer;}
         
         .content-card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0; }
-        .stat-card { background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex:1;}
+        
+        /* 🔥 CARDS KO CLICKABLE BANAYA 🔥 */
+        .stat-card { background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex:1; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;}
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+        .stat-card.active { border: 2px solid #2563eb; box-shadow: 0 4px 15px rgba(37,99,235,0.1); }
+        
         .stat-title { font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;}
         .stat-val { font-size:26px; font-weight:700; color:#0f172a;}
         .stat-icon { width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px;}
@@ -146,6 +157,8 @@ if (!empty($selected_subject)) {
 
         <div class="content-card filter-area">
             <form method="GET" id="filterForm" class="row g-3 align-items-end">
+                <input type="hidden" name="status" value="<?php echo htmlspecialchars($selected_status); ?>"> <!-- 🔥 KEEPS ACTIVE STATUS -->
+                
                 <div class="col-md-2">
                     <label style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:6px;">BRANCH</label>
                     <select name="branch" class="form-select" onchange="document.getElementById('filterForm').submit();" style="border-radius:8px; background:#f8fafc; font-weight:500;">
@@ -175,16 +188,19 @@ if (!empty($selected_subject)) {
             </form>
         </div>
 
+        <!-- 🔥 ONCLICK LINKS ADDED FOR CARDS 🔥 -->
         <div class="d-flex gap-4 mb-4 filter-area">
-            <div class="stat-card">
+            <div class="stat-card <?php echo ($selected_status == 'All') ? 'active' : ''; ?>" onclick="window.location.href='reports.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&search=<?php echo urlencode($search_query); ?>&status=All'">
                 <div><div class="stat-title">Total Evaluated</div><div class="stat-val"><?php echo $total_eval; ?></div></div>
                 <div class="stat-icon" style="background:#eff6ff; color:#3b82f6;"><i class="fa-solid fa-users"></i></div>
             </div>
-            <div class="stat-card">
+            
+            <div class="stat-card <?php echo ($selected_status == 'Approved') ? 'active' : ''; ?>" onclick="window.location.href='reports.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&search=<?php echo urlencode($search_query); ?>&status=Approved'">
                 <div><div class="stat-title">Passed (Approved)</div><div class="stat-val"><?php echo $passed; ?></div></div>
                 <div class="stat-icon" style="background:#d1fae5; color:#059669;"><i class="fa-solid fa-circle-check"></i></div>
             </div>
-            <div class="stat-card">
+            
+            <div class="stat-card <?php echo ($selected_status == 'Rejected') ? 'active' : ''; ?>" onclick="window.location.href='reports.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&search=<?php echo urlencode($search_query); ?>&status=Rejected'">
                 <div><div class="stat-title">Needs Revision (Rejected)</div><div class="stat-val"><?php echo $rejected; ?></div></div>
                 <div class="stat-icon" style="background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-circle-exclamation"></i></div>
             </div>
@@ -193,12 +209,14 @@ if (!empty($selected_subject)) {
         <div class="content-card print-area flex-grow-1 pt-4">
             <div class="text-center mb-4">
                 <h3 style="font-weight:700; color:#0f172a; margin-bottom:5px;">K.D. Polytechnic - Term Work Report</h3>
-                <p style="color:#64748b; font-weight:500;">Branch: <?php echo htmlspecialchars($selected_branch); ?> | Semester: <?php echo htmlspecialchars($selected_sem); ?> | Subject: <?php echo htmlspecialchars($selected_subject); ?></p>
+                <p style="color:#64748b; font-weight:500;">Branch: <?php echo htmlspecialchars($selected_branch); ?> | Semester: <?php echo htmlspecialchars($selected_sem); ?> | Subject: <?php echo htmlspecialchars($selected_subject); ?> <?php echo ($selected_status != 'All') ? "| Status: " . htmlspecialchars($selected_status) : ''; ?></p>
             </div>
             <table class="table table-custom">
                 <thead><tr><th style="width:20%;">Enrollment No.</th><th style="width:40%;">Student Name</th><th style="width:20%; text-align:center;">Status</th><th style="width:20%; text-align:center;">Marks (Out of 20)</th></tr></thead>
                 <tbody>
-                    <?php if(empty($reports)) { echo "<tr><td colspan='4' class='text-center py-5 text-muted'><i class='fa-solid fa-file-excel fs-1 mb-3' style='color:#e2e8f0;'></i><br>No report data available for this subject. Ensure submissions are 'Approved'.</td></tr>"; } else {
+                    <?php if(empty($reports)) { 
+                        echo "<tr><td colspan='4' class='text-center py-5 text-muted'><i class='fa-solid fa-file-excel fs-1 mb-3' style='color:#e2e8f0;'></i><br>No report data available for this selection.</td></tr>"; 
+                    } else {
                         foreach($reports as $r) {
                             $color = $r['status'] == 'Approved' ? '#059669' : '#dc2626';
                             echo "<tr>
