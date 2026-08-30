@@ -10,13 +10,12 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
 }
 
 // ==========================================
-// 🗑️ DELETE LOGIC (Prepared Statement + Physical Deletion)
+// 🗑️ DELETE LOGIC (Prepared Statement + File Deletion)
 // ==========================================
 $message = "";
 if (isset($_GET['delete_id'])) {
     $del_id = (int)$_GET['delete_id'];
 
-    // Fetch file path safely using Prepared Statement
     $stmt_select = $conn->prepare("SELECT file_path FROM lab_manuals WHERE id = ?");
     $stmt_select->bind_param("i", $del_id);
     $stmt_select->execute();
@@ -29,7 +28,6 @@ if (isset($_GET['delete_id'])) {
     }
     $stmt_select->close();
 
-    // Delete record from DB
     $stmt_del = $conn->prepare("DELETE FROM lab_manuals WHERE id = ?");
     $stmt_del->bind_param("i", $del_id);
     if ($stmt_del->execute()) {
@@ -43,7 +41,6 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
-// Show session message if exists
 if (isset($_SESSION['msg'])) {
     $message = $_SESSION['msg'];
     unset($_SESSION['msg']);
@@ -52,7 +49,7 @@ if (isset($_SESSION['msg'])) {
 // Fetch Admin Details
 $admin_id = $_SESSION['user_id'];
 $admin_name = 'System Administrator';
-$admin_stmt = $conn->prepare("SELECT name, department FROM users WHERE user_id = ?");
+$admin_stmt = $conn->prepare("SELECT name FROM users WHERE user_id = ?");
 if ($admin_stmt) {
     $admin_stmt->bind_param("s", $admin_id);
     $admin_stmt->execute();
@@ -80,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
         $file_size = $_FILES['manual_file']['size'];
         $file_ext  = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
 
-        // MIME Type Check
+        // MIME Type Verification
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime  = finfo_file($finfo, $file_tmp);
         finfo_close($finfo);
@@ -94,13 +91,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
                     mkdir($upload_dir, 0777, true);
                 }
 
-                // Clean unique filename
+                // 🌟 Collision-proof Unique Filename
                 $clean_title   = preg_replace("/[^a-zA-Z0-9]+/", "_", $title);
-                $new_file_name = time() . '_' . strtolower($clean_title) . '.pdf';
+                $new_file_name = time() . '_' . uniqid() . '_' . strtolower($clean_title) . '.pdf';
                 $destination   = $upload_dir . $new_file_name;
 
                 if (move_uploaded_file($file_tmp, $destination)) {
-                    // Safe Insert Query using Prepared Statement
                     $stmt_ins = $conn->prepare("INSERT INTO lab_manuals (title, subject_name, semester, branch, practical_no, end_date, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $stmt_ins->bind_param("ssissss", $title, $subject_name, $semester, $branch, $practical_no, $end_date, $destination);
 
@@ -111,16 +107,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_manual'])) {
                     }
                     $stmt_ins->close();
                 } else {
-                    $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Failed to move file to server. Check folder permissions.</div>";
+                    $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Failed to move file to server folder.</div>";
                 }
             } else {
-                $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'>File size exceeds maximum limit of 10MB.</div>";
+                $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'>File size exceeds the 10MB limit.</div>";
             }
         } else {
             $message = "<div class='alert alert-warning alert-dismissible fade show' id='autoAlert'>Invalid format! Only PDF files are allowed.</div>";
         }
     } else {
-        $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Please select a valid PDF file to upload.</div>";
+        $message = "<div class='alert alert-danger alert-dismissible fade show' id='autoAlert'>Please select a valid PDF file.</div>";
     }
 }
 
@@ -196,7 +192,6 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
 
         <!-- TOPBAR -->
         <div class="topbar">
-            <!-- 🔍 LIVE SEARCH INPUT -->
             <div class="search-box">
                 <i class="fas fa-search text-muted"></i>
                 <input type="text" id="searchInput" placeholder="Search manuals by name or subject..." onkeyup="filterTable()">
@@ -213,7 +208,6 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
             </div>
         </div>
 
-        <!-- ⏳ AUTO-DISMISSING ALERT -->
         <div id="alertContainer">
             <?php echo $message; ?>
         </div>
@@ -223,14 +217,13 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
             <p class="text-muted small mb-0">Upload and manage official practical lab manuals.</p>
         </div>
 
-        <!-- TWO COLUMN LAYOUT -->
         <div class="row g-4">
             <!-- LEFT: UPLOAD FORM -->
             <div class="col-md-4">
                 <div class="content-box">
                     <h5 class="fw-bold text-dark mb-3" style="font-size: 16px;"><i class="fas fa-upload text-primary me-2"></i> Upload Lab Manual</h5>
 
-                    <form action="" method="POST" enctype="multipart/form-data">
+                    <form action="" method="POST" enctype="multipart/form-data" id="manualUploadForm">
                         <div class="mb-3">
                             <label class="form-label fw-bold small text-muted">Manual Title</label>
                             <input type="text" name="title" class="form-control" required placeholder="e.g. Basic Math Practical">
@@ -277,14 +270,16 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
                             <input type="text" name="practical_no" class="form-control" required placeholder="e.g. PR.1">
                         </div>
 
+                        <!-- 🌟 Added min date validation to prevent selecting past dates -->
                         <div class="mb-3">
                             <label class="form-label fw-bold small text-muted">Due Date</label>
-                            <input type="date" name="end_date" class="form-control" required>
+                            <input type="date" name="end_date" class="form-control" min="<?php echo date('Y-m-d'); ?>" required>
                         </div>
 
                         <div class="mb-4">
                             <label class="form-label fw-bold small text-muted">Upload PDF File <span class="text-muted fw-normal">(Max 10MB)</span></label>
-                            <input type="file" name="manual_file" class="form-control" accept=".pdf,application/pdf" required>
+                            <input type="file" name="manual_file" id="fileInput" class="form-control" accept=".pdf,application/pdf" required>
+                            <div id="fileSizeError" class="text-danger small mt-1" style="display: none;">File size exceeds 10MB limit!</div>
                         </div>
 
                         <button type="submit" name="add_manual" class="btn btn-primary w-100 fw-bold py-2">
@@ -361,7 +356,19 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
             }
         }, 3500);
 
-        // 2. ENHANCED LIVE TABLE SEARCH
+        // 2. CLIENT-SIDE FILE SIZE CHECK (10MB)
+        document.getElementById('fileInput').addEventListener('change', function() {
+            let file = this.files[0];
+            let errorDiv = document.getElementById('fileSizeError');
+            if (file && file.size > 10 * 1024 * 1024) {
+                errorDiv.style.display = 'block';
+                this.value = ''; // Reset selected file
+            } else {
+                errorDiv.style.display = 'none';
+            }
+        });
+
+        // 3. ENHANCED LIVE TABLE SEARCH
         function filterTable() {
             let input = document.getElementById("searchInput").value.toLowerCase().trim();
             let rows = document.getElementsByClassName("manual-row");
@@ -377,7 +384,6 @@ $manuals_list  = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DE
                 }
             }
 
-            // Show dynamic "No search result" row if nothing matches
             let noMatchRow = document.getElementById("noSearchMatchRow");
             if (visibleCount === 0 && rows.length > 0) {
                 if (!noMatchRow) {
