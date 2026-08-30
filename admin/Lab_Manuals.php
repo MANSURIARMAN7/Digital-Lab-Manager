@@ -152,6 +152,7 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals ORDER BY uploaded_at DES
             <li onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book"></i> Subject Mgmt</li>
             <li class="active" onclick="window.location.href='Lab_Manuals.php'"><i class="fas fa-file-alt"></i> Lab Manuals</li>
             <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
+            <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
             <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
             <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #f87171;"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
