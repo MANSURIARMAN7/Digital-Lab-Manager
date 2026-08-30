@@ -31,6 +31,7 @@ $createUsersTable = "CREATE TABLE IF NOT EXISTS `users` (
     `password` VARCHAR(255) NOT NULL,
     `role` ENUM('admin', 'faculty', 'student') NOT NULL,
     `name` VARCHAR(100) NOT NULL,
+    `department` VARCHAR(100) DEFAULT NULL,
     `subjects` TEXT DEFAULT NULL,
     `sem` VARCHAR(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
@@ -58,6 +59,11 @@ if ($checkSubjects && $checkSubjects->num_rows == 0) {
 $checkSem = $conn->query("SHOW COLUMNS FROM `users` LIKE 'sem'");
 if ($checkSem && $checkSem->num_rows == 0) {
     $conn->query("ALTER TABLE `users` ADD COLUMN `sem` VARCHAR(50) DEFAULT NULL");
+}
+
+$checkDept = $conn->query("SHOW COLUMNS FROM `users` LIKE 'department'");
+if ($checkDept && $checkDept->num_rows == 0) {
+    $conn->query("ALTER TABLE `users` ADD COLUMN `department` VARCHAR(100) DEFAULT NULL");
 }
 
 // Insert default Admin if it doesn't exist
