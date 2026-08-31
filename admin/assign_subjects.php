@@ -2,7 +2,40 @@
 session_start();
 include '../db.php';
 
-// Generate CSRF Token
+// -------------------------------------------------------------
+// 1. AJAX Endpoint: Fetch currently assigned subjects
+// -------------------------------------------------------------
+if (isset($_GET['action']) && $_GET['action'] === 'fetch_assigned') {
+    header('Content-Type: application/json');
+    $fac_id = trim($_GET['faculty_id'] ?? '');
+    $br = trim($_GET['branch'] ?? '');
+    $sem = trim($_GET['semester'] ?? '');
+
+    $response = ['status' => 'success', 'subjects' => ''];
+
+    if (!empty($fac_id) && !empty($br) && !empty($sem)) {
+        $stmt = $conn->prepare("SELECT subjects FROM users WHERE user_id = ?");
+        $stmt->bind_param("s", $fac_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+
+        if ($res && $row = $res->fetch_assoc()) {
+            if (!empty($row['subjects'])) {
+                $decoded = json_decode($row['subjects'], true);
+                if (isset($decoded[$br][$sem]) && is_array($decoded[$br][$sem])) {
+                    $response['subjects'] = implode(', ', $decoded[$br][$sem]);
+                }
+            }
+        }
+        $stmt->close();
+    }
+    echo json_encode($response);
+    exit;
+}
+
+// -------------------------------------------------------------
+// 2. Main Page Logic
+// -------------------------------------------------------------
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -14,7 +47,6 @@ $selected_semester = $_POST['semester'] ?? '';
 $subjects_input = $_POST['subjects'] ?? '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
-    // CSRF Token Validation
     if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
         $msg = "<div class='alert alert-danger alert-dismissible fade show shadow-sm rounded-3' role='alert'>
                     <i class='fa-solid fa-shield-halved me-2'></i> Security error: Invalid CSRF token.
@@ -24,17 +56,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
         $faculty_id = trim($_POST['faculty_id'] ?? '');
         $branch = trim($_POST['branch'] ?? '');
         $semester = trim($_POST['semester'] ?? '');
-        
         $raw_subjects = $_POST['subjects'] ?? '';
         
-        // Trim, format to Title Case, and remove duplicate entries
         $raw_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
         $subject_array = array_values(array_unique(array_map(function($sub) {
             return ucwords(strtolower($sub));
         }, $raw_array)));
 
         if (!empty($faculty_id) && !empty($branch) && !empty($semester)) {
-            // Fetch current subjects
             $fetch_stmt = $conn->prepare("SELECT subjects FROM users WHERE user_id = ?");
             $fetch_stmt->bind_param("s", $faculty_id);
             $fetch_stmt->execute();
@@ -143,7 +172,7 @@ $branches = [
 
                 <div class="mb-3">
                     <label class="form-label">1. Select Faculty</label>
-                    <select name="faculty_id" class="form-select" required>
+                    <select id="facultySelect" name="faculty_id" class="form-select" required>
                         <option value="">-- Choose Faculty --</option>
                         <?php foreach($faculties as $fac) { ?>
                             <option value="<?php echo htmlspecialchars($fac['user_id']); ?>" <?php echo ($selected_faculty === $fac['user_id']) ? 'selected' : ''; ?>>
@@ -155,7 +184,7 @@ $branches = [
 
                 <div class="mb-3">
                     <label class="form-label">2. Select Branch</label>
-                    <select name="branch" class="form-select" required>
+                    <select id="branchSelect" name="branch" class="form-select" required>
                         <option value="">-- Choose Branch --</option>
                         <?php foreach($branches as $b) { ?>
                             <option value="<?php echo htmlspecialchars($b); ?>" <?php echo ($selected_branch === $b) ? 'selected' : ''; ?>><?php echo htmlspecialchars($b); ?></option>
@@ -165,7 +194,7 @@ $branches = [
 
                 <div class="mb-3">
                     <label class="form-label">3. Select Semester</label>
-                    <select name="semester" class="form-select" required>
+                    <select id="semesterSelect" name="semester" class="form-select" required>
                         <option value="">-- Choose Semester --</option>
                         <?php for($i = 1; $i <= 6; $i++) { 
                             $semVal = "Semester " . $i;
@@ -176,7 +205,10 @@ $branches = [
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label">4. Subjects (Comma Separated)</label>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label mb-0">4. Subjects (Comma Separated)</label>
+                        <small id="loadingStatus" class="text-primary d-none" style="font-size: 11px;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Fetching existing...</small>
+                    </div>
                     <input type="text" id="subjectsInput" name="subjects" class="form-control" value="<?php echo htmlspecialchars($subjects_input); ?>" placeholder="e.g. Java, Software Testing, DBMS" autocomplete="off">
                     <div id="subjectBadges" class="mt-2 d-flex flex-wrap gap-1"></div>
                     <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove subjects.</small>
@@ -192,8 +224,12 @@ $branches = [
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const facultySelect = document.getElementById('facultySelect');
+            const branchSelect = document.getElementById('branchSelect');
+            const semesterSelect = document.getElementById('semesterSelect');
             const input = document.getElementById('subjectsInput');
             const badgeContainer = document.getElementById('subjectBadges');
+            const loadingStatus = document.getElementById('loadingStatus');
 
             function updateBadges() {
                 badgeContainer.innerHTML = '';
@@ -208,6 +244,30 @@ $branches = [
                     badgeContainer.appendChild(badge);
                 });
             }
+
+            function fetchExistingSubjects() {
+                const fac = facultySelect.value;
+                const br = branchSelect.value;
+                const sem = semesterSelect.value;
+
+                if (fac && br && sem) {
+                    loadingStatus.classList.remove('d-none');
+                    fetch(`?action=fetch_assigned&faculty_id=${encodeURIComponent(fac)}&branch=${encodeURIComponent(br)}&semester=${encodeURIComponent(sem)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                input.value = data.subjects;
+                                updateBadges();
+                            }
+                        })
+                        .catch(err => console.error(err))
+                        .finally(() => loadingStatus.classList.add('d-none'));
+                }
+            }
+
+            [facultySelect, branchSelect, semesterSelect].forEach(elem => {
+                elem.addEventListener('change', fetchExistingSubjects);
+            });
 
             if (input) {
                 input.addEventListener('input', updateBadges);
