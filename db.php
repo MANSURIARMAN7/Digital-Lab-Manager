@@ -31,21 +31,30 @@ $createUsersTable = "CREATE TABLE IF NOT EXISTS `users` (
     `password` VARCHAR(255) NOT NULL,
     `role` ENUM('admin', 'faculty', 'student') NOT NULL,
     `name` VARCHAR(100) NOT NULL,
+    `department` VARCHAR(100) DEFAULT NULL,
     `subjects` TEXT DEFAULT NULL,
     `sem` VARCHAR(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 $conn->query($createUsersTable);
 
-// Ensure submissions table exists
+// Drop old submissions table if it uses the outdated schema
+$checkSubmissionsTable = $conn->query("SHOW COLUMNS FROM `submissions` LIKE 'student_id'");
+if ($checkSubmissionsTable && $checkSubmissionsTable->num_rows == 0) {
+    $conn->query("DROP TABLE IF EXISTS `submissions`");
+}
+
+// Ensure submissions table exists with the correct schema
 $createSubmissionsTable = "CREATE TABLE IF NOT EXISTS `submissions` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `enrollment` VARCHAR(50) NOT NULL,
-    `subject` VARCHAR(100) NOT NULL,
+    `student_id` VARCHAR(50) NOT NULL,
+    `subject_name` VARCHAR(100) NOT NULL,
+    `practical_no` INT DEFAULT NULL,
+    `answer_text` TEXT DEFAULT NULL,
     `file_path` VARCHAR(255) NOT NULL,
     `status` ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
     `marks` INT DEFAULT NULL,
     `remark` TEXT DEFAULT NULL,
-    `upload_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    `submitted_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 $conn->query($createSubmissionsTable);
 
@@ -58,6 +67,11 @@ if ($checkSubjects && $checkSubjects->num_rows == 0) {
 $checkSem = $conn->query("SHOW COLUMNS FROM `users` LIKE 'sem'");
 if ($checkSem && $checkSem->num_rows == 0) {
     $conn->query("ALTER TABLE `users` ADD COLUMN `sem` VARCHAR(50) DEFAULT NULL");
+}
+
+$checkDept = $conn->query("SHOW COLUMNS FROM `users` LIKE 'department'");
+if ($checkDept && $checkDept->num_rows == 0) {
+    $conn->query("ALTER TABLE `users` ADD COLUMN `department` VARCHAR(100) DEFAULT NULL");
 }
 
 // Insert default Admin if it doesn't exist

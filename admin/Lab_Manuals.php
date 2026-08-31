@@ -2,6 +2,30 @@
 session_start();
 include '../db.php';
 
+// ========================================================================
+// 0. AJAX API: DYNAMIC SUBJECT FETCHING (Runs in background without reload)
+// ========================================================================
+if (isset($_GET['ajax_subjects'])) {
+    $branch = $conn->real_escape_string($_GET['branch']);
+    $semester = $conn->real_escape_string($_GET['semester']);
+    
+    // NOTE: Yahan 'department' aur 'semester' teri subjects table ke columns hone chahiye. 
+    // Agar columns ka naam alag hai (jaise 'branch_name'), toh yahan change kar lena.
+    $query = "SELECT DISTINCT subject_name FROM subjects WHERE department = '$branch' AND semester = '$semester' ORDER BY subject_name ASC";
+    
+    $res = $conn->query($query);
+    echo '<option value="">-- Choose Subject --</option>';
+    if ($res && $res->num_rows > 0) {
+        while ($row = $res->fetch_assoc()) {
+            echo '<option value="' . htmlspecialchars($row['subject_name']) . '">' . htmlspecialchars($row['subject_name']) . '</option>';
+        }
+    } else {
+        echo '<option value="">❌ No subjects found for this Sem/Branch</option>';
+    }
+    exit(); // AJAX call yahan se wapas chali jayegi, poora page load nahi hoga
+}
+// ====================================================================
+
 // 1. Admin Login Check
 if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../login.php");
