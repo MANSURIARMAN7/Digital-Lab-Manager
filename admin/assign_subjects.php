@@ -4,69 +4,76 @@ include '../db.php';
 
 $msg = "";
 
-// Agar form submit hua hai
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
-    $faculty_id = $conn->real_escape_string(trim($_POST['faculty_id']));
-    $branch = $conn->real_escape_string(trim($_POST['branch']));
-    $semester = $conn->real_escape_string(trim($_POST['semester']));
+    $faculty_id = trim($_POST['faculty_id'] ?? '');
+    $branch = trim($_POST['branch'] ?? '');
+    $semester = trim($_POST['semester'] ?? '');
     
-    // Subjects ko array me convert karna
     $raw_subjects = $_POST['subjects'] ?? '';
     $subject_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
 
-    // 1. Current subjects fetch karo
-    $fetch_sql = "SELECT subjects FROM users WHERE user_id = '$faculty_id'";
-    $res = $conn->query($fetch_sql);
-    
-    $existing_data = [];
-    if ($res && $res->num_rows > 0) {
-        $row = $res->fetch_assoc();
-        if (!empty($row['subjects'])) {
-            $decoded = json_decode($row['subjects'], true);
-            if (is_array($decoded)) {
-                $existing_data = $decoded;
+    if (!empty($faculty_id) && !empty($branch) && !empty($semester)) {
+        // 1. Fetch current subjects using Prepared Statement
+        $fetch_stmt = $conn->prepare("SELECT subjects FROM users WHERE user_id = ?");
+        $fetch_stmt->bind_param("s", $faculty_id);
+        $fetch_stmt->execute();
+        $res = $fetch_stmt->get_result();
+        
+        $existing_data = [];
+        if ($res && $res->num_rows > 0) {
+            $row = $res->fetch_assoc();
+            if (!empty($row['subjects'])) {
+                $decoded = json_decode($row['subjects'], true);
+                if (is_array($decoded)) {
+                    $existing_data = $decoded;
+                }
             }
         }
-    }
+        $fetch_stmt->close();
 
-    // 2. Branch exist nahi karti toh banao
-    if (!isset($existing_data[$branch])) {
-        $existing_data[$branch] = [];
-    }
-
-    // 3. Sirf us Branch ke us Semester ke subjects update karo
-    if (empty($subject_array)) {
-        unset($existing_data[$branch][$semester]); // Khali choda toh remove ho jayega
-        // Agar branch khali ho gayi, toh branch ko hi hata do
-        if (empty($existing_data[$branch])) {
-            unset($existing_data[$branch]);
+        // 2. Branch structure check
+        if (!isset($existing_data[$branch])) {
+            $existing_data[$branch] = [];
         }
-    } else {
-        $existing_data[$branch][$semester] = $subject_array;
-    }
 
-    // 4. Wapas JSON banake Database me save kar do
-    $new_json = $conn->real_escape_string(json_encode($existing_data));
-    
-    $update_sql = "UPDATE users SET subjects = '$new_json' WHERE user_id = '$faculty_id'";
-    if ($conn->query($update_sql)) {
-        $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>" . htmlspecialchars($branch) . " (" . htmlspecialchars($semester) . ")</strong> successfully!</div>";
+        // 3. Update or remove semester subjects
+        if (empty($subject_array)) {
+            unset($existing_data[$branch][$semester]);
+            if (empty($existing_data[$branch])) {
+                unset($existing_data[$branch]);
+            }
+        } else {
+            $existing_data[$branch][$semester] = $subject_array;
+        }
+
+        // 4. Save JSON back using Prepared Statement
+        $new_json = json_encode($existing_data);
+        $update_stmt = $conn->prepare("UPDATE users SET subjects = ? WHERE user_id = ?");
+        $update_stmt->bind_param("ss", $new_json, $faculty_id);
+        
+        if ($update_stmt->execute()) {
+            $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>" . htmlspecialchars($branch) . " (" . htmlspecialchars($semester) . ")</strong> successfully!</div>";
+        } else {
+            $msg = "<div class='alert alert-danger shadow-sm rounded-3'><i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . htmlspecialchars($conn->error) . "</div>";
+        }
+        $update_stmt->close();
     } else {
-        $msg = "<div class='alert alert-danger shadow-sm rounded-3'><i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . $conn->error . "</div>";
+        $msg = "<div class='alert alert-warning shadow-sm rounded-3'>Please fill all required fields.</div>";
     }
 }
 
-// Fetch all faculties
+// Fetch all faculties with Prepared Statement
 $faculties = [];
-$fac_query = "SELECT user_id, name, department FROM users WHERE role = 'faculty' ORDER BY name ASC";
-$fac_result = $conn->query($fac_query);
-if ($fac_result) {
+$fac_stmt = $conn->prepare("SELECT user_id, name, department FROM users WHERE role = 'faculty' ORDER BY name ASC");
+if ($fac_stmt) {
+    $fac_stmt->execute();
+    $fac_result = $fac_stmt->get_result();
     while ($f = $fac_result->fetch_assoc()) {
         $faculties[] = $f;
     }
+    $fac_stmt->close();
 }
 
-// Branches List
 $branches = [
     'Computer Engineering',
     'Civil Engineering',
@@ -105,7 +112,6 @@ $branches = [
 
             <form method="POST">
                 
-                <!-- 1. Select Faculty -->
                 <div class="mb-3">
                     <label class="form-label">1. Select Faculty</label>
                     <select name="faculty_id" class="form-select" required>
@@ -118,7 +124,6 @@ $branches = [
                     </select>
                 </div>
 
-                <!-- 2. Select Branch -->
                 <div class="mb-3">
                     <label class="form-label">2. Select Branch</label>
                     <select name="branch" class="form-select" required>
@@ -129,7 +134,6 @@ $branches = [
                     </select>
                 </div>
 
-                <!-- 3. Select Semester -->
                 <div class="mb-3">
                     <label class="form-label">3. Select Semester</label>
                     <select name="semester" class="form-select" required>
@@ -143,7 +147,6 @@ $branches = [
                     </select>
                 </div>
 
-                <!-- 4. Type Subjects -->
                 <div class="mb-4">
                     <label class="form-label">4. Subjects (Comma Separated)</label>
                     <input type="text" name="subjects" class="form-control" placeholder="e.g. Java, Software Testing, DBMS" autocomplete="off">
