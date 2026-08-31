@@ -26,7 +26,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
         $semester = trim($_POST['semester'] ?? '');
         
         $raw_subjects = $_POST['subjects'] ?? '';
-        $subject_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
+        
+        // Trim, format to Title Case, and remove duplicate entries
+        $raw_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
+        $subject_array = array_values(array_unique(array_map(function($sub) {
+            return ucwords(strtolower($sub));
+        }, $raw_array)));
 
         if (!empty($faculty_id) && !empty($branch) && !empty($semester)) {
             // Fetch current subjects
@@ -134,7 +139,6 @@ $branches = [
             <?php echo $msg; ?>
 
             <form method="POST">
-                <!-- CSRF Token Input -->
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
 
                 <div class="mb-3">
@@ -173,7 +177,8 @@ $branches = [
 
                 <div class="mb-4">
                     <label class="form-label">4. Subjects (Comma Separated)</label>
-                    <input type="text" name="subjects" class="form-control" value="<?php echo htmlspecialchars($subjects_input); ?>" placeholder="e.g. Java, Software Testing, DBMS" autocomplete="off">
+                    <input type="text" id="subjectsInput" name="subjects" class="form-control" value="<?php echo htmlspecialchars($subjects_input); ?>" placeholder="e.g. Java, Software Testing, DBMS" autocomplete="off">
+                    <div id="subjectBadges" class="mt-2 d-flex flex-wrap gap-1"></div>
                     <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove subjects.</small>
                 </div>
 
@@ -185,5 +190,30 @@ $branches = [
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('subjectsInput');
+            const badgeContainer = document.getElementById('subjectBadges');
+
+            function updateBadges() {
+                badgeContainer.innerHTML = '';
+                if (!input.value.trim()) return;
+                
+                const subjects = input.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                subjects.forEach(sub => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1';
+                    badge.style.fontSize = '12px';
+                    badge.textContent = sub;
+                    badgeContainer.appendChild(badge);
+                });
+            }
+
+            if (input) {
+                input.addEventListener('input', updateBadges);
+                updateBadges();
+            }
+        });
+    </script>
 </body>
 </html>
