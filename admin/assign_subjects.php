@@ -6,12 +6,12 @@ $msg = "";
 
 // Agar form submit hua hai
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
-    $faculty_id = $conn->real_escape_string($_POST['faculty_id']);
-    $branch = $conn->real_escape_string($_POST['branch']);
-    $semester = $conn->real_escape_string($_POST['semester']);
+    $faculty_id = $conn->real_escape_string(trim($_POST['faculty_id']));
+    $branch = $conn->real_escape_string(trim($_POST['branch']));
+    $semester = $conn->real_escape_string(trim($_POST['semester']));
     
     // Subjects ko array me convert karna
-    $raw_subjects = $_POST['subjects'];
+    $raw_subjects = $_POST['subjects'] ?? '';
     $subject_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
 
     // 1. Current subjects fetch karo
@@ -50,7 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
     
     $update_sql = "UPDATE users SET subjects = '$new_json' WHERE user_id = '$faculty_id'";
     if ($conn->query($update_sql)) {
-        $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>$branch ($semester)</strong> successfully!</div>";
+        $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>" . htmlspecialchars($branch) . " (" . htmlspecialchars($semester) . ")</strong> successfully!</div>";
     } else {
         $msg = "<div class='alert alert-danger shadow-sm rounded-3'><i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . $conn->error . "</div>";
     }
@@ -66,7 +66,7 @@ if ($fac_result) {
     }
 }
 
-// Branches List (You can fetch this from DB if you have a branches table)
+// Branches List
 $branches = [
     'Computer Engineering',
     'Civil Engineering',
@@ -112,7 +112,7 @@ $branches = [
                         <option value="">-- Choose Faculty --</option>
                         <?php foreach($faculties as $fac) { ?>
                             <option value="<?php echo htmlspecialchars($fac['user_id']); ?>">
-                                <?php echo htmlspecialchars($fac['name']); ?>
+                                <?php echo htmlspecialchars($fac['name']); ?> <?php echo !empty($fac['department']) ? '(' . htmlspecialchars($fac['department']) . ')' : ''; ?>
                             </option>
                         <?php } ?>
                     </select>
@@ -124,7 +124,7 @@ $branches = [
                     <select name="branch" class="form-select" required>
                         <option value="">-- Choose Branch --</option>
                         <?php foreach($branches as $b) { ?>
-                            <option value="<?php echo $b; ?>"><?php echo $b; ?></option>
+                            <option value="<?php echo htmlspecialchars($b); ?>"><?php echo htmlspecialchars($b); ?></option>
                         <?php } ?>
                     </select>
                 </div>
@@ -146,8 +146,8 @@ $branches = [
                 <!-- 4. Type Subjects -->
                 <div class="mb-4">
                     <label class="form-label">4. Subjects (Comma Separated)</label>
-                    <input type="text" name="subjects" class="form-control" placeholder="e.g. Java, Software Testing, DBMS" required>
-                    <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,)</small>
+                    <input type="text" name="subjects" class="form-control" placeholder="e.g. Java, Software Testing, DBMS" autocomplete="off">
+                    <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove subjects.</small>
                 </div>
 
                 <button type="submit" name="assign_subject" class="btn btn-primary w-100">
