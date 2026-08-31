@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 19, 2026 at 04:55 PM
+-- Generation Time: Aug 24, 2026 at 03:48 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `kdp_college`
+-- Database: `kdp_collage`
 --
 
 -- --------------------------------------------------------
@@ -31,6 +31,8 @@ CREATE TABLE `submissions` (
   `id` int(11) NOT NULL,
   `student_id` varchar(50) NOT NULL,
   `subject_name` varchar(255) NOT NULL,
+  `practical_no` varchar(50) DEFAULT NULL,
+  `answer_text` text DEFAULT NULL,
   `file_path` varchar(255) DEFAULT NULL,
   `status` enum('Pending','Approved','Rejected') DEFAULT 'Pending',
   `submitted_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -40,13 +42,8 @@ CREATE TABLE `submissions` (
 -- Dumping data for table `submissions`
 --
 
-INSERT INTO `submissions` (`id`, `student_id`, `subject_name`, `file_path`, `status`, `submitted_at`) VALUES
-(1, '246310307055', 'Data Structure', NULL, 'Pending', '2026-08-07 13:25:11'),
-(2, '246310307055', 'Database Management System', NULL, 'Approved', '2026-08-06 13:25:11'),
-(3, '246310307055', 'Operating System', NULL, 'Rejected', '2026-08-05 13:25:11'),
-(4, '246310307055', 'Data Structure', NULL, 'Pending', '2026-08-07 13:25:29'),
-(5, '246310307055', 'Database Management System', NULL, 'Approved', '2026-08-06 13:25:29'),
-(6, '246310307055', 'Operating System', NULL, 'Rejected', '2026-08-05 13:25:29');
+INSERT INTO `submissions` (`id`, `student_id`, `subject_name`, `practical_no`, `answer_text`, `file_path`, `status`, `submitted_at`) VALUES
+(1, '261200121509', 'Basic Mathematics', '1', 'this is tesing modual', '../uploads/submissions/1787323731_zerx.pdf', 'Pending', '2026-08-21 14:48:51');
 
 --
 -- Indexes for dumped tables
@@ -66,7 +63,7 @@ ALTER TABLE `submissions`
 -- AUTO_INCREMENT for table `submissions`
 --
 ALTER TABLE `submissions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

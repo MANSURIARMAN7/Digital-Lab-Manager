@@ -6,57 +6,38 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'faculty') {
     header("Location: ../login.php");
     exit();
 }
-
 $faculty_id = $_SESSION['user_id'];
-$faculty_name = isset($_SESSION['name']) ? htmlspecialchars($_SESSION['name']) : 'M.C.THAKOR';
+$faculty_name = isset($_SESSION['name']) ? htmlspecialchars($_SESSION['name']) : 'Faculty';
 
-// ==========================================
-// 🚀 NEW LOGIC: PURE DATABASE DRIVEN FILTERS
-// ==========================================
-
-// 1. Fetch Branches from Database
 $available_branches = [];
 $branch_res = $conn->query("SELECT DISTINCT department FROM subjects WHERE department IS NOT NULL AND department != ''");
-if($branch_res) {
-    while($r = $branch_res->fetch_assoc()) {
-        $available_branches[] = $r['department'];
-    }
+if($branch_res && $branch_res->num_rows > 0) {
+    while($r = $branch_res->fetch_assoc()) { $available_branches[] = $r['department']; }
 }
-//print_r($available_branches);
 if(empty($available_branches)) $available_branches = ['Computer Engineering'];
 $selected_branch = isset($_GET['branch']) ? $_GET['branch'] : $available_branches[0];
 
-// 2. Semesters (Fixed 1 to 6)
 $available_semesters = ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4', 'Semester 5', 'Semester 6'];
 $selected_sem = isset($_GET['sem']) ? $_GET['sem'] : 'Semester 1';
+$sem_number = (int) str_replace('Semester ', '', $selected_sem);
 
-// 3. Fetch STRICTLY Assigned Subjects for this Faculty
 $available_subjects = [];
 $safe_br = $conn->real_escape_string($selected_branch);
-$safe_sm = $conn->real_escape_string($selected_sem);
-$fac_id = $conn->real_escape_string($faculty_id);
+$fac_name_safe = $conn->real_escape_string($faculty_name);
 
-$sub_query = "SELECT subject_name FROM faculty_subjects WHERE faculty_id = '$fac_id' AND branch = '$safe_br' AND semester = '$safe_sm'";
+$sub_query = "SELECT subject_name FROM subjects WHERE faculty_name LIKE '%$fac_name_safe%' AND department = '$safe_br' AND semester = '$sem_number'";
 $sub_res = $conn->query($sub_query);
 
 if ($sub_res && $sub_res->num_rows > 0) {
-    while($r = $sub_res->fetch_assoc()) {
-        $available_subjects[] = $r['subject_name'];
-    }
+    while($r = $sub_res->fetch_assoc()) { $available_subjects[] = $r['subject_name']; }
 }
 $selected_subject = isset($_GET['subject']) ? $_GET['subject'] : (!empty($available_subjects) ? $available_subjects[0] : '');
 
-// ==========================================
-// FETCH DASHBOARD STATS FOR SELECTED SUBJECT
-// ==========================================
 $total_sub = 0; $pending = 0; $approved = 0; $rejected = 0;
 if (!empty($selected_subject)) {
     $safe_sub = $conn->real_escape_string($selected_subject);
-
-    $stat_sql = "SELECT s.status FROM submissions s JOIN users u ON s.student_id = u.user_id 
-                 WHERE s.subject_name = '$safe_sub' AND u.designation = '$safe_sm' AND u.department = '$safe_br'";
+    $stat_sql = "SELECT status FROM student_submissions WHERE subject_name = '$safe_sub'";
     $stat_res = $conn->query($stat_sql);
-    
     if ($stat_res) {
         while ($r = $stat_res->fetch_assoc()) {
             $total_sub++;
@@ -74,10 +55,11 @@ if (!empty($selected_subject)) {
     <title>Faculty Dashboard - KDP</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* ================= UNIFIED SIDEBAR & BODY CSS ================= */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #f1f5f9; display: flex; height: 100vh; overflow: hidden; }
         
-        .sidebar { width: 260px; background-color: #113460; color: #ffffff; display: flex; flex-direction: column; padding: 25px 0; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 10; }
+        .sidebar { width: 260px; min-width: 260px; background-color: #113460; color: #ffffff; display: flex; flex-direction: column; padding: 25px 0; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 10; flex-shrink: 0;}
         .sidebar-logo-container { text-align: center; margin-bottom: 20px; }
         .logo-wrapper { width: 90px; height: 90px; background: #ffffff; border-radius: 50%; margin: 0 auto 15px auto; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 0 15px rgba(255,255,255,0.15); border: 3px solid rgba(255,255,255,0.2); }
         .sidebar-logo { width: 105%; height: auto; }
@@ -92,12 +74,13 @@ if (!empty($selected_subject)) {
         .nav-links li i { font-size: 18px; width: 20px; text-align: center; }
         .logout-btn { color: #fca5a5 !important; margin-top: auto; }
         .logout-btn:hover { background: rgba(239, 68, 68, 0.1) !important; color: #ef4444 !important; }
+        
+        .main { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
+        /* =============================================================== */
 
-        .main { flex: 1; padding: 30px; overflow-y: auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .header-left h2 { color: #0f172a; font-size: 26px; font-weight: 700; margin: 0; }
         .header-left p { color: #64748b; font-size: 14px; margin: 5px 0 0 0; }
-        
         .header-profile { display: flex; align-items: center; gap: 15px; background: #ffffff; padding: 8px 10px 8px 20px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; cursor: pointer; text-decoration:none; }
         .profile-text { display: flex; flex-direction: column; text-align: right; }
         .welcome-text { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; margin: 0;}
@@ -110,9 +93,13 @@ if (!empty($selected_subject)) {
         .dropdown-box select { padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; background: #f8fafc; color: #113460; font-weight: 600; transition: 0.2s; width: 100%;}
         
         .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
-        .card { background: white; padding: 22px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border-left: 5px solid #2563eb; }
+        
+        /* 🔥 CARDS KO CLICKABLE & HOVERABLE BANAYA HAI 🔥 */
+        .card { background: white; padding: 22px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border-left: 5px solid #2563eb; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        
         .card h3 { color: #64748b; font-size: 14px; margin-bottom: 5px; font-weight: 600;}
-        .card p { color: #0f172a; font-size: 26px; font-weight: 700; }
+        .card p { color: #0f172a; font-size: 26px; font-weight: 700; margin: 0; }
         .card i { font-size: 35px; color: #e2e8f0; }
 
         .table-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
@@ -139,7 +126,7 @@ if (!empty($selected_subject)) {
         <div class="sidebar-divider"></div>
         <ul class="nav-links">
             <li class="active" onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
-            <li onclick="window.location.href='labmanual_list.php'"><i class="fas fa-book"></i> Lab Manuals</li>
+            <li onclick="window.location.href='labmanual_list.php'"><i class="fas fa-check-circle"></i> Review & Evaluate</li>
             <li onclick="window.location.href='reports.php'"><i class="fas fa-file-alt"></i> Reports</li>
             <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> Profile</li>
             <li class="logout-btn" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>    
@@ -157,11 +144,10 @@ if (!empty($selected_subject)) {
                     <span class="welcome-text">WELCOME BACK,</span>
                     <span class="faculty-name"><?php echo $faculty_name; ?></span>
                 </div>
-                <div class="profile-avatar"><?php echo strtoupper(substr($faculty_name, 0, 1)); ?>.</div>
+                <div class="profile-avatar"><?php echo strtoupper(substr($faculty_name, 0, 1)); ?></div>
             </a>
         </div>
 
-        <!-- 3-LEVEL FILTER FOR DASHBOARD -->
         <form method="GET" id="dashboardFilterForm" class="dropdown-section">
             <div class="dropdown-box">
                 <label><i class="fa-solid fa-code-branch me-1"></i> Choose Branch</label>
@@ -190,20 +176,21 @@ if (!empty($selected_subject)) {
             </div>
         </form>
 
+        <!-- 🔥 ONCLICK LINKS ADD KIYE HAIN HAR CARD ME 🔥 -->
         <div class="cards">
-            <div class="card" style="border-left-color: #3b82f6;">
+            <div class="card" style="border-left-color: #3b82f6;" onclick="window.location.href='labmanual_list.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>'">
                 <div><h3>Total Submissions</h3><p><?php echo $total_sub; ?></p></div>
                 <i class="fa-solid fa-file-pdf"></i>
             </div>
-            <div class="card" style="border-left-color: #f59e0b;">
+            <div class="card" style="border-left-color: #f59e0b;" onclick="window.location.href='labmanual_list.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&status=Pending'">
                 <div><h3>Pending</h3><p><?php echo $pending; ?></p></div>
                 <i class="fa-solid fa-clock"></i>
             </div>
-            <div class="card" style="border-left-color: #10b981;">
+            <div class="card" style="border-left-color: #10b981;" onclick="window.location.href='labmanual_list.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&status=Approved'">
                 <div><h3>Approved</h3><p><?php echo $approved; ?></p></div>
                 <i class="fa-solid fa-circle-check"></i>
             </div>
-            <div class="card" style="border-left-color: #ef4444;">
+            <div class="card" style="border-left-color: #ef4444;" onclick="window.location.href='labmanual_list.php?branch=<?php echo urlencode($selected_branch); ?>&sem=<?php echo urlencode($selected_sem); ?>&subject=<?php echo urlencode($selected_subject); ?>&status=Rejected'">
                 <div><h3>Rejected</h3><p><?php echo $rejected; ?></p></div>
                 <i class="fa-solid fa-circle-xmark"></i>
             </div>
@@ -220,16 +207,22 @@ if (!empty($selected_subject)) {
                 </tr>
                 <?php
                 if (!empty($selected_subject)) {
-                    $rec_sql = "SELECT s.*, u.name as student_name FROM submissions s JOIN users u ON s.student_id = u.user_id WHERE s.subject_name = '$safe_sub' AND u.designation = '$safe_sm' AND u.department = '$safe_br' ORDER BY s.submitted_at DESC LIMIT 5";
+                    $rec_sql = "SELECT s.*, u.name as student_name, u.email as student_enrollment 
+                                FROM student_submissions s 
+                                JOIN users u ON s.student_id = u.user_id 
+                                WHERE s.subject_name = '$safe_sub' 
+                                ORDER BY s.submitted_at DESC LIMIT 5";
+                    
                     $rec_res = $conn->query($rec_sql);
+                    
                     if ($rec_res && $rec_res->num_rows > 0) {
                         while ($r = $rec_res->fetch_assoc()) {
                             $st_cls = strtolower($r['status']);
                             echo "<tr>";
                             echo "<td><strong>".htmlspecialchars($r['student_name'])."</strong></td>";
-                            echo "<td>".htmlspecialchars($r['student_id'])."</td>";
+                            echo "<td>".htmlspecialchars($r['student_enrollment'])."</td>";
                             echo "<td><span class='badge {$st_cls}'>".htmlspecialchars($r['status'])."</span></td>";
-                            echo "<td><strong>".($r['status'] == 'Pending' ? '--' : $r['marks'])."</strong></td>";
+                            echo "<td><strong>".($r['status'] == 'Pending' ? '--' : $r['marks'] . ' / 20')."</strong></td>";
                             echo "</tr>";
                         }
                     } else {
