@@ -2,67 +2,90 @@
 session_start();
 include '../db.php';
 
+// Generate CSRF Token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 $msg = "";
+$selected_faculty = $_POST['faculty_id'] ?? '';
+$selected_branch = $_POST['branch'] ?? '';
+$selected_semester = $_POST['semester'] ?? '';
+$subjects_input = $_POST['subjects'] ?? '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
-    $faculty_id = trim($_POST['faculty_id'] ?? '');
-    $branch = trim($_POST['branch'] ?? '');
-    $semester = trim($_POST['semester'] ?? '');
-    
-    $raw_subjects = $_POST['subjects'] ?? '';
-    $subject_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
-
-    if (!empty($faculty_id) && !empty($branch) && !empty($semester)) {
-        // 1. Fetch current subjects using Prepared Statement
-        $fetch_stmt = $conn->prepare("SELECT subjects FROM users WHERE user_id = ?");
-        $fetch_stmt->bind_param("s", $faculty_id);
-        $fetch_stmt->execute();
-        $res = $fetch_stmt->get_result();
+    // CSRF Token Validation
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $msg = "<div class='alert alert-danger alert-dismissible fade show shadow-sm rounded-3' role='alert'>
+                    <i class='fa-solid fa-shield-halved me-2'></i> Security error: Invalid CSRF token.
+                    <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+                </div>";
+    } else {
+        $faculty_id = trim($_POST['faculty_id'] ?? '');
+        $branch = trim($_POST['branch'] ?? '');
+        $semester = trim($_POST['semester'] ?? '');
         
-        $existing_data = [];
-        if ($res && $res->num_rows > 0) {
-            $row = $res->fetch_assoc();
-            if (!empty($row['subjects'])) {
-                $decoded = json_decode($row['subjects'], true);
-                if (is_array($decoded)) {
-                    $existing_data = $decoded;
+        $raw_subjects = $_POST['subjects'] ?? '';
+        $subject_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
+
+        if (!empty($faculty_id) && !empty($branch) && !empty($semester)) {
+            // Fetch current subjects
+            $fetch_stmt = $conn->prepare("SELECT subjects FROM users WHERE user_id = ?");
+            $fetch_stmt->bind_param("s", $faculty_id);
+            $fetch_stmt->execute();
+            $res = $fetch_stmt->get_result();
+            
+            $existing_data = [];
+            if ($res && $res->num_rows > 0) {
+                $row = $res->fetch_assoc();
+                if (!empty($row['subjects'])) {
+                    $decoded = json_decode($row['subjects'], true);
+                    if (is_array($decoded)) {
+                        $existing_data = $decoded;
+                    }
                 }
             }
-        }
-        $fetch_stmt->close();
+            $fetch_stmt->close();
 
-        // 2. Branch structure check
-        if (!isset($existing_data[$branch])) {
-            $existing_data[$branch] = [];
-        }
-
-        // 3. Update or remove semester subjects
-        if (empty($subject_array)) {
-            unset($existing_data[$branch][$semester]);
-            if (empty($existing_data[$branch])) {
-                unset($existing_data[$branch]);
+            if (!isset($existing_data[$branch])) {
+                $existing_data[$branch] = [];
             }
-        } else {
-            $existing_data[$branch][$semester] = $subject_array;
-        }
 
-        // 4. Save JSON back using Prepared Statement
-        $new_json = json_encode($existing_data);
-        $update_stmt = $conn->prepare("UPDATE users SET subjects = ? WHERE user_id = ?");
-        $update_stmt->bind_param("ss", $new_json, $faculty_id);
-        
-        if ($update_stmt->execute()) {
-            $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>" . htmlspecialchars($branch) . " (" . htmlspecialchars($semester) . ")</strong> successfully!</div>";
+            if (empty($subject_array)) {
+                unset($existing_data[$branch][$semester]);
+                if (empty($existing_data[$branch])) {
+                    unset($existing_data[$branch]);
+                }
+            } else {
+                $existing_data[$branch][$semester] = $subject_array;
+            }
+
+            $new_json = json_encode($existing_data);
+            $update_stmt = $conn->prepare("UPDATE users SET subjects = ? WHERE user_id = ?");
+            $update_stmt->bind_param("ss", $new_json, $faculty_id);
+            
+            if ($update_stmt->execute()) {
+                $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm rounded-3' role='alert'>
+                            <i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>" . htmlspecialchars($branch) . " (" . htmlspecialchars($semester) . ")</strong> successfully!
+                            <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+                        </div>";
+            } else {
+                $msg = "<div class='alert alert-danger alert-dismissible fade show shadow-sm rounded-3' role='alert'>
+                            <i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . htmlspecialchars($conn->error) . "
+                            <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+                        </div>";
+            }
+            $update_stmt->close();
         } else {
-            $msg = "<div class='alert alert-danger shadow-sm rounded-3'><i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . htmlspecialchars($conn->error) . "</div>";
+            $msg = "<div class='alert alert-warning alert-dismissible fade show shadow-sm rounded-3' role='alert'>
+                        Please fill all required fields.
+                        <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+                    </div>";
         }
-        $update_stmt->close();
-    } else {
-        $msg = "<div class='alert alert-warning shadow-sm rounded-3'>Please fill all required fields.</div>";
     }
 }
 
-// Fetch all faculties with Prepared Statement
+// Fetch all faculties
 $faculties = [];
 $fac_stmt = $conn->prepare("SELECT user_id, name, department FROM users WHERE role = 'faculty' ORDER BY name ASC");
 if ($fac_stmt) {
@@ -111,13 +134,15 @@ $branches = [
             <?php echo $msg; ?>
 
             <form method="POST">
-                
+                <!-- CSRF Token Input -->
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+
                 <div class="mb-3">
                     <label class="form-label">1. Select Faculty</label>
                     <select name="faculty_id" class="form-select" required>
                         <option value="">-- Choose Faculty --</option>
                         <?php foreach($faculties as $fac) { ?>
-                            <option value="<?php echo htmlspecialchars($fac['user_id']); ?>">
+                            <option value="<?php echo htmlspecialchars($fac['user_id']); ?>" <?php echo ($selected_faculty === $fac['user_id']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($fac['name']); ?> <?php echo !empty($fac['department']) ? '(' . htmlspecialchars($fac['department']) . ')' : ''; ?>
                             </option>
                         <?php } ?>
@@ -129,7 +154,7 @@ $branches = [
                     <select name="branch" class="form-select" required>
                         <option value="">-- Choose Branch --</option>
                         <?php foreach($branches as $b) { ?>
-                            <option value="<?php echo htmlspecialchars($b); ?>"><?php echo htmlspecialchars($b); ?></option>
+                            <option value="<?php echo htmlspecialchars($b); ?>" <?php echo ($selected_branch === $b) ? 'selected' : ''; ?>><?php echo htmlspecialchars($b); ?></option>
                         <?php } ?>
                     </select>
                 </div>
@@ -138,18 +163,17 @@ $branches = [
                     <label class="form-label">3. Select Semester</label>
                     <select name="semester" class="form-select" required>
                         <option value="">-- Choose Semester --</option>
-                        <option value="Semester 1">Semester 1</option>
-                        <option value="Semester 2">Semester 2</option>
-                        <option value="Semester 3">Semester 3</option>
-                        <option value="Semester 4">Semester 4</option>
-                        <option value="Semester 5">Semester 5</option>
-                        <option value="Semester 6">Semester 6</option>
+                        <?php for($i = 1; $i <= 6; $i++) { 
+                            $semVal = "Semester " . $i;
+                        ?>
+                            <option value="<?php echo $semVal; ?>" <?php echo ($selected_semester === $semVal) ? 'selected' : ''; ?>><?php echo $semVal; ?></option>
+                        <?php } ?>
                     </select>
                 </div>
 
                 <div class="mb-4">
                     <label class="form-label">4. Subjects (Comma Separated)</label>
-                    <input type="text" name="subjects" class="form-control" placeholder="e.g. Java, Software Testing, DBMS" autocomplete="off">
+                    <input type="text" name="subjects" class="form-control" value="<?php echo htmlspecialchars($subjects_input); ?>" placeholder="e.g. Java, Software Testing, DBMS" autocomplete="off">
                     <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove subjects.</small>
                 </div>
 
@@ -160,5 +184,6 @@ $branches = [
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
