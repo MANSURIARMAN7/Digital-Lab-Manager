@@ -77,14 +77,13 @@ $recent_query = $conn->query("
         .main { flex: 1; padding: 30px 40px; overflow-y: auto; }
         
         .topbar { background: transparent; padding: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
-        .search-box { background: #fff; border-radius: 8px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; width: 350px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
-        .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 100%; color: #334155; }
         
         .profile-pill { display: flex; align-items: center; background-color: #ffffff; padding: 6px 16px 6px 20px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.2s;}
+        .profile-pill:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
         .profile-text { text-align: right; margin-right: 15px; }
-        .profile-welcome { display: block; font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+        .profile-welcome { display: block; font-size: 9.5px; color: var(--accent-blue); font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
         .profile-name { margin: 0; font-size: 14px; color: #1e293b; font-weight: 700; }
-        .profile-avatar { width: 42px; height: 42px; background-color: var(--accent-blue); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4); letter-spacing: 1px;}
+        .profile-avatar { width: 42px; height: 42px; background-color: var(--accent-blue); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4); letter-spacing: 1px;}
 
         .stat-card { background: white; border-radius: 12px; padding: 22px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.02); position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s;}
         .stat-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.05); }
@@ -124,24 +123,34 @@ $recent_query = $conn->query("
     <!-- MAIN CONTENT -->
     <div class="main">
         
-        <!-- TOPBAR -->
+        <!-- TOPBAR (Updated with Quick Actions & Live Clock) -->
         <div class="topbar mb-4">
-            <div class="search-box">
-                <i class="fas fa-search text-muted"></i>
-                <input type="text" placeholder="Search dashboard...">
+            
+            <div class="d-flex align-items-center gap-3">
+                <!-- Live Clock (Looks very professional) -->
+                <div class="bg-white border px-3 py-2" style="border-radius: 8px; color: #475569; font-weight: 600; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                    <i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span>
+                </div>
+                
+                <!-- Quick Action Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-primary btn-sm px-3 py-2 fw-bold dropdown-toggle" type="button" id="quickActions" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 8px; background: var(--accent-blue);">
+                        <i class="fas fa-bolt me-1"></i> Quick Action
+                    </button>
+                    <ul class="dropdown-menu border-0 shadow-sm mt-2" aria-labelledby="quickActions" style="border-radius: 8px; font-size: 14px;">
+                        <li><a class="dropdown-item py-2 fw-semibold text-secondary" href="Student_Mgmt.php"><i class="fas fa-user-plus text-primary me-2"></i> Add Student</a></li>
+                        <li><a class="dropdown-item py-2 fw-semibold text-secondary" href="faculty_mgmt.php"><i class="fas fa-chalkboard-teacher text-success me-2"></i> Manage Faculty</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item py-2 fw-semibold text-secondary" href="Reports.php"><i class="fas fa-file-pdf text-danger me-2"></i> Generate Report</a></li>
+                    </ul>
+                </div>
             </div>
             
             <div class="d-flex align-items-center gap-4">
-                <div class="position-relative" style="cursor: pointer; padding: 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;" onclick="window.location.href='Submissions.php'">
-                    <i class="far fa-bell text-secondary fs-5"></i>
-                    <?php if($pending_reviews > 0): ?>
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 9px;"><?php echo $pending_reviews; ?></span>
-                    <?php endif; ?>
-                </div>
-
+                <!-- Profile Pill (Updated) -->
                 <a href="Profile.php" class="profile-pill">
                     <div class="profile-text">
-                        <span class="profile-welcome">Welcome Back,</span>
+                        <span class="profile-welcome">K.D. Polytechnic</span>
                         <h4 class="profile-name">
                             <?php 
                                 $name_parts = explode(' ', $admin_name);
@@ -149,7 +158,7 @@ $recent_query = $conn->query("
                             ?>
                         </h4>
                     </div>
-                    <div class="profile-avatar">HOD</div>
+                    <div class="profile-avatar">ADMIN</div>
                 </a>
             </div>
         </div>
@@ -312,6 +321,18 @@ $recent_query = $conn->query("
 
     </div>
 
+    <!-- Bootstrap Bundle with Popper (Required for Dropdown) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Live Clock Script -->
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('liveClock').innerText = now.toLocaleDateString('en-IN', options);
+        }
+        setInterval(updateClock, 1000);
+        updateClock(); // Initial call to avoid 1-second delay
+    </script>
 </body>
 </html>
