@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 include '../db.php';
@@ -50,7 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
 
     $update_sql = "UPDATE users SET subjects = '$new_json' WHERE user_id = '$faculty_id'";
     if ($conn->query($update_sql)) {
-        // Change: Dynamic success message based on action (assign or remove)
+        // Dynamic success message based on action (assign or remove)
         $action_text = empty($subject_array) ? "removed from" : "assigned to";
         $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects $action_text <strong>$branch ($semester)</strong> successfully!</div>";
     } else {
@@ -94,6 +95,8 @@ $branches = [
         .form-control:focus, .form-select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
         .btn-primary { background: #2563eb; border: none; padding: 10px; font-weight: 600; border-radius: 8px; }
         .btn-primary:hover { background: #1d4ed8; }
+        .btn-light { padding: 10px; font-weight: 600; border-radius: 8px; background: #f8fafc; color: #475569; }
+        .btn-light:hover { background: #e2e8f0; }
     </style>
 </head>
 <body>
@@ -152,9 +155,15 @@ $branches = [
                     <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove current subjects.</small>
                 </div>
 
-                <button type="submit" name="assign_subject" class="btn btn-primary w-100">
-                    <i class="fa-solid fa-floppy-disk me-2"></i> Save Assignments
-                </button>
+                <!-- Change: Added Flexbox for Save and Clear buttons -->
+                <div class="d-flex gap-3">
+                    <button type="submit" name="assign_subject" class="btn btn-primary w-100">
+                        <i class="fa-solid fa-floppy-disk me-2"></i> Save
+                    </button>
+                    <button type="reset" class="btn btn-light border w-100">
+                        <i class="fa-solid fa-eraser me-2"></i> Clear
+                    </button>
+                </div>
             </form>
         </div>
     </div>
