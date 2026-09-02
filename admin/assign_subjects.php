@@ -53,9 +53,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
     if ($conn->query($update_sql)) {
         // Dynamic success message based on action (assign or remove)
         $action_text = empty($subject_array) ? "removed from" : "assigned to";
-        $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects $action_text <strong>$branch ($semester)</strong> successfully!</div>";
+        // Change: Added alert-dismissible and close button
+        $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm rounded-3'>
+                    <i class='fa-solid fa-check-circle me-2'></i> Subjects $action_text <strong>$branch ($semester)</strong> successfully!
+                    <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+                </div>";
     } else {
-        $msg = "<div class='alert alert-danger shadow-sm rounded-3'><i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . $conn->error . "</div>";
+        // Change: Added alert-dismissible and close button
+        $msg = "<div class='alert alert-danger alert-dismissible fade show shadow-sm rounded-3'>
+                    <i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . $conn->error . "
+                    <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+                </div>";
     }
 }
 
@@ -155,7 +163,7 @@ $branches = [
                     <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove current subjects.</small>
                 </div>
 
-                <!-- Change: Added Flexbox for Save and Clear buttons -->
+                <!-- Save and Clear buttons -->
                 <div class="d-flex gap-3">
                     <button type="submit" name="assign_subject" class="btn btn-primary w-100">
                         <i class="fa-solid fa-floppy-disk me-2"></i> Save
@@ -168,6 +176,8 @@ $branches = [
         </div>
     </div>
 
+    <!-- Change: Added Bootstrap JS bundle for dismissible alerts to function properly -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 
