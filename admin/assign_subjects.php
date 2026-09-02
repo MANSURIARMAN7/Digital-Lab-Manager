@@ -50,7 +50,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
 
     $update_sql = "UPDATE users SET subjects = '$new_json' WHERE user_id = '$faculty_id'";
     if ($conn->query($update_sql)) {
-        $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>$branch ($semester)</strong> successfully!</div>";
+        // Change: Dynamic success message based on action (assign or remove)
+        $action_text = empty($subject_array) ? "removed from" : "assigned to";
+        $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects $action_text <strong>$branch ($semester)</strong> successfully!</div>";
     } else {
         $msg = "<div class='alert alert-danger shadow-sm rounded-3'><i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . $conn->error . "</div>";
     }
@@ -159,3 +161,4 @@ $branches = [
 
 </body>
 </html>
+
