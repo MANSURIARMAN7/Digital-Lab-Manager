@@ -16,11 +16,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
     $branch = $conn->real_escape_string($_POST['branch']);
     $semester = $conn->real_escape_string($_POST['semester']);
 
-    // Subjects ko array me convert karna aur properly format karna (Title Case)
+    // Change: Added array_unique() to automatically remove accidentally typed duplicate subjects
     $raw_subjects = $_POST['subjects'];
-    $subject_array = array_filter(array_map(function($sub) {
+    $subject_array = array_unique(array_filter(array_map(function($sub) {
         return ucwords(strtolower(trim($sub))); // e.g., "  java programming  " becomes "Java Programming"
-    }, explode(',', $raw_subjects)));
+    }, explode(',', $raw_subjects))));
 
     // 1. Current subjects fetch karo
     $fetch_sql = "SELECT subjects FROM users WHERE user_id = '$faculty_id'";
@@ -109,7 +109,20 @@ $branches = [
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .assign-card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); max-width: 600px; margin: 40px auto; border: 1px solid #e2e8f0; }
+        
+        /* Change: Added smooth fade-in animation for a premium feel */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .assign-card { 
+            background: white; border-radius: 12px; padding: 30px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 600px; margin: 40px auto; 
+            border: 1px solid #e2e8f0; 
+            animation: fadeIn 0.4s ease-out forwards; /* Applied animation */
+        }
+        
         .form-label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
         
         .input-group-text { background-color: #f8fafc; border: 1px solid #cbd5e1; color: #64748b; border-right: none; }
@@ -119,7 +132,7 @@ $branches = [
         .input-group:focus-within .form-control, .input-group:focus-within .form-select { border-color: #2563eb; }
         
         .btn-primary { background: #2563eb; border: none; padding: 10px; font-weight: 600; border-radius: 8px; transition: all 0.2s; }
-        .btn-primary:hover:not(.disabled) { background: #1d4ed8; }
+        .btn-primary:hover:not(.disabled) { background: #1d4ed8; transform: translateY(-1px); }
         .btn-light { padding: 10px; font-weight: 600; border-radius: 8px; background: #f8fafc; color: #475569; transition: all 0.2s; }
         .btn-light:hover { background: #e2e8f0; }
     </style>
@@ -187,10 +200,9 @@ $branches = [
                     <label class="form-label">4. Subjects (Comma Separated)</label>
                     <div class="input-group">
                         <span class="input-group-text rounded-start-2"><i class="fa-solid fa-book"></i></span>
-                        <!-- Change: Added an ID to the subjects input for JS validation -->
                         <input type="text" id="subjectsInput" name="subjects" class="form-control rounded-end-2" placeholder="e.g. Java, DBMS (Leave blank to remove)" value="<?php echo htmlspecialchars($sel_subjects); ?>">
                     </div>
-                    <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove current subjects.</small>
+                    <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Duplicates will be removed automatically.</small>
                 </div>
 
                 <!-- Save and Clear buttons -->
@@ -210,18 +222,16 @@ $branches = [
     
     <script>
         document.getElementById('assignForm').addEventListener('submit', function(e) {
-            // Change: Added confirmation prompt when subjects field is empty
             let subjectsVal = document.getElementById('subjectsInput').value.trim();
             
             if (subjectsVal === "") {
                 let confirmRemove = confirm("Warning: You left the subjects field empty. This will REMOVE all assigned subjects for this faculty in the selected Branch and Semester. Are you sure you want to continue?");
                 if (!confirmRemove) {
-                    e.preventDefault(); // Stop form submission if admin clicks Cancel
+                    e.preventDefault();
                     return;
                 }
             }
 
-            // Proceed with loading animation if confirmed or if subjects are entered
             let btn = document.getElementById('submitBtn');
             btn.classList.add('disabled');
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Saving...';
@@ -229,5 +239,6 @@ $branches = [
     </script>
 </body>
 </html>
+
 
 
