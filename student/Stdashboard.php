@@ -1,5 +1,5 @@
 <?php echo "<h1 style='color:red'>NEW UI TEST - BELIM HAMZA</h1>"; ?>
-<?php
+
 session_start();
 include '../db.php';
 
