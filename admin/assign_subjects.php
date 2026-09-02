@@ -133,7 +133,6 @@ $branches = [
 
             <?php echo $msg; ?>
 
-            <!-- Change: Added ID to form -->
             <form method="POST" id="assignForm">
 
                 <!-- 1. Select Faculty -->
@@ -188,14 +187,14 @@ $branches = [
                     <label class="form-label">4. Subjects (Comma Separated)</label>
                     <div class="input-group">
                         <span class="input-group-text rounded-start-2"><i class="fa-solid fa-book"></i></span>
-                        <input type="text" name="subjects" class="form-control rounded-end-2" placeholder="e.g. Java, DBMS (Leave blank to remove)" value="<?php echo htmlspecialchars($sel_subjects); ?>">
+                        <!-- Change: Added an ID to the subjects input for JS validation -->
+                        <input type="text" id="subjectsInput" name="subjects" class="form-control rounded-end-2" placeholder="e.g. Java, DBMS (Leave blank to remove)" value="<?php echo htmlspecialchars($sel_subjects); ?>">
                     </div>
                     <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove current subjects.</small>
                 </div>
 
                 <!-- Save and Clear buttons -->
                 <div class="d-flex gap-3">
-                    <!-- Change: Added ID to button -->
                     <button type="submit" name="assign_subject" id="submitBtn" class="btn btn-primary w-100">
                         <i class="fa-solid fa-floppy-disk me-2"></i> Save Assignments
                     </button>
@@ -209,9 +208,20 @@ $branches = [
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Change: Added JavaScript to show loading state and prevent double form submission -->
     <script>
-        document.getElementById('assignForm').addEventListener('submit', function() {
+        document.getElementById('assignForm').addEventListener('submit', function(e) {
+            // Change: Added confirmation prompt when subjects field is empty
+            let subjectsVal = document.getElementById('subjectsInput').value.trim();
+            
+            if (subjectsVal === "") {
+                let confirmRemove = confirm("Warning: You left the subjects field empty. This will REMOVE all assigned subjects for this faculty in the selected Branch and Semester. Are you sure you want to continue?");
+                if (!confirmRemove) {
+                    e.preventDefault(); // Stop form submission if admin clicks Cancel
+                    return;
+                }
+            }
+
+            // Proceed with loading animation if confirmed or if subjects are entered
             let btn = document.getElementById('submitBtn');
             btn.classList.add('disabled');
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Saving...';
@@ -219,4 +229,5 @@ $branches = [
     </script>
 </body>
 </html>
+
 
