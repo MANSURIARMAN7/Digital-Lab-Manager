@@ -56,12 +56,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
 
     $update_sql = "UPDATE users SET subjects = '$new_json' WHERE user_id = '$faculty_id'";
     if ($conn->query($update_sql)) {
-        // Dynamic success message based on action (assign or remove)
-        $action_text = empty($subject_array) ? "removed from" : "assigned to";
-        $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm rounded-3'>
-                    <i class='fa-solid fa-check-circle me-2'></i> Subjects $action_text <strong>$branch ($semester)</strong> successfully!
-                    <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
-                </div>";
+        // Change: Highlight the exact subjects assigned in the success message
+        if (empty($subject_array)) {
+            $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm rounded-3'>
+                        <i class='fa-solid fa-eraser me-2'></i> Successfully <strong>removed</strong> all subjects from <strong>$branch ($semester)</strong>!
+                        <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+                    </div>";
+        } else {
+            $assigned_str = htmlspecialchars(implode(', ', $subject_array));
+            $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm rounded-3'>
+                        <i class='fa-solid fa-check-circle me-2'></i> Successfully assigned to <strong>$branch ($semester)</strong>: 
+                        <span class='badge bg-success ms-1 px-2 py-1'>$assigned_str</span>
+                        <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
+                    </div>";
+        }
     } else {
         $msg = "<div class='alert alert-danger alert-dismissible fade show shadow-sm rounded-3'>
                     <i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . $conn->error . "
@@ -127,7 +135,6 @@ $branches = [
                     <select name="faculty_id" class="form-select" required>
                         <option value="">-- Choose Faculty --</option>
                         <?php foreach($faculties as $fac) { ?>
-                            <!-- Change: Retain selected faculty -->
                             <option value="<?php echo htmlspecialchars($fac['user_id']); ?>" <?php if($sel_faculty == $fac['user_id']) echo 'selected'; ?>>
                                 <?php echo htmlspecialchars($fac['name']); ?>
                             </option>
@@ -141,7 +148,6 @@ $branches = [
                     <select name="branch" class="form-select" required>
                         <option value="">-- Choose Branch --</option>
                         <?php foreach($branches as $b) { ?>
-                            <!-- Change: Retain selected branch -->
                             <option value="<?php echo $b; ?>" <?php if($sel_branch == $b) echo 'selected'; ?>><?php echo $b; ?></option>
                         <?php } ?>
                     </select>
@@ -152,7 +158,6 @@ $branches = [
                     <label class="form-label">3. Select Semester</label>
                     <select name="semester" class="form-select" required>
                         <option value="">-- Choose Semester --</option>
-                        <!-- Change: Retain selected semester -->
                         <option value="Semester 1" <?php if($sel_semester == 'Semester 1') echo 'selected'; ?>>Semester 1</option>
                         <option value="Semester 2" <?php if($sel_semester == 'Semester 2') echo 'selected'; ?>>Semester 2</option>
                         <option value="Semester 3" <?php if($sel_semester == 'Semester 3') echo 'selected'; ?>>Semester 3</option>
@@ -165,7 +170,6 @@ $branches = [
                 <!-- 4. Type Subjects -->
                 <div class="mb-4">
                     <label class="form-label">4. Subjects (Comma Separated)</label>
-                    <!-- Change: Retain typed subjects -->
                     <input type="text" name="subjects" class="form-control" placeholder="e.g. Java, DBMS (Leave blank to remove)" value="<?php echo htmlspecialchars($sel_subjects); ?>">
                     <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove current subjects.</small>
                 </div>
@@ -175,7 +179,6 @@ $branches = [
                     <button type="submit" name="assign_subject" class="btn btn-primary w-100">
                         <i class="fa-solid fa-floppy-disk me-2"></i> Save
                     </button>
-                    <!-- Clear button is now even more useful if they want to reset the sticky form -->
                     <a href="?" class="btn btn-light border w-100 text-center text-decoration-none">
                         <i class="fa-solid fa-eraser me-2"></i> Clear
                     </a>
