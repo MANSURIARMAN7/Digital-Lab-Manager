@@ -1,9 +1,14 @@
-
 <?php
 session_start();
 include '../db.php';
 
 $msg = "";
+
+// Variables to keep form data sticky
+$sel_faculty = $_POST['faculty_id'] ?? '';
+$sel_branch = $_POST['branch'] ?? '';
+$sel_semester = $_POST['semester'] ?? '';
+$sel_subjects = $_POST['subjects'] ?? '';
 
 // Agar form submit hua hai
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
@@ -53,13 +58,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
     if ($conn->query($update_sql)) {
         // Dynamic success message based on action (assign or remove)
         $action_text = empty($subject_array) ? "removed from" : "assigned to";
-        // Change: Added alert-dismissible and close button
         $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm rounded-3'>
                     <i class='fa-solid fa-check-circle me-2'></i> Subjects $action_text <strong>$branch ($semester)</strong> successfully!
                     <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
                 </div>";
     } else {
-        // Change: Added alert-dismissible and close button
         $msg = "<div class='alert alert-danger alert-dismissible fade show shadow-sm rounded-3'>
                     <i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . $conn->error . "
                     <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
@@ -124,7 +127,8 @@ $branches = [
                     <select name="faculty_id" class="form-select" required>
                         <option value="">-- Choose Faculty --</option>
                         <?php foreach($faculties as $fac) { ?>
-                            <option value="<?php echo htmlspecialchars($fac['user_id']); ?>">
+                            <!-- Change: Retain selected faculty -->
+                            <option value="<?php echo htmlspecialchars($fac['user_id']); ?>" <?php if($sel_faculty == $fac['user_id']) echo 'selected'; ?>>
                                 <?php echo htmlspecialchars($fac['name']); ?>
                             </option>
                         <?php } ?>
@@ -137,7 +141,8 @@ $branches = [
                     <select name="branch" class="form-select" required>
                         <option value="">-- Choose Branch --</option>
                         <?php foreach($branches as $b) { ?>
-                            <option value="<?php echo $b; ?>"><?php echo $b; ?></option>
+                            <!-- Change: Retain selected branch -->
+                            <option value="<?php echo $b; ?>" <?php if($sel_branch == $b) echo 'selected'; ?>><?php echo $b; ?></option>
                         <?php } ?>
                     </select>
                 </div>
@@ -147,19 +152,21 @@ $branches = [
                     <label class="form-label">3. Select Semester</label>
                     <select name="semester" class="form-select" required>
                         <option value="">-- Choose Semester --</option>
-                        <option value="Semester 1">Semester 1</option>
-                        <option value="Semester 2">Semester 2</option>
-                        <option value="Semester 3">Semester 3</option>
-                        <option value="Semester 4">Semester 4</option>
-                        <option value="Semester 5">Semester 5</option>
-                        <option value="Semester 6">Semester 6</option>
+                        <!-- Change: Retain selected semester -->
+                        <option value="Semester 1" <?php if($sel_semester == 'Semester 1') echo 'selected'; ?>>Semester 1</option>
+                        <option value="Semester 2" <?php if($sel_semester == 'Semester 2') echo 'selected'; ?>>Semester 2</option>
+                        <option value="Semester 3" <?php if($sel_semester == 'Semester 3') echo 'selected'; ?>>Semester 3</option>
+                        <option value="Semester 4" <?php if($sel_semester == 'Semester 4') echo 'selected'; ?>>Semester 4</option>
+                        <option value="Semester 5" <?php if($sel_semester == 'Semester 5') echo 'selected'; ?>>Semester 5</option>
+                        <option value="Semester 6" <?php if($sel_semester == 'Semester 6') echo 'selected'; ?>>Semester 6</option>
                     </select>
                 </div>
 
                 <!-- 4. Type Subjects -->
                 <div class="mb-4">
                     <label class="form-label">4. Subjects (Comma Separated)</label>
-                    <input type="text" name="subjects" class="form-control" placeholder="e.g. Java, DBMS (Leave blank to remove)">
+                    <!-- Change: Retain typed subjects -->
+                    <input type="text" name="subjects" class="form-control" placeholder="e.g. Java, DBMS (Leave blank to remove)" value="<?php echo htmlspecialchars($sel_subjects); ?>">
                     <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove current subjects.</small>
                 </div>
 
@@ -168,16 +175,15 @@ $branches = [
                     <button type="submit" name="assign_subject" class="btn btn-primary w-100">
                         <i class="fa-solid fa-floppy-disk me-2"></i> Save
                     </button>
-                    <button type="reset" class="btn btn-light border w-100">
+                    <!-- Clear button is now even more useful if they want to reset the sticky form -->
+                    <a href="?" class="btn btn-light border w-100 text-center text-decoration-none">
                         <i class="fa-solid fa-eraser me-2"></i> Clear
-                    </button>
+                    </a>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Change: Added Bootstrap JS bundle for dismissible alerts to function properly -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-
