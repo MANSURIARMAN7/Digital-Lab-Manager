@@ -3,6 +3,7 @@ session_start();
 include '../db.php';
 
 // 1. Admin Login Check
+//  ========
 if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../login.php");
     exit();
@@ -14,19 +15,9 @@ $admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = 
 $admin_data = $admin_query ? $admin_query->fetch_assoc() : null;
 $admin_name = $admin_data['name'] ?? 'System Administrator';
 
-// Ensure student_submissions table exists
-$conn->query("CREATE TABLE IF NOT EXISTS student_submissions (
-    submission_id INT AUTO_INCREMENT PRIMARY KEY,
-    student_id INT NOT NULL,
-    manual_id INT NOT NULL,
-    subject_name VARCHAR(255) NOT NULL,
-    practical_no VARCHAR(50) NOT NULL,
-    file_path VARCHAR(255) NOT NULL,
-    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(50) DEFAULT 'Pending',
-    marks INT DEFAULT 0,
-    feedback TEXT DEFAULT NULL
-)");
+$query = "SELECT s.*, s.student_id as enrollment, s.subject_name as subject, u.name, u.department 
+          FROM submissions s 
+          JOIN users u ON s.student_id = u.user_id";
 
 // ==========================================
 // 🔍 REAL SEARCH & STATUS FILTER LOGIC

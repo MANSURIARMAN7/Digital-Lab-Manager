@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 $admin_id = $_SESSION['user_id'];
 $message = "";
 
+// sohan bhai ======
 // 🚀 PASSWORD UPDATE LOGIC
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_password'])) {
     $old_password = $conn->real_escape_string($_POST['old_password']);

@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
     $semester = $conn->real_escape_string($_POST['semester']);
     $class_name = $conn->real_escape_string($_POST['class_name']);
     $batch = $conn->real_escape_string($_POST['batch']);
-    
+
     // Check if email/enrollment already exists
     $check = $conn->query("SELECT * FROM users WHERE email='$email'");
     if($check->num_rows > 0) {
@@ -183,7 +183,7 @@ $live_notices = $conn->query("
         <div class="row">
             <div class="col-md-7">
                 <h5 class="fw-bold mb-3" style="color: #1e293b;">Manage Students by Year</h5>
-                
+
                 <!-- CARDS LINKED TO VIEW_STUDENTS.PHP -->
                 <div class="year-card yr1-border" onclick="window.location.href='view_students.php?year=1'">
                     <div>
@@ -335,3 +335,5 @@ $live_notices = $conn->query("
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
+
