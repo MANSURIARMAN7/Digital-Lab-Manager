@@ -2,7 +2,9 @@
 session_start();
 include '../db.php'; // Database connection
 
-// Check Login
+// ============================================================
+// 1. Authentication Check
+// ============================================================
 if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'student') {
     header("Location: ../login.php");
     exit;
@@ -44,6 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_password'])) {
             } else {
                 $message = '<div class="alert alert-danger alert-dismissible fade show mb-4" style="border-radius:10px;" role="alert"><i class="fas fa-times-circle me-2"></i> Incorrect Old Password! ❌<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
             }
+
+            // Always regenerate captcha after a password attempt (success or failure)
+            $_SESSION['captcha_num1'] = rand(1, 9);
+            $_SESSION['captcha_num2'] = rand(1, 9);
         }
     } else {
         $message = '<div class="alert alert-warning alert-dismissible fade show mb-4" style="border-radius:10px; color:#92400e;" role="alert"><i class="fas fa-exclamation-circle me-2"></i> New Password and Confirm Password do not match! ⚠️<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
@@ -74,9 +80,9 @@ $email_notifications = $student_data['email_notifications'] ?? 1;
 
 // Generate Initials
 $name_parts = explode(' ', trim($student_name));
-$initials = strtoupper(substr($name_parts[0], 0, 1));
+$initials = strtoupper($name_parts[0][0] ?? 'S');
 if (count($name_parts) > 1) {
-    $initials .= strtoupper(substr(end($name_parts), 0, 1));
+    $initials .= strtoupper(end($name_parts)[0] ?? '');
 }
 
 // Fetch Stats
@@ -85,7 +91,6 @@ $stats = $stats_query->fetch_assoc();
 $total_sub = $stats['total'] ?? 0;
 $approved = $stats['approved'] ?? 0;
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -278,7 +283,7 @@ $approved = $stats['approved'] ?? 0;
                             </div>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
 
             <!-- RIGHT COLUMN: FUNCTIONAL SETTINGS TABS -->
