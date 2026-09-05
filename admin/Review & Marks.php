@@ -13,7 +13,7 @@ $user_query = $conn->query("SELECT name, department FROM users WHERE user_id = '
 $user_data = $user_query ? $user_query->fetch_assoc() : null;
 $user_name = $user_data['name'] ?? 'System Administrator';
 
-// Ensure table exists
+// Ensure table exists (With answer_text column)
 $conn->query("CREATE TABLE IF NOT EXISTS student_submissions (
     submission_id INT AUTO_INCREMENT PRIMARY KEY,
     student_id INT NOT NULL,
@@ -21,11 +21,18 @@ $conn->query("CREATE TABLE IF NOT EXISTS student_submissions (
     subject_name VARCHAR(255) NOT NULL,
     practical_no VARCHAR(50) NOT NULL,
     file_path VARCHAR(255) NOT NULL,
+    answer_text TEXT DEFAULT NULL,
     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(50) DEFAULT 'Pending',
     marks INT DEFAULT 0,
     feedback TEXT DEFAULT NULL
 )");
+
+// Ensure answer_text column is there for old databases
+$check_col = $conn->query("SHOW COLUMNS FROM student_submissions LIKE 'answer_text'");
+if ($check_col && $check_col->num_rows == 0) {
+    @$conn->query("ALTER TABLE student_submissions ADD COLUMN answer_text TEXT NULL AFTER file_path");
+}
 
 // Save Evaluation Logic
 $message = "";
@@ -168,6 +175,8 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
 
         .btn-action { font-weight: 700; padding: 10px 15px; border-radius: 10px; transition: var(--transition-bounce); border: none; }
         .btn-action:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
+        
+        .code-viewer { background-color: #0f172a; color: #10b981; font-family: 'Consolas', monospace; padding: 15px; border-radius: 10px; font-size: 13.5px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5); border: 2px solid #1e293b;}
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -176,21 +185,18 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
         /* ========================================================
            🖨️ SMART PRINT VIEW - Hides UI, Shows Clean Report 
            ======================================================== */
-        #printReportContainer { display: none; } /* Hidden normally */
+        #printReportContainer { display: none; } 
         
         @media print {
-            /* Hide the entire Dashboard UI */
             .sidebar, .normal-view-wrapper { display: none !important; }
             body { background: white !important; margin: 0; padding: 0; color: #000; }
             
-            /* Show ONLY the Print Container */
             #printReportContainer { 
                 display: block !important; 
                 width: 100%; 
                 font-family: Arial, sans-serif;
             }
             
-            /* Print Styling */
             .print-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px; }
             .print-header h2 { margin: 0 0 5px 0; font-size: 24px; font-weight: bold; text-transform: uppercase; }
             .print-header h4 { margin: 0 0 5px 0; font-size: 18px; color: #333; }
@@ -199,8 +205,6 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
             .print-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
             .print-table th, .print-table td { border: 1px solid #000; padding: 10px; text-align: left; font-size: 13px; }
             .print-table th { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; font-weight: bold; text-transform: uppercase; }
-            
-            /* Add some spacing for readability */
             .print-table tr:nth-child(even) td { background-color: #fafafa !important; -webkit-print-color-adjust: exact; }
         }
     </style>
@@ -237,18 +241,15 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
                     <i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span>
                 </div>
                 
-                <!-- 🛠️ Functional Search Form -->
                 <form action="" method="GET" class="d-flex shadow-sm" style="border-radius: 10px;">
                     <input type="text" name="search" class="form-control search-modern px-4" placeholder="Search student or subject..." value="<?php echo htmlspecialchars($search_query); ?>" style="width: 250px;">
                     <button type="submit" class="btn-search"><i class="fas fa-search"></i></button>
                 </form>
 
-                <!-- 🖨️ PRINT REPORT BUTTON (Prints the list of submitted manuals) -->
                 <button class="btn-outline-modern ms-3" onclick="window.print()" title="Print Submissions Report">
                     <i class="fas fa-print text-primary me-2"></i> Print Report
                 </button>
                 
-                <!-- 📊 Export to Excel Button -->
                 <button class="btn-outline-modern ms-2" onclick="exportSubmissionsToCSV('Submissions_Report.csv')" title="Download All Reports">
                     <i class="fas fa-file-excel text-success me-2"></i> Export Data
                 </button>
@@ -319,49 +320,75 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
                 </form>
             </div>
 
-            <!-- TWO COLUMN LAYOUT: PDF VIEWER & EVALUATION PANEL -->
+            <!-- TWO COLUMN LAYOUT: FILE VIEWER & EVALUATION PANEL -->
             <?php if($current_sub): ?>
             <div class="row g-4">
                 
-                <!-- LEFT COLUMN: PDF VIEWER -->
+                <!-- 🖼️ LEFT COLUMN: SMART FILE VIEWER -->
                 <div class="col-md-7 pdf-viewer-col">
-                    <div class="content-box h-100 d-flex flex-column">
-                        <h5 class="box-title"><i class="fas fa-file-pdf text-danger me-2"></i> Student Submitted Manual</h5>
-                        <hr class="mb-4" style="border-color: #e2e8f0;">
+                    <div class="content-box h-100 d-flex flex-column" style="padding: 0; overflow: hidden;">
                         
-                        <div class="bg-light border p-5 text-center flex-grow-1 d-flex flex-column align-items-center justify-content-center shadow-sm" style="border-radius: 14px; border-style: dashed !important; border-color: #cbd5e1 !important;">
-                            <i class="fas fa-file-pdf text-danger mb-3" style="font-size: 60px;"></i>
-                            <h5 class="fw-bold text-dark mt-2"><?php echo htmlspecialchars(basename($current_sub['file_path'])); ?></h5>
-                            <p class="text-muted small mt-2 fw-semibold">
-                                <i class="fas fa-user text-primary me-1"></i> <?php echo htmlspecialchars($current_sub['student_name']); ?> <br>
-                                <i class="far fa-clock text-warning me-1 mt-2"></i> Submitted: <?php echo date('d M Y, h:i A', strtotime($current_sub['submitted_at'])); ?>
-                            </p>
+                        <?php 
+                            // SMART FIX FOR FILE PATH
+                            $raw_path = $current_sub['file_path'];
+                            $pos = strpos($raw_path, 'uploads/');
+                            $safe_pdf_path = ($pos !== false) ? '../' . substr($raw_path, $pos) : '../' . $raw_path;
                             
-                            <?php 
-                                // 🛠️ SMART FIX FOR 404 PDF ERROR
-                                $raw_path = $current_sub['file_path'];
-                                // Check if path already contains "uploads/" to avoid double pathing
-                                $pos = strpos($raw_path, 'uploads/');
-                                if ($pos !== false) {
-                                    $safe_pdf_path = '../' . substr($raw_path, $pos);
-                                } else {
-                                    $safe_pdf_path = '../' . $raw_path; // Fallback
-                                }
-                            ?>
-                            
-                            <a href="<?php echo htmlspecialchars($safe_pdf_path); ?>" target="_blank" class="btn btn-outline-danger fw-bold px-4 py-2 mt-4" style="border-radius: 10px; border-width: 2px; transition: var(--transition-bounce);">
-                                <i class="fas fa-external-link-alt me-2"></i> Open Full Screen PDF
-                            </a>
+                            // Get file extension to determine how to show it
+                            $file_ext = strtolower(pathinfo($safe_pdf_path, PATHINFO_EXTENSION));
+                        ?>
+
+                        <!-- Header -->
+                        <div class="panel-header d-flex justify-content-between align-items-center" style="background: #f8fafc; padding: 15px 25px; border-bottom: 1px solid #cbd5e1;">
+                             <h5 class="mb-0 fw-bold" style="font-size: 16px;"><i class="fas fa-paperclip text-danger me-2"></i> Attached File</h5>
+                             <a href="<?php echo htmlspecialchars($safe_pdf_path); ?>" target="_blank" class="btn btn-sm btn-outline-primary fw-bold px-3">
+                                 <i class="fas fa-external-link-alt me-1"></i> Open File
+                             </a>
+                        </div>
+                        
+                        <!-- Viewer Body -->
+                        <div class="viewer-body flex-grow-1" style="background: #e2e8f0; position: relative; min-height: 500px; display: flex; align-items: center; justify-content: center;">
+                            <?php if(in_array($file_ext, ['jpg', 'jpeg', 'png', 'gif'])): ?>
+                                <!-- 📷 IF IT IS AN IMAGE -->
+                                <img src="<?php echo htmlspecialchars($safe_pdf_path); ?>" alt="Student Upload" style="max-width: 100%; max-height: 100%; object-fit: contain; padding: 10px;">
+                                
+                            <?php elseif($file_ext == 'pdf'): ?>
+                                <!-- 📄 IF IT IS A PDF -->
+                                <iframe src="<?php echo htmlspecialchars($safe_pdf_path); ?>" width="100%" height="100%" style="border:none; position: absolute; top:0; left:0; right:0; bottom:0;"></iframe>
+                                
+                            <?php else: ?>
+                                <!-- 📦 IF IT IS A ZIP OR OTHER FILE -->
+                                <div class="text-center p-5">
+                                    <i class="fas fa-file-archive text-secondary mb-3" style="font-size: 60px;"></i>
+                                    <h5 class="fw-bold text-dark">File Preview Not Available</h5>
+                                    <p class="text-muted small">This is a .<?php echo htmlspecialchars($file_ext); ?> file. Please download it to view the contents.</p>
+                                    <a href="<?php echo htmlspecialchars($safe_pdf_path); ?>" download class="btn btn-primary mt-2 px-4 py-2" style="border-radius: 8px; font-weight: bold;">
+                                        <i class="fas fa-download me-2"></i> Download File
+                                    </a>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
 
-                <!-- RIGHT COLUMN: EVALUATION PANEL -->
+                <!-- ✍️ RIGHT COLUMN: EVALUATION PANEL -->
                 <div class="col-md-5 eval-panel-col">
                     <div class="content-box h-100">
                         <h5 class="box-title"><i class="fas fa-edit text-primary me-2"></i> Faculty Evaluation Panel</h5>
-                        <hr class="mb-4" style="border-color: #e2e8f0;">
                         
+                        <!-- 🚀 DISPLAY STUDENT'S CODE / OBSERVATION HERE -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1"><i class="fas fa-terminal text-dark me-1"></i> Student's Observation / Code</label>
+                            <div class="code-viewer shadow-sm">
+                                <?php 
+                                    $student_text = trim($current_sub['answer_text'] ?? '');
+                                    echo !empty($student_text) ? htmlspecialchars($student_text) : '<span class="text-secondary">// No observation or code provided by the student.</span>'; 
+                                ?>
+                            </div>
+                        </div>
+
+                        <hr class="mb-4" style="border-color: #e2e8f0;">
+
                         <form action="Review & Marks.php?id=<?php echo $selected_sub_id; ?>" method="POST">
                             <input type="hidden" name="submission_id" value="<?php echo $current_sub['submission_id']; ?>">
                             <input type="hidden" name="evaluate_submission" value="1">
@@ -374,9 +401,9 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
                                 </div>
                             </div>
                             
-                            <div class="mb-5">
+                            <div class="mb-4">
                                 <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">Remarks & Feedback</label>
-                                <textarea name="feedback" class="form-control shadow-sm" rows="5" placeholder="Great work, diagrams are neat and logic is clear..." style="resize: none;"><?php echo htmlspecialchars($current_sub['feedback'] ?? ''); ?></textarea>
+                                <textarea name="feedback" class="form-control shadow-sm" rows="3" placeholder="Great work, diagrams are neat and logic is clear..." style="resize: none;"><?php echo htmlspecialchars($current_sub['feedback'] ?? ''); ?></textarea>
                             </div>
                             
                             <div class="d-grid gap-3">
@@ -417,7 +444,7 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
             </div>
         <?php endif; ?>
 
-        <!-- 📊 HIDDEN TABLE FOR EXCEL EXPORT (Also used as data source for printing) -->
+        <!-- 📊 HIDDEN TABLE FOR EXCEL EXPORT -->
         <?php if($submissions_list && $submissions_list->num_rows > 0): ?>
         <table id="hiddenExportTable" style="display:none;">
             <thead>
@@ -454,7 +481,7 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
 
     </div>
 
-    <!-- 🖨️ PRINT ONLY CONTAINER (Visible ONLY when printing) -->
+    <!-- 🖨️ PRINT ONLY CONTAINER -->
     <div id="printReportContainer">
         <div class="print-header">
             <h2>K.D. Polytechnic</h2>
@@ -502,7 +529,6 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // 1. Live Clock Script
         function updateClock() {
             const now = new Date();
             const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
@@ -511,7 +537,6 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 2. EXPORT HIDDEN SUBMISSIONS TO EXCEL/CSV
         function exportSubmissionsToCSV(filename) {
             var table = document.getElementById("hiddenExportTable");
             if(!table) {
@@ -524,9 +549,8 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
             
             for (var i = 0; i < rows.length; i++) {
                 var row = [], cols = rows[i].querySelectorAll("td, th");
-                
                 for (var j = 0; j < cols.length; j++) {
-                    var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " "); // remove line breaks
+                    var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " "); 
                     row.push('"' + data + '"');
                 }
                 csv.push(row.join(","));
