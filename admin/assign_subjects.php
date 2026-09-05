@@ -2,135 +2,71 @@
 session_start();
 include '../db.php';
 
-// -------------------------------------------------------------
-// 1. AJAX Endpoint: Fetch currently assigned subjects
-// -------------------------------------------------------------
-if (isset($_GET['action']) && $_GET['action'] === 'fetch_assigned') {
-    header('Content-Type: application/json');
-    $fac_id = trim($_GET['faculty_id'] ?? '');
-    $br = trim($_GET['branch'] ?? '');
-    $sem = trim($_GET['semester'] ?? '');
-
-    $response = ['status' => 'success', 'subjects' => ''];
-
-    if (!empty($fac_id) && !empty($br) && !empty($sem)) {
-        $stmt = $conn->prepare("SELECT subjects FROM users WHERE user_id = ?");
-        $stmt->bind_param("s", $fac_id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        if ($res && $row = $res->fetch_assoc()) {
-            if (!empty($row['subjects'])) {
-                $decoded = json_decode($row['subjects'], true);
-                if (isset($decoded[$br][$sem]) && is_array($decoded[$br][$sem])) {
-                    $response['subjects'] = implode(', ', $decoded[$br][$sem]);
-                }
-            }
-        }
-        $stmt->close();
-    }
-    echo json_encode($response);
-    exit;
-}
-
-// -------------------------------------------------------------
-// 2. Main Page Logic
-// -------------------------------------------------------------
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
 $msg = "";
-$selected_faculty = $_POST['faculty_id'] ?? '';
-$selected_branch = $_POST['branch'] ?? '';
-$selected_semester = $_POST['semester'] ?? '';
-$subjects_input = $_POST['subjects'] ?? '';
 
+// Agar form submit hua hai
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
-    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
-        $msg = "<div class='alert alert-danger alert-dismissible fade show shadow-sm rounded-3' role='alert'>
-                    <i class='fa-solid fa-shield-halved me-2'></i> Security error: Invalid CSRF token.
-                    <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
-                </div>";
-    } else {
-        $faculty_id = trim($_POST['faculty_id'] ?? '');
-        $branch = trim($_POST['branch'] ?? '');
-        $semester = trim($_POST['semester'] ?? '');
-        $raw_subjects = $_POST['subjects'] ?? '';
-        
-        $raw_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
-        $subject_array = array_values(array_unique(array_map(function($sub) {
-            return ucwords(strtolower($sub));
-        }, $raw_array)));
+    $faculty_id = $conn->real_escape_string($_POST['faculty_id']);
+    $branch = $conn->real_escape_string($_POST['branch']);
+    $semester = $conn->real_escape_string($_POST['semester']);
 
-        if (!empty($faculty_id) && !empty($branch) && !empty($semester)) {
-            $fetch_stmt = $conn->prepare("SELECT subjects FROM users WHERE user_id = ?");
-            $fetch_stmt->bind_param("s", $faculty_id);
-            $fetch_stmt->execute();
-            $res = $fetch_stmt->get_result();
-            
-            $existing_data = [];
-            if ($res && $res->num_rows > 0) {
-                $row = $res->fetch_assoc();
-                if (!empty($row['subjects'])) {
-                    $decoded = json_decode($row['subjects'], true);
-                    if (is_array($decoded)) {
-                        $existing_data = $decoded;
-                    }
-                }
-            }
-            $fetch_stmt->close();
+    // Subjects ko array me convert karna
+    $raw_subjects = $_POST['subjects'];
+    $subject_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
 
-            if (!isset($existing_data[$branch])) {
-                $existing_data[$branch] = [];
-            }
+    // 1. Current subjects fetch karo
+    $fetch_sql = "SELECT subjects FROM users WHERE user_id = '$faculty_id'";
+    $res = $conn->query($fetch_sql);
 
-            if (empty($subject_array)) {
-                unset($existing_data[$branch][$semester]);
-                if (empty($existing_data[$branch])) {
-                    unset($existing_data[$branch]);
-                }
-            } else {
-                $existing_data[$branch][$semester] = $subject_array;
+    $existing_data = [];
+    if ($res && $res->num_rows > 0) {
+        $row = $res->fetch_assoc();
+        if (!empty($row['subjects'])) {
+            $decoded = json_decode($row['subjects'], true);
+            if (is_array($decoded)) {
+                $existing_data = $decoded;
             }
-
-            $new_json = json_encode($existing_data);
-            $update_stmt = $conn->prepare("UPDATE users SET subjects = ? WHERE user_id = ?");
-            $update_stmt->bind_param("ss", $new_json, $faculty_id);
-            
-            if ($update_stmt->execute()) {
-                $msg = "<div class='alert alert-success alert-dismissible fade show shadow-sm rounded-3' role='alert'>
-                            <i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>" . htmlspecialchars($branch) . " (" . htmlspecialchars($semester) . ")</strong> successfully!
-                            <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
-                        </div>";
-            } else {
-                $msg = "<div class='alert alert-danger alert-dismissible fade show shadow-sm rounded-3' role='alert'>
-                            <i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . htmlspecialchars($conn->error) . "
-                            <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
-                        </div>";
-            }
-            $update_stmt->close();
-        } else {
-            $msg = "<div class='alert alert-warning alert-dismissible fade show shadow-sm rounded-3' role='alert'>
-                        Please fill all required fields.
-                        <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
-                    </div>";
         }
+    }
+
+    // 2. Branch exist nahi karti toh banao
+    if (!isset($existing_data[$branch])) {
+        $existing_data[$branch] = [];
+    }
+
+    // 3. Sirf us Branch ke us Semester ke subjects update karo
+    if (empty($subject_array)) {
+        unset($existing_data[$branch][$semester]); // Khali choda toh remove ho jayega
+        // Agar branch khali ho gayi, toh branch ko hi hata do
+        if (empty($existing_data[$branch])) {
+            unset($existing_data[$branch]);
+        }
+    } else {
+        $existing_data[$branch][$semester] = $subject_array;
+    }
+
+    // 4. Wapas JSON banake Database me save kar do
+    $new_json = $conn->real_escape_string(json_encode($existing_data));
+
+    $update_sql = "UPDATE users SET subjects = '$new_json' WHERE user_id = '$faculty_id'";
+    if ($conn->query($update_sql)) {
+        $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>$branch ($semester)</strong> successfully!</div>";
+    } else {
+        $msg = "<div class='alert alert-danger shadow-sm rounded-3'><i class='fa-solid fa-triangle-exclamation me-2'></i> Error: " . $conn->error . "</div>";
     }
 }
 
 // Fetch all faculties
 $faculties = [];
-$fac_stmt = $conn->prepare("SELECT user_id, name, department FROM users WHERE role = 'faculty' ORDER BY name ASC");
-if ($fac_stmt) {
-    $fac_stmt->execute();
-    $fac_result = $fac_stmt->get_result();
+$fac_query = "SELECT user_id, name, department FROM users WHERE role = 'faculty' ORDER BY name ASC";
+$fac_result = $conn->query($fac_query);
+if ($fac_result) {
     while ($f = $fac_result->fetch_assoc()) {
         $faculties[] = $f;
     }
-    $fac_stmt->close();
 }
 
+// Branches List (You can fetch this from DB if you have a branches table)
 $branches = [
     'Computer Engineering',
     'Civil Engineering',
@@ -168,50 +104,50 @@ $branches = [
             <?php echo $msg; ?>
 
             <form method="POST">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
 
+                <!-- 1. Select Faculty -->
                 <div class="mb-3">
                     <label class="form-label">1. Select Faculty</label>
-                    <select id="facultySelect" name="faculty_id" class="form-select" required>
+                    <select name="faculty_id" class="form-select" required>
                         <option value="">-- Choose Faculty --</option>
                         <?php foreach($faculties as $fac) { ?>
-                            <option value="<?php echo htmlspecialchars($fac['user_id']); ?>" <?php echo ($selected_faculty === $fac['user_id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($fac['name']); ?> <?php echo !empty($fac['department']) ? '(' . htmlspecialchars($fac['department']) . ')' : ''; ?>
+                            <option value="<?php echo htmlspecialchars($fac['user_id']); ?>">
+                                <?php echo htmlspecialchars($fac['name']); ?>
                             </option>
                         <?php } ?>
                     </select>
                 </div>
 
+                <!-- 2. Select Branch -->
                 <div class="mb-3">
                     <label class="form-label">2. Select Branch</label>
-                    <select id="branchSelect" name="branch" class="form-select" required>
+                    <select name="branch" class="form-select" required>
                         <option value="">-- Choose Branch --</option>
                         <?php foreach($branches as $b) { ?>
-                            <option value="<?php echo htmlspecialchars($b); ?>" <?php echo ($selected_branch === $b) ? 'selected' : ''; ?>><?php echo htmlspecialchars($b); ?></option>
+                            <option value="<?php echo $b; ?>"><?php echo $b; ?></option>
                         <?php } ?>
                     </select>
                 </div>
 
+                <!-- 3. Select Semester -->
                 <div class="mb-3">
                     <label class="form-label">3. Select Semester</label>
-                    <select id="semesterSelect" name="semester" class="form-select" required>
+                    <select name="semester" class="form-select" required>
                         <option value="">-- Choose Semester --</option>
-                        <?php for($i = 1; $i <= 6; $i++) { 
-                            $semVal = "Semester " . $i;
-                        ?>
-                            <option value="<?php echo $semVal; ?>" <?php echo ($selected_semester === $semVal) ? 'selected' : ''; ?>><?php echo $semVal; ?></option>
-                        <?php } ?>
+                        <option value="Semester 1">Semester 1</option>
+                        <option value="Semester 2">Semester 2</option>
+                        <option value="Semester 3">Semester 3</option>
+                        <option value="Semester 4">Semester 4</option>
+                        <option value="Semester 5">Semester 5</option>
+                        <option value="Semester 6">Semester 6</option>
                     </select>
                 </div>
 
+                <!-- 4. Type Subjects -->
                 <div class="mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="form-label mb-0">4. Subjects (Comma Separated)</label>
-                        <small id="loadingStatus" class="text-primary d-none" style="font-size: 11px;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Fetching existing...</small>
-                    </div>
-                    <input type="text" id="subjectsInput" name="subjects" class="form-control" value="<?php echo htmlspecialchars($subjects_input); ?>" placeholder="e.g. Java, Software Testing, DBMS" autocomplete="off">
-                    <div id="subjectBadges" class="mt-2 d-flex flex-wrap gap-1"></div>
-                    <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,). Leave empty to remove subjects.</small>
+                    <label class="form-label">4. Subjects (Comma Separated)</label>
+                    <input type="text" name="subjects" class="form-control" placeholder="e.g. Java, Software Testing, DBMS" required>
+                    <small class="text-muted mt-1 d-block" style="font-size: 11px;">Separate multiple subjects with a comma (,)</small>
                 </div>
 
                 <button type="submit" name="assign_subject" class="btn btn-primary w-100">
@@ -221,59 +157,8 @@ $branches = [
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const facultySelect = document.getElementById('facultySelect');
-            const branchSelect = document.getElementById('branchSelect');
-            const semesterSelect = document.getElementById('semesterSelect');
-            const input = document.getElementById('subjectsInput');
-            const badgeContainer = document.getElementById('subjectBadges');
-            const loadingStatus = document.getElementById('loadingStatus');
-
-            function updateBadges() {
-                badgeContainer.innerHTML = '';
-                if (!input.value.trim()) return;
-                
-                const subjects = input.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-                subjects.forEach(sub => {
-                    const badge = document.createElement('span');
-                    badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1';
-                    badge.style.fontSize = '12px';
-                    badge.textContent = sub;
-                    badgeContainer.appendChild(badge);
-                });
-            }
-
-            function fetchExistingSubjects() {
-                const fac = facultySelect.value;
-                const br = branchSelect.value;
-                const sem = semesterSelect.value;
-
-                if (fac && br && sem) {
-                    loadingStatus.classList.remove('d-none');
-                    fetch(`?action=fetch_assigned&faculty_id=${encodeURIComponent(fac)}&branch=${encodeURIComponent(br)}&semester=${encodeURIComponent(sem)}`)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                input.value = data.subjects;
-                                updateBadges();
-                            }
-                        })
-                        .catch(err => console.error(err))
-                        .finally(() => loadingStatus.classList.add('d-none'));
-                }
-            }
-
-            [facultySelect, branchSelect, semesterSelect].forEach(elem => {
-                elem.addEventListener('change', fetchExistingSubjects);
-            });
-
-            if (input) {
-                input.addEventListener('input', updateBadges);
-                updateBadges();
-            }
-        });
-    </script>
 </body>
 </html>
+
+
+
