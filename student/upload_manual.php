@@ -38,37 +38,45 @@ if ($check_col && $check_col->num_rows == 0) {
 $check_sub = $conn->query("SELECT * FROM student_submissions WHERE student_id = '$enrollment' AND subject_name = '$subject' AND practical_no = '$prac_no' LIMIT 1");
 $is_submitted = ($check_sub && $check_sub->num_rows > 0);
 $sub_data = $is_submitted ? $check_sub->fetch_assoc() : null;
+$current_status = $sub_data['status'] ?? '';
 
-// 4. Handle Upload Post (🔥 Now saves answer_text securely)
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden']) && !$is_submitted) {
-    $answer_text = $conn->real_escape_string($_POST['answer_text'] ?? '');
+// 4. Handle Upload Post (🔥 BUG FIXED: Allows Re-Submit if Rejected)
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden'])) {
     
-    // File upload logic
-    $uploaded_file = "";
-    if (isset($_FILES["attachment"]) && $_FILES["attachment"]["error"] == 0) {
-        $target_dir = "../uploads/";
-        if (!is_dir($target_dir)) { mkdir($target_dir, 0777, true); }
+    // Agar form already Approved ya Pending hai, toh ignore karo
+    if ($is_submitted && ($current_status == 'Pending' || $current_status == 'Approved')) {
+        // Do nothing
+    } else {
+        $answer_text = $conn->real_escape_string($_POST['answer_text'] ?? '');
         
-        $file_name = time() . "_" . preg_replace("/[^a-zA-Z0-9.]+/", "_", basename($_FILES["attachment"]["name"]));
-        $target_file = $target_dir . $file_name;
-        
-        if (move_uploaded_file($_FILES["attachment"]["tmp_name"], $target_file)) {
-            $uploaded_file = $target_file;
+        $uploaded_file = $sub_data['file_path'] ?? ''; // Keep old file path as fallback
+        if (isset($_FILES["attachment"]) && $_FILES["attachment"]["error"] == 0) {
+            $target_dir = "../uploads/";
+            if (!is_dir($target_dir)) { mkdir($target_dir, 0777, true); }
+            
+            $file_name = time() . "_" . preg_replace("/[^a-zA-Z0-9.]+/", "_", basename($_FILES["attachment"]["name"]));
+            $target_file = $target_dir . $file_name;
+            
+            if (move_uploaded_file($_FILES["attachment"]["tmp_name"], $target_file)) {
+                $uploaded_file = $target_file;
+            }
         }
-    }
 
-    // Insert to DB INCLUDES answer_text now!
-    $insert = "INSERT IGNORE INTO student_submissions (student_id, manual_id, subject_name, practical_no, file_path, answer_text, status) 
-               VALUES ('$enrollment', '$manual_id', '$subject', '$prac_no', '$uploaded_file', '$answer_text', 'Pending')";
-    
-    if ($conn->query($insert)) {
+        // Agar REJECTED hai toh Update maaro, warna Naya Insert karo
+        if ($is_submitted && $current_status == 'Rejected') {
+            $update = "UPDATE student_submissions SET file_path = '$uploaded_file', answer_text = '$answer_text', status = 'Pending', marks = 0, mark_reg=0, mark_und=0, mark_obs=0, mark_viva=0, feedback=NULL WHERE student_id = '$enrollment' AND subject_name = '$subject' AND practical_no = '$prac_no'";
+            $conn->query($update);
+        } else {
+            $insert = "INSERT IGNORE INTO student_submissions (student_id, manual_id, subject_name, practical_no, file_path, answer_text, status) 
+                       VALUES ('$enrollment', '$manual_id', '$subject', '$prac_no', '$uploaded_file', '$answer_text', 'Pending')";
+            $conn->query($insert);
+        }
+
         echo "<script>
                 alert('Success: Practical Uploaded Successfully! Returning to Dashboard.');
                 window.location.replace('Stdashboard.php');
               </script>";
         exit();
-    } else {
-        $msg = "<div class='alert-custom alert-error'><i class='fas fa-exclamation-triangle me-2'></i> Database Error: " . $conn->error . "</div>";
     }
 }
 ?>
@@ -137,13 +145,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden']) && !$
         .file-upload-box:hover { border-color: var(--primary); background: #eff6ff; }
         input[type="file"] { padding: 8px; background: white; border-radius: 8px; border: 1px solid #cbd5e1; width: 80%; margin: 0 auto; display: block; font-size: 13px; }
 
-        /* 🖨️ UPDATED SMART HARD-COPY NOTE */
-        .hard-copy-note { 
-            background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid var(--primary); 
-            padding: 15px; border-radius: 8px; margin-bottom: 25px; font-size: 13px; 
-            display: flex; align-items: flex-start; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-        }
+        /* 🖨️ HARD-COPY NOTE */
+        .hard-copy-note { background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid var(--primary); padding: 15px; border-radius: 8px; margin-bottom: 25px; font-size: 13px; display: flex; align-items: flex-start; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);}
         .hard-copy-note i { font-size: 20px; color: var(--primary); margin-top: 2px; }
+
+        /* ❌ REJECT ALERT BOX */
+        .reject-alert-box { background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; padding: 18px; border-radius: 8px; margin-bottom: 25px; font-size: 14px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.1);}
 
         .confirm-box { background: #fffbeb; border: 1px solid #fde68a; padding: 20px; border-radius: 12px; margin-bottom: 25px; display: flex; gap: 15px; align-items: flex-start; text-align: left; }
         .confirm-box input[type="checkbox"] { margin-top: 4px; transform: scale(1.3); cursor: pointer; accent-color: #d97706; }
@@ -153,22 +160,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden']) && !$
         .btn-submit:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(16,185,129,0.4); }
         .btn-submit:disabled { background: #cbd5e1; box-shadow: none; cursor: not-allowed; color: #64748b; transform: none; }
         
-        /* SUCCESS CARD */
+        /* 🟢 SUCCESS/SCORECARD CARD */
         .submitted-card-wrapper { display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; background: #f8fafc; }
-        .submitted-card { background: white; border: 1px solid #cbd5e1; border-radius: 20px; padding: 40px; max-width: 450px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.05); text-align: center; }
-        .success-icon-wrapper { width: 80px; height: 80px; background: rgba(16,185,129,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; }
-        .success-icon-wrapper i { font-size: 40px; color: #10b981; }
+        .submitted-card { background: white; border: 1px solid #cbd5e1; border-radius: 20px; padding: 35px; max-width: 480px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.05); text-align: center; }
+        .success-icon-wrapper { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px auto; }
         
-        .submitted-card h3 { font-size: 22px; font-weight: 800; color: var(--text-main); margin-bottom: 10px; }
-        .submitted-card p { font-size: 14.5px; color: var(--text-muted); font-weight: 500; margin-bottom: 25px; line-height: 1.6;}
-        
-        .badge-status { padding: 8px 20px; border-radius: 50px; font-size: 13px; font-weight: 800; display: inline-block; margin-bottom: 30px; letter-spacing: 0.5px;}
+        .badge-status { padding: 8px 20px; border-radius: 50px; font-size: 13px; font-weight: 800; display: inline-block; margin-bottom: 25px; letter-spacing: 0.5px;}
         .status-Pending { background: #fef3c7; color: #d97706; border: 1px solid #fde68a;}
         .status-Approved { background: #d1fae5; color: #059669; border: 1px solid #a7f3d0;}
         .status-Rejected { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;}
-
-        .alert-custom { padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 600; display: flex; align-items: center;}
-        .alert-error { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
     </style>
 </head>
 <body>
@@ -196,7 +196,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden']) && !$
                     <span class="badge bg-light text-dark border fw-bold"><?php echo htmlspecialchars($manual_title); ?></span>
                 </div>
                 
-                <!-- 🖨️ NEW PRINT & DOWNLOAD BUTTONS -->
                 <div class="action-buttons">
                     <?php if($pdf_path != ''): ?>
                         <a href="../<?php echo htmlspecialchars($pdf_path); ?>" download="<?php echo htmlspecialchars($subject.'_'.$prac_no); ?>_Manual.pdf" class="btn-action btn-download" title="Download for Print Shop">
@@ -214,42 +213,76 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden']) && !$
             <?php else: ?>
                 <div class="pdf-placeholder">
                     <i class="fas fa-file-excel"></i>
-                    <h5 class="fw-bold text-dark">No Reference Manual</h5>
+                    <h5 class="fw-bold text-dark mt-2">No Reference Manual</h5>
                     <p class="small">The faculty has not uploaded a PDF for this practical yet.</p>
                 </div>
             <?php endif; ?>
         </div>
 
-        <!-- RIGHT PANEL: EDITOR -->
+        <!-- RIGHT PANEL: EDITOR OR SCORECARD -->
         <div class="editor-panel">
             
-            <?php if ($is_submitted): ?>
+            <?php if ($is_submitted && ($current_status == 'Pending' || $current_status == 'Approved')): ?>
                 
+                <!-- 🟢 SUCCESS / COMPLETED SCREEN -->
                 <div class="submitted-card-wrapper">
                     <div class="submitted-card">
-                        <div class="success-icon-wrapper">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <h3>Successfully Submitted</h3>
-                        <p>Your work for <strong><?php echo htmlspecialchars($prac_no); ?></strong> has been securely uploaded and is currently queued for faculty review.</p>
                         
-                        <div class="badge-status status-<?php echo htmlspecialchars($sub_data['status'] ?? 'Pending'); ?>">
-                            Current Status: <?php echo htmlspecialchars($sub_data['status'] ?? 'Pending'); ?>
+                        <div class="success-icon-wrapper" style="background: <?php echo ($current_status == 'Approved') ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)'; ?>;">
+                            <i class="fas <?php echo ($current_status == 'Approved') ? 'fa-award text-success' : 'fa-clock text-warning'; ?>" style="font-size: 35px;"></i>
                         </div>
+                        
+                        <h4 class="fw-bold text-dark mb-1"><?php echo ($current_status == 'Approved') ? 'Evaluation Complete' : 'Submission Received'; ?></h4>
+                        <p class="text-muted small fw-semibold mb-3">Your work for <strong><?php echo htmlspecialchars($prac_no); ?></strong> is safely stored.</p>
+                        
+                        <div class="badge-status status-<?php echo htmlspecialchars($current_status); ?>">
+                            Current Status: <?php echo htmlspecialchars($current_status); ?>
+                        </div>
+
+                        <?php if($current_status == 'Approved'): ?>
+                            <!-- 📊 STUDENT SCORECARD VIEW -->
+                            <div class="bg-light border rounded-3 p-3 mb-4 text-start shadow-sm">
+                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-2"><i class="fas fa-chart-bar text-primary me-2"></i> Your Scorecard</h6>
+                                
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted fw-bold small">Regularity</span>
+                                    <span class="fw-bold text-dark"><?php echo isset($sub_data['mark_reg']) ? $sub_data['mark_reg'] : 0; ?>/5</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted fw-bold small">Understanding</span>
+                                    <span class="fw-bold text-dark"><?php echo isset($sub_data['mark_und']) ? $sub_data['mark_und'] : 0; ?>/5</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted fw-bold small">Observation</span>
+                                    <span class="fw-bold text-dark"><?php echo isset($sub_data['mark_obs']) ? $sub_data['mark_obs'] : 0; ?>/5</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 border-bottom pb-2">
+                                    <span class="text-muted fw-bold small">Viva/Quiz</span>
+                                    <span class="fw-bold text-dark"><?php echo isset($sub_data['mark_viva']) ? $sub_data['mark_viva'] : 0; ?>/5</span>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center bg-dark text-white p-2 rounded-3 mt-2">
+                                    <span class="text-uppercase fw-bold small" style="letter-spacing: 1px;">Total Marks</span>
+                                    <h5 class="mb-0 fw-bold text-warning"><?php echo $sub_data['marks']; ?> <small style="font-size: 12px; color:#cbd5e1;">/ 20</small></h5>
+                                </div>
+                            </div>
+                            
+                            <?php if(!empty($sub_data['feedback'])): ?>
+                                <div class="p-3 bg-white border-start border-4 border-info rounded text-start mb-4 shadow-sm">
+                                    <span class="text-muted small fw-bold d-block mb-1">Faculty Remark:</span>
+                                    <span class="fst-italic text-dark fw-semibold">"<?php echo htmlspecialchars($sub_data['feedback']); ?>"</span>
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
 
                         <div class="d-grid gap-3">
                             <?php 
                                 $student_path = $sub_data['file_path'];
-                                if(strpos($student_path, '../') === false) {
-                                    $student_path = '../' . $student_path;
+                                if(!empty($student_path)) {
+                                    if(strpos($student_path, '../') === false) { $student_path = '../' . $student_path; }
+                                    echo '<a href="'.htmlspecialchars($student_path).'" target="_blank" class="btn btn-outline-dark fw-bold py-2" style="border-radius: 10px;"><i class="fas fa-file-invoice me-2"></i> View Uploaded File</a>';
                                 }
                             ?>
-                            <?php if(!empty($sub_data['file_path'])): ?>
-                                <a href="<?php echo htmlspecialchars($student_path); ?>" target="_blank" class="btn btn-outline-secondary fw-bold py-2" style="border-radius: 10px;">
-                                    <i class="fas fa-file-invoice me-2"></i> View My Uploaded File
-                                </a>
-                            <?php endif; ?>
-                            
                             <a href="Stdashboard.php" class="btn btn-primary fw-bold py-2" style="border-radius: 10px; background: var(--primary);">
                                 <i class="fas fa-home me-2"></i> Return to Dashboard
                             </a>
@@ -259,6 +292,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden']) && !$
 
             <?php else: ?>
                 
+                <!-- ✍️ EDITOR FORM SCREEN (New or Rejected) -->
                 <div class="editor-form-wrapper">
                     
                     <div class="text-center mb-4 pb-3 border-bottom">
@@ -268,6 +302,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden']) && !$
 
                     <?php if($msg != "") echo $msg; ?>
                     
+                    <!-- ❌ SHOW REJECT ALERT & FACULTY REMARK -->
+                    <?php if ($is_submitted && $current_status == 'Rejected'): ?>
+                        <div class="reject-alert-box">
+                            <h6 class="text-danger fw-bold mb-2"><i class="fas fa-exclamation-circle me-1"></i> Submission Rejected (Needs Revision)</h6>
+                            <p class="mb-2 text-dark">Your previous upload was rejected by the faculty. Please correct the mistakes and upload a new file.</p>
+                            <?php if(!empty($sub_data['feedback'])): ?>
+                                <div class="bg-white p-2 rounded border border-danger">
+                                    <span class="fw-bold text-danger small">Faculty Reason:</span> 
+                                    <span class="fst-italic text-dark">"<?php echo htmlspecialchars($sub_data['feedback']); ?>"</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
                     <!-- 🖨️ SMART OPTIONAL HARD-COPY NOTE -->
                     <div class="hard-copy-note">
                         <i class="fas fa-info-circle"></i> 
@@ -278,28 +326,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_hidden']) && !$
                     </div>
 
                     <form method="POST" enctype="multipart/form-data" id="submissionForm" onsubmit="return handleFormSubmit();">
-                        
                         <input type="hidden" name="submit_hidden" value="1">
                         
                         <div class="step-label"><span class="step-number">1</span> Observation / Code Output</div>
-                        <textarea name="answer_text" class="custom-textarea" placeholder="// Type your practical logic, output, procedure, or rough notes here...&#10;// This helps faculties review code snippets quickly." required></textarea>
+                        <!-- If Rejected, Pre-fill their old code so they don't have to type again -->
+                        <textarea name="answer_text" class="custom-textarea" placeholder="// Type your practical logic, output, procedure, or rough notes here..." required><?php echo ($is_submitted && $current_status == 'Rejected') ? htmlspecialchars($sub_data['answer_text']) : ''; ?></textarea>
                         
                         <div class="step-label"><span class="step-number">2</span> Upload Final File</div>
                         <div class="file-upload-box">
                             <i class="fas fa-cloud-upload-alt text-primary mb-3" style="font-size: 32px;"></i>
-                            <label class="fw-bold d-block mb-1 text-dark" style="font-size: 15px;">Upload Document or Photos</label>
+                            <label class="fw-bold d-block mb-1 text-dark" style="font-size: 15px;">
+                                <?php echo ($is_submitted && $current_status == 'Rejected') ? 'Upload Corrected Document' : 'Upload Document or Photos'; ?>
+                            </label>
                             <p class="text-muted small mb-3">Accepted formats: .pdf, .zip, .png, .jpg (Max 5MB)</p>
-                            <input type="file" name="attachment" accept=".pdf,.png,.jpg,.zip,.txt" required>
+                            <input type="file" name="attachment" accept=".pdf,.png,.jpg,.zip,.txt" <?php echo ($is_submitted && $current_status == 'Rejected') ? 'required' : 'required'; ?>>
                         </div>
 
                         <div class="step-label"><span class="step-number">3</span> Final Confirmation</div>
                         <div class="confirm-box">
                             <input type="checkbox" id="confirmCheck" onchange="toggleSubmit()">
-                            <label for="confirmCheck">I declare that this submission is my original work and I have attached the correct files (or submitted the hard copy if instructed).</label>
+                            <label for="confirmCheck">I declare that this submission is my original work and I have attached the corrected files.</label>
                         </div>
 
                         <button type="submit" id="submitBtn" class="btn-submit mt-2" disabled>
-                            <i class="fas fa-paper-plane me-2"></i> Submit Practical Securely
+                            <i class="fas fa-paper-plane me-2"></i> 
+                            <?php echo ($is_submitted && $current_status == 'Rejected') ? 'Re-Submit Practical' : 'Submit Practical Securely'; ?>
                         </button>
                     </form>
                 </div>
