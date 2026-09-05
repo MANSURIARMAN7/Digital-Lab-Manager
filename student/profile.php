@@ -455,4 +455,3 @@ $approved = $stats['approved'] ?? 0;
     </script>
 </body>
 </html>
-//
