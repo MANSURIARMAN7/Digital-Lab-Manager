@@ -407,3 +407,9 @@ $recent_grades = $conn->query("SELECT subject_name, practical_no, marks, status 
     </script>
 </body>
 </html>
+
+
+
+
+
+
