@@ -322,6 +322,7 @@ $recent_subs = $conn->query($recent_query);
                 </div>
             </div>
         </div>
+        
 
         <div class="row g-4">
             <!-- 📋 LEFT: PENDING TASKS -->
@@ -422,6 +423,7 @@ $recent_subs = $conn->query($recent_query);
                     </div>
                 </div>
 
+
                 <!-- Quick Actions / Announcements -->
                 <div class="content-box" style="background: linear-gradient(135deg, rgba(67, 56, 202, 0.03), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(67, 56, 202, 0.1);">
                     <h5 class="box-title"><i class="fas fa-bolt text-warning me-2"></i> Quick Links</h5>
@@ -455,3 +457,12 @@ $recent_subs = $conn->query($recent_query);
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
