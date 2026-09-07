@@ -376,4 +376,3 @@ $upcoming_deadlines = $conn->query($deadlines_query);
     </script>
 </body>
 </html>
-
