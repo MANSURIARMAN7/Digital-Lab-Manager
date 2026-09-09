@@ -4,7 +4,6 @@ include '../db.php'; // Database connection
 
 // 1. Admin Authentication Check
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
-    // Also support $_SESSION['logged_in'] check
     if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
         header("Location: ../login.php");
         exit();
@@ -39,27 +38,27 @@ if ($check_alerts && $check_alerts->num_rows == 0) {
 // ==========================================
 if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['update_profile'])) {
     $active_tab = "profile";
-    $name = $conn->real_escape_string(trim($_POST['name']));
-    $email = $conn->real_escape_string(trim($_POST['email']));
-    $phone = $conn->real_escape_string(trim($_POST['phone']));
-    $department = $conn->real_escape_string(trim($_POST['department']));
+    $name = $conn->real_escape_string(trim($_POST['name'] ?? ''));
+    $email = $conn->real_escape_string(trim($_POST['email'] ?? ''));
+    $phone = $conn->real_escape_string(trim($_POST['phone'] ?? ''));
+    $department = $conn->real_escape_string(trim($_POST['department'] ?? ''));
 
     if (!empty($name) && !empty($email)) {
         $update_profile_query = "UPDATE `users` SET `name` = '$name', `email` = '$email', `phone` = '$phone', `department` = '$department' WHERE `user_id` = '$admin_id'";
         if ($conn->query($update_profile_query)) {
             $_SESSION['name'] = $name;
-            $message = '<div class="alert alert-success alert-dismissible fade show shadow-sm" style="border-radius:12px; font-weight:600;" role="alert">
+            $message = '<div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(16, 185, 129, 0.12); color: #065f46; font-weight:700;" role="alert">
                 <i class="fas fa-check-circle me-2 fs-5"></i> Profile details updated successfully! 🎉
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>';
         } else {
-            $message = '<div class="alert alert-danger alert-dismissible fade show shadow-sm" style="border-radius:12px;" role="alert">
+            $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
                 <i class="fas fa-times-circle me-2 fs-5"></i> Database Error: ' . htmlspecialchars($conn->error) . '
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>';
         }
     } else {
-        $message = '<div class="alert alert-warning alert-dismissible fade show shadow-sm" style="border-radius:12px;" role="alert">
+        $message = '<div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(245, 158, 11, 0.12); color: #92400e; font-weight:700;" role="alert">
             <i class="fas fa-exclamation-triangle me-2 fs-5"></i> Name and Email cannot be empty!
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>';
@@ -71,17 +70,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['update_profile
 // ==========================================
 if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['update_password'])) {
     $active_tab = "security";
-    $old_password = trim($_POST['old_password']);
-    $new_password = trim($_POST['new_password']);
-    $confirm_password = trim($_POST['confirm_password']);
+    $old_password = trim($_POST['old_password'] ?? '');
+    $new_password = trim($_POST['new_password'] ?? '');
+    $confirm_password = trim($_POST['confirm_password'] ?? '');
 
     if (strlen($new_password) < 6) {
-        $message = '<div class="alert alert-warning alert-dismissible fade show shadow-sm" style="border-radius:12px;" role="alert">
+        $message = '<div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(245, 158, 11, 0.12); color: #92400e; font-weight:700;" role="alert">
             <i class="fas fa-shield-alt me-2 fs-5"></i> New password must be at least 6 characters long!
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>';
     } elseif ($new_password !== $confirm_password) {
-        $message = '<div class="alert alert-danger alert-dismissible fade show shadow-sm" style="border-radius:12px;" role="alert">
+        $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
             <i class="fas fa-times-circle me-2 fs-5"></i> New Password and Confirm Password do not match! ❌
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>';
@@ -93,7 +92,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['update_passwor
             $row = $res->fetch_assoc();
             $db_pass = $row['password'];
 
-            // Supports plain text, MD5, or password_verify
             $is_matched = ($old_password === $db_pass) || (md5($old_password) === $db_pass) || (password_verify($old_password, $db_pass));
 
             if ($is_matched) {
@@ -101,18 +99,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['update_passwor
                 $update_query = "UPDATE `users` SET `password` = '$safe_new_pass' WHERE `user_id` = '$admin_id'";
 
                 if ($conn->query($update_query)) {
-                    $message = '<div class="alert alert-success alert-dismissible fade show shadow-sm" style="border-radius:12px; font-weight:600;" role="alert">
+                    $message = '<div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(16, 185, 129, 0.12); color: #065f46; font-weight:700;" role="alert">
                         <i class="fas fa-key me-2 fs-5"></i> Password updated successfully! Your account is secured. 🎉
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>';
                 } else {
-                    $message = '<div class="alert alert-danger alert-dismissible fade show shadow-sm" style="border-radius:12px;" role="alert">
+                    $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
                         <i class="fas fa-exclamation-triangle me-2 fs-5"></i> Error updating password in database!
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>';
                 }
             } else {
-                $message = '<div class="alert alert-danger alert-dismissible fade show shadow-sm" style="border-radius:12px;" role="alert">
+                $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
                     <i class="fas fa-lock me-2 fs-5"></i> Incorrect Current Password! Please try again. ❌
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>';
@@ -132,12 +130,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['update_prefere
 
     $pref_query = "UPDATE `users` SET `email_notifications` = '$email_notif', `two_factor_auth` = '$two_factor', `submission_alerts` = '$sub_alerts' WHERE `user_id` = '$admin_id'";
     if ($conn->query($pref_query)) {
-        $message = '<div class="alert alert-success alert-dismissible fade show shadow-sm" style="border-radius:12px; font-weight:600;" role="alert">
+        $message = '<div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(16, 185, 129, 0.12); color: #065f46; font-weight:700;" role="alert">
             <i class="fas fa-sliders-h me-2 fs-5"></i> System preferences saved successfully! ⚙️
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>';
     } else {
-        $message = '<div class="alert alert-danger alert-dismissible fade show shadow-sm" style="border-radius:12px;" role="alert">
+        $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
             <i class="fas fa-exclamation-triangle me-2 fs-5"></i> Error updating preferences!
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>';
@@ -159,25 +157,27 @@ $email_notifications = $admin_data['email_notifications'] ?? 1;
 $two_factor_auth = $admin_data['two_factor_auth'] ?? 0;
 $submission_alerts = $admin_data['submission_alerts'] ?? 1;
 
-// System Metrics
-$q_students = $conn->query("SELECT COUNT(*) as cnt FROM `users` WHERE `role`='student'");
-$total_students = $q_students ? $q_students->fetch_assoc()['cnt'] : 0;
+// System statistics matching Dashboard
+$st_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'student'");
+$total_students = $st_res ? $st_res->fetch_assoc()['total'] : 0;
 
-$q_faculty = $conn->query("SELECT COUNT(*) as cnt FROM `users` WHERE `role`='faculty'");
-$total_faculty = $q_faculty ? $q_faculty->fetch_assoc()['cnt'] : 0;
+$fac_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'faculty'");
+$total_faculty = $fac_res ? $fac_res->fetch_assoc()['total'] : 0;
 
-$q_manuals = $conn->query("SELECT COUNT(*) as cnt FROM `lab_manuals`");
-$total_manuals = $q_manuals ? $q_manuals->fetch_assoc()['cnt'] : 0;
+$sub_res = $conn->query("SELECT COUNT(*) as total FROM student_submissions");
+$total_submissions = $sub_res ? $sub_res->fetch_assoc()['total'] : 0;
 
-$q_subs = $conn->query("SELECT COUNT(*) as cnt FROM `student_submissions`");
-$total_submissions = $q_subs ? $q_subs->fetch_assoc()['cnt'] : 0;
+$pen_res = $conn->query("SELECT COUNT(*) as total FROM student_submissions WHERE status = 'Pending'");
+$pending_submissions = $pen_res ? $pen_res->fetch_assoc()['total'] : 0;
 
-$client_ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Standard Web Browser';
-$browser_short = 'Chrome / Desktop';
-if (strpos($user_agent, 'Firefox') !== false) $browser_short = 'Mozilla Firefox';
-elseif (strpos($user_agent, 'Edg') !== false) $browser_short = 'Microsoft Edge';
-elseif (strpos($user_agent, 'Safari') !== false && strpos($user_agent, 'Chrome') === false) $browser_short = 'Apple Safari';
+// Admin initials for avatar
+$name_parts = explode(' ', trim($admin_name));
+$initials = 'AD';
+if (count($name_parts) >= 2) {
+    $initials = strtoupper(mb_substr($name_parts[0], 0, 1) . mb_substr($name_parts[count($name_parts)-1], 0, 1));
+} elseif (!empty($name_parts[0])) {
+    $initials = strtoupper(mb_substr($name_parts[0], 0, 2));
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -186,506 +186,310 @@ elseif (strpos($user_agent, 'Safari') !== false && strpos($user_agent, 'Chrome')
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Profile - Lab Manual Portal</title>
     
-    <!-- Bootstrap 5, FontAwesome & Modern Typography -->
+    <!-- Bootstrap, FontAwesome & PREMIUM GOOGLE FONT (Exact Match to Dashboard) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
         :root { 
-            --sidebar-width: 260px; 
-            --bg-color: #f4f7fe; 
-            --sidebar-bg: #1a365d; 
-            --accent-blue: #2563eb; 
-            --accent-hover: #1d4ed8;
+            --sidebar-width: 270px; 
+            --primary: #4338ca; 
+            --primary-hover: #3730a3;
+            --bg-body: #f8fafc;
             --surface: #ffffff;
-            --text-main: #1e293b;
+            --text-main: #0f172a;
             --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            --shadow-subtle: 0 4px 14px rgba(0, 0, 0, 0.04);
-            --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+            --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
             --radius-xl: 16px;
-            --radius-lg: 12px;
-            --radius-md: 10px;
-            --transition-smooth: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
-        * { box-sizing: border-box; }
 
         body { 
-            background-color: var(--bg-color); 
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            display: flex; 
-            height: 100vh; 
-            overflow: hidden; 
-            margin: 0; 
-            color: var(--text-main); 
+            background-color: var(--bg-body); 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            display: flex; height: 100vh; overflow: hidden; margin: 0; color: var(--text-main);
         }
         
-        /* 🔵 SIDEBAR (Matches Admin Panel) */
+        /* 🔥 EXACT PREMIUM ROYAL BLUE SIDEBAR AS DASHBOARD */
         .sidebar { 
             width: var(--sidebar-width); 
-            background-color: var(--sidebar-bg); 
-            color: #ffffff; 
-            display: flex; 
-            flex-direction: column; 
-            z-index: 100; 
-            overflow-y: auto; 
-            flex-shrink: 0;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+            background: linear-gradient(195deg, #1e3a8a 0%, #4338ca 100%); /* Royal Blue to Indigo Gradient */
+            color: #ffffff; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; 
+            box-shadow: 4px 0 24px rgba(0,0,0,0.08);
         }
-        .sidebar-logo-container { 
-            padding: 30px 20px 20px 20px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            border-bottom: 1px solid rgba(255,255,255,0.08); 
-            text-align: center; 
-        }
-        .sidebar-logo-container img { 
-            width: 85px; 
-            height: 85px; 
-            object-fit: contain; 
-            margin-bottom: 12px; 
-            border-radius: 50%; 
-            padding: 4px; 
-            background: rgba(255,255,255,0.1); 
-            border: 2px solid rgba(255,255,255,0.25); 
-        }
-        .sidebar-title h2 { 
-            font-size: 18px; 
-            font-weight: 700; 
-            margin: 0; 
-            line-height: 1.2; 
-            letter-spacing: 0.5px; 
-            color: #ffffff;
-        }
-        .sidebar-subtitle { 
-            font-size: 12px; 
-            color: #94a3b8; 
-            margin-top: 4px; 
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-        }
+        .sidebar-logo-container { padding: 35px 20px 25px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); }
+        .sidebar-logo-container img { width: 85px; height: 85px; margin-bottom: 15px; border-radius: 50%; padding: 4px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); }
+        .sidebar-title h2 { font-size: 19px; font-weight: 800; margin: 0; letter-spacing: 0.5px; color: #ffffff;}
+        .sidebar-subtitle { font-size: 12px; color: #bfdbfe; margin-top: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;}
         
-        .nav-links { 
-            list-style: none; 
-            padding: 20px 14px; 
-            margin: 0; 
-            flex-grow: 1; 
-        }
+        .nav-links { list-style: none; padding: 25px 15px; margin: 0; flex-grow: 1; }
         .nav-links li { 
-            padding: 12px 18px; 
-            margin: 5px 0; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            gap: 14px; 
-            font-size: 14px; 
-            font-weight: 600; 
-            color: #a0aec0; 
-            transition: var(--transition-smooth); 
+            padding: 13px 20px; margin: 8px 0; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 15px; 
+            font-size: 14.5px; font-weight: 600; color: #dbeafe; transition: var(--transition-bounce); border-left: 3px solid transparent;
         }
-        .nav-links li:hover { 
-            color: #ffffff; 
-            background: rgba(255,255,255,0.08); 
-            transform: translateX(3px); 
-        }
+        .nav-links li:hover { color: #ffffff; background: rgba(255,255,255,0.1); transform: translateX(5px); }
         .nav-links li.active { 
-            background: var(--accent-blue); 
-            color: #ffffff; 
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35); 
-            font-weight: 700; 
+            background: rgba(255, 255, 255, 0.2); /* Glass white overlay */
+            color: #ffffff; border-left: 4px solid #ffffff; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        .nav-links li i { font-size: 16px; width: 20px; text-align: center; }
-        .nav-links li.mt-auto { color: #f87171 !important; }
-        .nav-links li.mt-auto:hover { background: rgba(239, 68, 68, 0.15) !important; color: #ffffff !important; }
+        .nav-links li i { font-size: 18px; }
+        .nav-links li.mt-auto { color: #fca5a5 !important; }
 
-        /* ✨ MAIN CONTENT AREA */
-        .main { 
-            flex: 1; 
-            padding: 28px 40px 40px 40px; 
-            overflow-y: auto; 
-            height: 100vh; 
-            animation: fadeIn 0.4s ease-out;
-        }
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(15px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
+        /* ✨ MAIN CONTENT ANIMATION */
+        .main { flex: 1; padding: 30px 45px; overflow-y: auto; height: 100vh; animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeUp { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
 
-        /* 🌈 TOPBAR */
-        .topbar { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            margin-bottom: 24px;
-        }
-        .clock-badge { 
-            background: #ffffff; 
-            border: 1px solid var(--border-color); 
-            border-radius: 10px; 
-            padding: 8px 16px; 
-            color: #475569; 
-            font-weight: 700; 
-            font-size: 13px; 
-            box-shadow: 0 2px 6px rgba(0,0,0,0.02); 
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .clock-dot {
-            width: 8px;
-            height: 8px;
-            background: #10b981;
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-            animation: pulseDot 2s infinite;
-        }
-        @keyframes pulseDot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.3); opacity: 0.7; }
-        }
-
+        /* 🌈 TOPBAR & PROFILE PILL */
+        .topbar { padding: 0 0 15px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;}
+        .clock-badge { background: var(--surface); border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 18px; color: #475569; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-float); }
+        
         .profile-pill { 
-            display: flex; 
-            align-items: center; 
-            background-color: #ffffff; 
-            padding: 6px 16px 6px 20px; 
-            border-radius: 30px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.04); 
-            border: 1px solid var(--border-color); 
-            text-decoration: none; 
-            color: inherit; 
-            transition: var(--transition-smooth);
+            display: flex; align-items: center; background-color: var(--surface); padding: 8px 18px 8px 24px; 
+            border-radius: 50px; border: 1px solid rgba(226, 232, 240, 0.8); cursor: pointer; text-decoration: none; color: inherit; 
+            transition: var(--transition-bounce); box-shadow: var(--shadow-float);
         }
-        .profile-pill:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 6px 16px rgba(0,0,0,0.06); 
-        }
-        .profile-text { text-align: right; margin-right: 14px; }
-        .profile-welcome { 
-            display: block; 
-            font-size: 9.5px; 
-            color: #64748b; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            letter-spacing: 0.8px; 
-            margin-bottom: 2px; 
-        }
-        .profile-name { margin: 0; font-size: 14px; color: #1e293b; font-weight: 700; }
-        .profile-avatar { 
-            width: 42px; 
-            height: 42px; 
-            background: linear-gradient(135deg, #1e3a8a, #2563eb); 
-            color: #ffffff; 
-            border-radius: 50%; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 13px; 
-            font-weight: 700; 
-            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35); 
-            letter-spacing: 1px;
-        }
+        .profile-pill:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 15px 25px -5px rgba(0,0,0,0.1); border-color: #cbd5e1;}
+        .profile-text { text-align: right; margin-right: 18px; }
+        .profile-welcome { display: block; font-size: 10px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+        .profile-name { margin: 0; font-size: 15px; color: var(--text-main); font-weight: 800; }
+        .profile-avatar { width: 45px; height: 45px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);}
 
-        /* 📦 CONTENT CARDS */
-        .card-custom { 
-            background: var(--surface); 
-            border: 1px solid var(--border-color); 
-            border-radius: var(--radius-xl); 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
-            transition: var(--transition-smooth); 
+        /* 🚀 PREMIUM BUTTONS */
+        .btn-gradient { 
+            background: linear-gradient(135deg, #4f46e5, #3b82f6); color: white; border: none; font-weight: 700; padding: 10px 20px; border-radius: 10px; 
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3); transition: var(--transition-bounce);
+        }
+        .btn-gradient:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4); color: white; }
+
+        /* 📦 CONTENT BOXES */
+        .content-box { 
+            background: var(--surface); border-radius: var(--radius-xl); padding: 30px; 
+            border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: var(--shadow-float); transition: var(--transition-bounce); 
+        }
+        .box-title { font-size: 18px; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
+
+        /* 🏆 MASTER IDENTITY PROFILE CARD */
+        .identity-card {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: var(--shadow-float);
             overflow: hidden;
+            transition: var(--transition-bounce);
         }
-        .card-custom:hover { box-shadow: var(--shadow-subtle); }
-
-        /* 👑 LEFT PROFILE BANNER & AVATAR */
-        .profile-header-banner {
-            background: linear-gradient(135deg, #1a365d 0%, #1e40af 100%);
-            height: 125px;
+        .identity-card:hover { box-shadow: 0 16px 32px -4px rgba(0,0,0,0.08); }
+        .identity-header-cover {
+            height: 90px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 60%, #3b82f6 100%);
             position: relative;
-            padding: 16px 20px;
-            display: flex;
-            align-items: flex-start;
-            justify-content: flex-end;
         }
-        .badge-verified-pill {
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(6px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 5px 12px;
-            border-radius: 20px;
-            letter-spacing: 0.5px;
-        }
-        .profile-avatar-circle {
-            width: 104px;
-            height: 104px;
-            border-radius: 50%;
-            background: #ffffff;
-            padding: 5px;
-            margin: -52px auto 14px auto;
+        .identity-avatar-wrap {
             position: relative;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            width: 90px;
+            height: 90px;
+            margin: -45px auto 14px;
         }
-        .profile-avatar-inner {
-            width: 100%;
-            height: 100%;
+        .identity-avatar {
+            width: 90px;
+            height: 90px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            background: linear-gradient(135deg, #4f46e5, #3730a3);
             color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 38px;
+            font-size: 28px;
+            font-weight: 800;
+            border: 4px solid #ffffff;
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
         }
-        .avatar-online-dot {
+        .status-dot-active {
             position: absolute;
             bottom: 4px;
             right: 4px;
-            width: 24px;
-            height: 24px;
+            width: 18px;
+            height: 18px;
             background: #10b981;
             border: 3px solid #ffffff;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            font-size: 10px;
+            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
         }
 
-        /* 📊 STATS MINI GRID */
-        .stat-mini-tile {
+        /* 📊 MINI STATS INSIDE PROFILE */
+        .mini-stat-card {
             background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: var(--radius-md);
-            padding: 12px 10px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 12px;
+            padding: 14px 12px;
             text-align: center;
-            transition: var(--transition-smooth);
+            transition: var(--transition-bounce);
         }
-        .stat-mini-tile:hover {
-            background: #ffffff;
-            border-color: #cbd5e1;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-        }
-        .stat-mini-num {
-            font-size: 20px;
-            font-weight: 800;
-            color: var(--text-main);
-            margin: 0;
-            line-height: 1.1;
-        }
-        .stat-mini-text {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 4px;
-            margin-bottom: 0;
-        }
+        .mini-stat-card:hover { transform: translateY(-3px); background: #ffffff; box-shadow: 0 6px 15px rgba(0,0,0,0.05); }
+        .mini-stat-num { font-size: 20px; font-weight: 800; color: var(--text-main); margin-bottom: 2px; }
+        .mini-stat-label { font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* 🗂️ NAV TABS */
-        .nav-tabs-modern {
-            display: flex;
-            gap: 6px;
+        .icon-box-sm { 
+            width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; margin-bottom: 6px; 
+        }
+        .blue-box { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .green-box { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .yellow-box { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+        .purple-box { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+
+        /* 🗂️ MODERN NAV PILL TABS */
+        .nav-modern-pills {
             background: #f1f5f9;
             padding: 6px;
-            border-radius: var(--radius-lg);
-            border: 1px solid #e2e8f0;
-            margin-bottom: 24px;
-        }
-        .nav-tabs-modern .nav-link {
-            flex: 1;
-            text-align: center;
-            border: none;
-            color: #64748b;
-            font-weight: 700;
-            font-size: 13.5px;
-            padding: 10px 14px;
-            border-radius: var(--radius-md);
-            transition: var(--transition-smooth);
-            background: transparent;
+            border-radius: 12px;
             display: flex;
+            gap: 6px;
+            border: none;
+            margin-bottom: 25px;
+        }
+        .nav-modern-pills .nav-link {
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #64748b;
+            padding: 10px 18px;
+            background: transparent;
+            transition: var(--transition-bounce);
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
             gap: 8px;
         }
-        .nav-tabs-modern .nav-link:hover {
-            color: var(--accent-blue);
-            background: rgba(255, 255, 255, 0.7);
+        .nav-modern-pills .nav-link:hover {
+            color: var(--primary);
+            background: rgba(255,255,255,0.6);
         }
-        .nav-tabs-modern .nav-link.active {
+        .nav-modern-pills .nav-link.active {
             background: #ffffff;
-            color: var(--accent-blue);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            font-weight: 800;
         }
 
-        /* 📝 FORM STYLES */
-        .form-label-title {
-            font-size: 12px;
+        /* 📝 MODERN FORMS */
+        .form-label-modern {
+            font-size: 11px;
             font-weight: 800;
-            color: #475569;
             text-transform: uppercase;
-            letter-spacing: 0.6px;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
             margin-bottom: 6px;
             display: block;
         }
-        .input-group-modern {
-            display: flex;
-            align-items: center;
-            background: #f8fafc;
-            border: 1.5px solid #e2e8f0;
-            border-radius: var(--radius-md);
-            transition: var(--transition-smooth);
-        }
-        .input-group-modern:focus-within {
-            border-color: var(--accent-blue);
-            background: #ffffff;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
-        }
-        .input-icon-left {
-            padding: 0 16px;
-            color: #94a3b8;
-            font-size: 15px;
-        }
-        .input-group-modern:focus-within .input-icon-left {
-            color: var(--accent-blue);
-        }
         .form-control-modern {
-            flex: 1;
-            border: none;
-            background: transparent;
-            padding: 12px 14px 12px 0;
+            border-radius: 10px;
+            border: 1.5px solid #e2e8f0;
+            padding: 12px 16px;
             font-size: 14px;
             font-weight: 600;
             color: var(--text-main);
-            outline: none;
-            font-family: inherit;
+            background-color: #f8fafc;
+            transition: all 0.25s ease;
         }
-        .form-control-modern:read-only {
+        .form-control-modern:focus {
+            background-color: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(67, 56, 202, 0.1);
+            outline: none;
+        }
+        .form-control-modern:disabled, .form-control-modern[readonly] {
+            background-color: #f1f5f9;
             color: #64748b;
             cursor: not-allowed;
         }
-        .btn-eye-toggle {
-            background: transparent;
+
+        .input-group-modern {
+            position: relative;
+        }
+        .input-group-modern .btn-eye {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
             border: none;
-            padding: 0 16px;
             color: #94a3b8;
             cursor: pointer;
+            z-index: 5;
             transition: color 0.2s;
         }
-        .btn-eye-toggle:hover { color: var(--accent-blue); }
+        .input-group-modern .btn-eye:hover { color: var(--primary); }
 
-        /* 🚀 ACTION BUTTON */
-        .btn-theme-primary {
-            background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
-            color: #ffffff;
-            border: none;
-            font-weight: 700;
-            font-size: 14.5px;
-            padding: 11px 24px;
-            border-radius: var(--radius-md);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-            transition: var(--transition-smooth);
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
+        /* ⚡ PASSWORD METER */
+        .password-meter-bg {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 50px;
+            overflow: hidden;
+            margin-top: 8px;
         }
-        .btn-theme-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.4);
-            color: #ffffff;
+        .password-meter-bar {
+            height: 100%;
+            width: 0%;
+            transition: all 0.3s ease;
+            border-radius: 50px;
         }
 
-        /* 🎚️ SWITCH CARD */
-        .switch-tile-card {
+        /* ⚙️ PREFERENCE TOGGLE CARDS */
+        .toggle-card {
             background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: var(--radius-md);
-            padding: 16px 20px;
-            margin-bottom: 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            transition: var(--transition-smooth);
+            margin-bottom: 15px;
+            transition: var(--transition-bounce);
         }
-        .switch-tile-card:hover {
-            background: #ffffff;
+        .toggle-card:hover {
             border-color: #cbd5e1;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
-        .form-check-input-lg {
-            width: 3.2em !important;
-            height: 1.6em !important;
+        .form-check-input-modern {
+            width: 48px;
+            height: 26px;
             cursor: pointer;
         }
-        .form-check-input-lg:checked {
-            background-color: var(--accent-blue);
-            border-color: var(--accent-blue);
+        .form-check-input-modern:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
         }
 
-        /* 🛡️ PERMISSIONS */
+        /* 🛡️ PRIVILEGE CARD */
         .privilege-card {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
-            border-radius: var(--radius-md);
-            padding: 16px;
+            border-radius: 12px;
+            padding: 18px;
             display: flex;
             align-items: flex-start;
-            gap: 14px;
+            gap: 15px;
+            transition: var(--transition-bounce);
             height: 100%;
-            transition: var(--transition-smooth);
         }
         .privilege-card:hover {
+            transform: translateY(-4px);
             background: #ffffff;
+            box-shadow: var(--shadow-float);
             border-color: #cbd5e1;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-        }
-        .privilege-icon-box {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            flex-shrink: 0;
-        }
-
-        /* ⚡ PASSWORD METER */
-        .pwd-strength-bar {
-            height: 6px;
-            border-radius: 4px;
-            background: #e2e8f0;
-            margin-top: 8px;
-            overflow: hidden;
-        }
-        .pwd-strength-fill {
-            height: 100%;
-            width: 0%;
-            transition: width 0.3s ease, background-color 0.3s ease;
         }
 
         /* SCROLLBAR */
-        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body>
 
-    <!-- 🔵 SIDEBAR (Exact Admin Panel Layout) -->
+    <!-- 🔥 EXACT ROYAL BLUE SIDEBAR AS DASHBOARD -->
     <div class="sidebar">
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
@@ -693,472 +497,378 @@ elseif (strpos($user_agent, 'Safari') !== false && strpos($user_agent, 'Chrome')
             <div class="sidebar-subtitle">Admin Portal</div>
         </div>
         <ul class="nav-links">
-            <li onclick="window.location.href='dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
+            <li onclick="window.location.href='dashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
             <li onclick="window.location.href='Student_Mgmt.php'"><i class="fas fa-user-graduate"></i> Student Mgmt</li>
             <li onclick="window.location.href='faculty_mgmt.php'"><i class="fas fa-chalkboard-teacher"></i> Faculty Mgmt</li>
-            <li onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book"></i> Subject Mgmt</li>
-            <li onclick="window.location.href='Lab_Manuals.php'"><i class="fas fa-file-alt"></i> Lab Manuals</li>
-            <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
-            <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
-            <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
+            <li onclick="window.location.href='subject_mgmt.php'"><i class="fas fa-book-open"></i> Subject Mgmt</li>
+            <li onclick="window.location.href='Lab_Manuals.php'"><i class="fas fa-file-pdf"></i> Lab Manuals</li>
+            <li onclick="window.location.href='Submissions.php'"><i class="fas fa-inbox"></i> Submissions</li>
+            <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-double"></i> Review & Marks</li>
+            <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-pie"></i> Reports</li>
             <li class="active" onclick="window.location.href='Profile.php'"><i class="fas fa-user-shield"></i> Admin Profile</li>
             <li class="mt-auto" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
     </div>
 
-    <!-- ✨ MAIN CONTENT -->
+    <!-- MAIN CONTENT AREA -->
     <div class="main">
         
-        <!-- 🌈 TOPBAR -->
+        <!-- 🌈 EXACT TOPBAR AS DASHBOARD -->
         <div class="topbar">
             <div class="d-flex align-items-center gap-3">
                 <div class="clock-badge">
-                    <span class="clock-dot"></span>
-                    <i class="far fa-clock text-primary"></i>
-                    <span id="liveClock">Loading time...</span>
+                    <i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span>
                 </div>
-                <div class="d-none d-md-flex align-items-center gap-2 text-muted small fw-semibold">
-                    <span>Admin Portal</span> <i class="fas fa-chevron-right" style="font-size: 10px;"></i>
-                    <span>Account Settings</span> <i class="fas fa-chevron-right" style="font-size: 10px;"></i>
-                    <span class="text-primary fw-bold">Administrator Profile</span>
-                </div>
-            </div>
-            
-            <div class="profile-pill">
-                <div class="profile-text">
-                    <span class="profile-welcome">Master Authority</span>
-                    <h4 class="profile-name"><?php echo htmlspecialchars($admin_name); ?></h4>
-                </div>
-                <div class="profile-avatar">
-                    <?php 
-                        $words = explode(' ', trim($admin_name));
-                        $initials = '';
-                        foreach ($words as $w) {
-                            if (!empty($w)) $initials .= strtoupper($w[0]);
-                            if (strlen($initials) >= 2) break;
-                        }
-                        echo !empty($initials) ? $initials : 'AD';
-                    ?>
-                </div>
-            </div>
-        </div>
-
-        <!-- 🚀 PAGE HEADER -->
-        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2">
-            <div class="d-flex align-items-center gap-3">
-                <div style="width: 52px; height: 52px; border-radius: 12px; background: rgba(37, 99, 235, 0.1); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; font-size: 24px;">
-                    <i class="fas fa-user-shield"></i>
-                </div>
-                <div>
-                    <h3 class="fw-bold mb-1" style="font-size: 25px; color: var(--text-main);">HOD / Administrator Profile</h3>
-                    <p class="text-muted fw-semibold small mb-0">Manage department credentials, personal administrative info, and portal security.</p>
-                </div>
-            </div>
-            <div class="d-flex gap-2 mt-3 mt-md-0">
-                <a href="dashboard.php" class="btn btn-outline-secondary fw-bold d-flex align-items-center gap-2" style="border-radius: 8px; padding: 9px 18px; font-size: 13.5px;">
-                    <i class="fas fa-arrow-left"></i> Dashboard
-                </a>
-                <button class="btn btn-outline-primary fw-bold d-flex align-items-center gap-2" onclick="location.reload();" style="border-radius: 8px; padding: 9px 18px; font-size: 13.5px;">
-                    <i class="fas fa-sync-alt"></i> Refresh
-                </button>
-            </div>
-        </div>
-
-        <!-- 🔔 ALERTS -->
-        <?php if (!empty($message)) echo $message; ?>
-
-        <!-- 📐 MAIN 2-COLUMN GRID -->
-        <div class="row g-4">
-            
-            <!-- 👤 LEFT COLUMN: MASTER ADMIN ID CARD -->
-            <div class="col-lg-4">
                 
-                <!-- Master Identity Card -->
-                <div class="card-custom mb-4">
-                    <div class="profile-header-banner">
-                        <span class="badge-verified-pill">
-                            <i class="fas fa-crown text-warning me-1"></i> Root Authority
-                        </span>
-                    </div>
-                    
-                    <div class="profile-avatar-circle">
-                        <div class="profile-avatar-inner">
-                            <i class="fas fa-user-tie"></i>
-                        </div>
-                        <div class="avatar-online-dot" title="Authenticated & Active">
-                            <i class="fas fa-check"></i>
-                        </div>
-                    </div>
-                    
-                    <div class="text-center px-4 pb-4">
-                        <h4 class="fw-bold mb-1 text-dark" style="font-size: 20px;"><?php echo htmlspecialchars($admin_name); ?></h4>
-                        <p class="text-muted small fw-semibold mb-2"><?php echo htmlspecialchars($admin_email); ?></p>
-                        
-                        <span class="badge px-3 py-2 rounded-pill mb-3" style="background: rgba(37, 99, 235, 0.1); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.2); font-weight: 700;">
-                            <i class="fas fa-shield-alt me-1"></i> Head of Department (HOD)
-                        </span>
-
-                        <!-- Department Callout -->
-                        <div class="p-2 mb-3 rounded-2 text-center" style="background: #f1f5f9; font-size: 12.5px; font-weight: 700; color: #475569;">
-                            <i class="fas fa-building text-primary me-1"></i> <?php echo htmlspecialchars($admin_dept); ?>
-                        </div>
-                        
-                        <!-- Mini Counters -->
-                        <div class="row g-2 pt-2 border-top">
-                            <div class="col-6">
-                                <div class="stat-mini-tile">
-                                    <p class="stat-mini-num text-primary"><?php echo $total_students; ?></p>
-                                    <p class="stat-mini-text">Students</p>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="stat-mini-tile">
-                                    <p class="stat-mini-num text-success"><?php echo $total_faculty; ?></p>
-                                    <p class="stat-mini-text">Faculty</p>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="stat-mini-tile">
-                                    <p class="stat-mini-num text-warning"><?php echo $total_manuals; ?></p>
-                                    <p class="stat-mini-text">Manuals</p>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="stat-mini-tile">
-                                    <p class="stat-mini-num text-danger"><?php echo $total_submissions; ?></p>
-                                    <p class="stat-mini-text">Submissions</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Security Health Score -->
-                        <div class="p-3 bg-light rounded-3 mt-3 text-start border">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="fw-bold small text-dark"><i class="fas fa-shield-virus text-primary me-1"></i> Account Health</span>
-                                <span class="badge bg-success-subtle text-success fw-bold">96% Optimal</span>
-                            </div>
-                            <div class="progress" style="height: 6px; border-radius: 4px;">
-                                <div class="progress-bar bg-success" role="progressbar" style="width: 96%"></div>
-                            </div>
-                            <small class="text-muted mt-2 d-block" style="font-size: 11px;">
-                                <i class="fas fa-check text-success me-1"></i> Database Synchronized &middot; 
-                                <i class="fas fa-check text-success me-1"></i> HTTPS/Session Active
-                            </small>
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- Session Information Card -->
-                <div class="card-custom p-4">
-                    <h6 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2" style="font-size: 14px;">
-                        <i class="fas fa-network-wired text-primary"></i> Current Session Details
-                    </h6>
-                    <ul class="list-unstyled mb-0" style="font-size: 13px;">
-                        <li class="d-flex justify-content-between py-2 border-bottom">
-                            <span class="text-muted fw-semibold">Admin User ID:</span>
-                            <span class="fw-bold text-dark"><code><?php echo htmlspecialchars($admin_id); ?></code></span>
-                        </li>
-                        <li class="d-flex justify-content-between py-2 border-bottom">
-                            <span class="text-muted fw-semibold">Department:</span>
-                            <span class="fw-bold text-dark"><?php echo htmlspecialchars($admin_dept); ?></span>
-                        </li>
-                        <li class="d-flex justify-content-between py-2 border-bottom">
-                            <span class="text-muted fw-semibold">Client IP:</span>
-                            <span class="badge bg-secondary-subtle text-secondary fw-semibold"><?php echo htmlspecialchars($client_ip); ?></span>
-                        </li>
-                        <li class="d-flex justify-content-between py-2 border-bottom">
-                            <span class="text-muted fw-semibold">Client Agent:</span>
-                            <span class="fw-semibold text-dark"><?php echo htmlspecialchars($browser_short); ?></span>
-                        </li>
-                        <li class="d-flex justify-content-between pt-2">
-                            <span class="text-muted fw-semibold">Account Created:</span>
-                            <span class="fw-semibold text-dark"><?php echo htmlspecialchars($admin_created); ?></span>
-                        </li>
+                <div class="dropdown">
+                    <button class="btn-gradient dropdown-toggle" type="button" id="quickActions" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-bolt me-1"></i> Quick Action
+                    </button>
+                    <ul class="dropdown-menu border-0 mt-2 p-2" aria-labelledby="quickActions" style="border-radius: 12px; box-shadow: var(--shadow-float);">
+                        <li><a class="dropdown-item py-2 fw-bold text-secondary" style="border-radius: 8px;" href="Student_Mgmt.php"><i class="fas fa-user-plus text-primary me-2"></i> Add Student</a></li>
+                        <li><a class="dropdown-item py-2 fw-bold text-secondary" style="border-radius: 8px;" href="faculty_mgmt.php"><i class="fas fa-chalkboard-teacher text-success me-2"></i> Manage Faculty</a></li>
+                        <li><hr class="dropdown-divider my-2"></li>
+                        <li><a class="dropdown-item py-2 fw-bold text-secondary" style="border-radius: 8px;" href="Reports.php"><i class="fas fa-file-pdf text-danger me-2"></i> Generate Report</a></li>
                     </ul>
                 </div>
+            </div>
+            
+            <a href="Profile.php" class="profile-pill">
+                <div class="profile-text">
+                    <span class="profile-welcome">K.D. Polytechnic</span>
+                    <h4 class="profile-name">
+                        <?php 
+                            echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : 'Admin';
+                        ?>
+                    </h4>
+                </div>
+                <div class="profile-avatar"><?= $initials ?></div>
+            </a>
+        </div>
 
+        <!-- PAGE HEADER WITH BACK BUTTON -->
+        <div class="mb-4 mt-2 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <h3 class="fw-bold mb-1" style="font-size: 28px; color: var(--text-main);">Admin Profile</h3>
+                <p class="text-muted fw-semibold small mb-0">Manage account credentials, personal details, and portal security.</p>
+            </div>
+            <a href="dashboard.php" class="btn-gradient text-decoration-none d-inline-flex align-items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <!-- SERVER STATUS NOTIFICATIONS -->
+        <?php if (!empty($message)) echo $message; ?>
+
+        <!-- PROFILE LAYOUT: 2-COLUMN MODERN DESIGN -->
+        <div class="row g-4">
+            
+            <!-- 👤 LEFT COLUMN: MASTER PROFILE IDENTITY CARD -->
+            <div class="col-lg-4 col-xl-4">
+                <div class="identity-card mb-4">
+                    <div class="identity-header-cover"></div>
+                    
+                    <div class="px-4 pb-4 text-center">
+                        <div class="identity-avatar-wrap">
+                            <div class="identity-avatar"><?= $initials ?></div>
+                            <span class="status-dot-active" title="Account Active & Verified"></span>
+                        </div>
+
+                        <h4 class="fw-bold text-dark mb-1" style="font-size: 20px;"><?= htmlspecialchars($admin_name) ?></h4>
+                        <p class="text-muted small fw-semibold mb-3"><?= htmlspecialchars($admin_email) ?></p>
+                        
+                        <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+                            <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-2 rounded-pill" style="font-size: 11.5px;">
+                                <i class="fas fa-shield-alt me-1"></i> Head of Department (HOD)
+                            </span>
+                        </div>
+
+                        <div class="p-2 px-3 rounded-3 bg-light border text-secondary small fw-bold mb-4 d-inline-flex align-items-center gap-2">
+                            <i class="fas fa-laptop-code text-primary"></i> <?= htmlspecialchars($admin_dept) ?>
+                        </div>
+
+                        <!-- 📊 LIVE MINI STATS GRID (Matching Dashboard Stats) -->
+                        <div class="row g-2 pt-2 border-top">
+                            <div class="col-6">
+                                <div class="mini-stat-card">
+                                    <div class="icon-box-sm blue-box"><i class="fas fa-user-graduate"></i></div>
+                                    <div class="mini-stat-num"><?= $total_students ?></div>
+                                    <div class="mini-stat-label">Students</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mini-stat-card">
+                                    <div class="icon-box-sm green-box"><i class="fas fa-chalkboard-teacher"></i></div>
+                                    <div class="mini-stat-num"><?= $total_faculty ?></div>
+                                    <div class="mini-stat-label">Faculty</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mini-stat-card">
+                                    <div class="icon-box-sm yellow-box"><i class="fas fa-inbox"></i></div>
+                                    <div class="mini-stat-num"><?= $total_submissions ?></div>
+                                    <div class="mini-stat-label">Submissions</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mini-stat-card">
+                                    <div class="icon-box-sm purple-box"><i class="fas fa-user-shield"></i></div>
+                                    <div class="mini-stat-num" style="font-size: 16px; margin-top: 4px;">Active</div>
+                                    <div class="mini-stat-label">Portal Status</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ACCOUNT FOOTNOTE -->
+                        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top text-muted small fw-semibold">
+                            <span><i class="far fa-calendar-check me-1 text-primary"></i> Joined: <?= $admin_created ?></span>
+                            <span class="badge bg-success-subtle text-success fw-bold">Verified</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- 📝 RIGHT COLUMN: INTERACTIVE TABS (PROFILE, SECURITY, PREFERENCES, PERMISSIONS) -->
-            <div class="col-lg-8">
-                <div class="card-custom p-4 p-md-5">
+            <!-- ⚙️ RIGHT COLUMN: TABBED SETTINGS & EDIT SUITE -->
+            <div class="col-lg-8 col-xl-8">
+                <div class="content-box">
                     
-                    <!-- Navigation Pills -->
-                    <div class="nav-tabs-modern" id="profileTabs" role="tablist">
-                        <button class="nav-link <?php echo ($active_tab == 'profile') ? 'active' : ''; ?>" id="tab-profile-btn" data-bs-toggle="pill" data-bs-target="#tab-profile" type="button" role="tab">
-                            <i class="fas fa-user-edit"></i> Profile Details
-                        </button>
-                        <button class="nav-link <?php echo ($active_tab == 'security') ? 'active' : ''; ?>" id="tab-security-btn" data-bs-toggle="pill" data-bs-target="#tab-security" type="button" role="tab">
-                            <i class="fas fa-key"></i> Security & Password
-                        </button>
-                        <button class="nav-link <?php echo ($active_tab == 'preferences') ? 'active' : ''; ?>" id="tab-preferences-btn" data-bs-toggle="pill" data-bs-target="#tab-preferences" type="button" role="tab">
-                            <i class="fas fa-sliders-h"></i> Preferences
-                        </button>
-                        <button class="nav-link <?php echo ($active_tab == 'permissions') ? 'active' : ''; ?>" id="tab-permissions-btn" data-bs-toggle="pill" data-bs-target="#tab-permissions" type="button" role="tab">
-                            <i class="fas fa-shield-alt"></i> Permissions
-                        </button>
-                    </div>
+                    <!-- 🗂️ PILL TAB CONTROLS -->
+                    <ul class="nav nav-modern-pills" id="profileTab" role="tablist">
+                        <li class="nav-item flex-fill text-center" role="presentation">
+                            <button class="nav-link w-100 justify-content-center <?= ($active_tab == 'profile') ? 'active' : ''; ?>" id="tab-profile-btn" data-bs-toggle="pill" data-bs-target="#tab-profile" type="button" role="tab">
+                                <i class="fas fa-id-card"></i> Profile Details
+                            </button>
+                        </li>
+                        <li class="nav-item flex-fill text-center" role="presentation">
+                            <button class="nav-link w-100 justify-content-center <?= ($active_tab == 'security') ? 'active' : ''; ?>" id="tab-security-btn" data-bs-toggle="pill" data-bs-target="#tab-security" type="button" role="tab">
+                                <i class="fas fa-lock"></i> Security & Password
+                            </button>
+                        </li>
+                        <li class="nav-item flex-fill text-center" role="presentation">
+                            <button class="nav-link w-100 justify-content-center <?= ($active_tab == 'preferences') ? 'active' : ''; ?>" id="tab-preferences-btn" data-bs-toggle="pill" data-bs-target="#tab-preferences" type="button" role="tab">
+                                <i class="fas fa-sliders-h"></i> Preferences
+                            </button>
+                        </li>
+                        <li class="nav-item flex-fill text-center" role="presentation">
+                            <button class="nav-link w-100 justify-content-center <?= ($active_tab == 'privileges') ? 'active' : ''; ?>" id="tab-privileges-btn" data-bs-toggle="pill" data-bs-target="#tab-privileges" type="button" role="tab">
+                                <i class="fas fa-shield-halved"></i> Privileges
+                            </button>
+                        </li>
+                    </ul>
 
-                    <!-- Tabs Content -->
-                    <div class="tab-content" id="profileTabsContent">
+                    <!-- TAB CONTENT BODIES -->
+                    <div class="tab-content" id="profileTabContent">
                         
-                        <!-- 👤 TAB 1: EDIT PROFILE DETAILS -->
-                        <div class="tab-pane fade <?php echo ($active_tab == 'profile') ? 'show active' : ''; ?>" id="tab-profile" role="tabpanel">
+                        <!-- 👤 TAB 1: PROFILE DETAILS -->
+                        <div class="tab-pane fade <?= ($active_tab == 'profile') ? 'show active' : ''; ?>" id="tab-profile" role="tabpanel">
                             <div class="mb-4">
-                                <h5 class="fw-bold text-dark mb-1">Administrative & Personal Information</h5>
-                                <p class="text-muted fw-semibold small">Update your official display name, official email address, phone number, and department.</p>
+                                <h5 class="box-title">Administrative & Personal Information</h5>
+                                <p class="text-muted fw-semibold small mb-0">Update your official display name, contact phone number, and departmental records.</p>
                             </div>
 
                             <form method="POST" action="Profile.php">
                                 <div class="row g-3">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label-title">Full Name <span class="text-danger">*</span></label>
-                                        <div class="input-group-modern">
-                                            <span class="input-icon-left"><i class="fas fa-user"></i></span>
-                                            <input type="text" name="name" class="form-control-modern" value="<?php echo htmlspecialchars($admin_name); ?>" required placeholder="e.g. Dr. John Doe">
-                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern"><i class="fas fa-user text-primary me-1"></i> Full Name *</label>
+                                        <input type="text" name="name" class="form-control form-control-modern" value="<?= htmlspecialchars($admin_name) ?>" required>
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label-title">Admin User ID (System Permanent)</label>
-                                        <div class="input-group-modern" style="background: #f1f5f9;">
-                                            <span class="input-icon-left"><i class="fas fa-id-badge"></i></span>
-                                            <input type="text" class="form-control-modern" value="<?php echo htmlspecialchars($admin_id); ?>" readonly title="Unique Admin ID cannot be changed">
-                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern"><i class="fas fa-id-badge text-secondary me-1"></i> Admin User ID (Permanent)</label>
+                                        <input type="text" class="form-control form-control-modern" value="<?= htmlspecialchars($admin_id) ?>" readonly>
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label-title">Official Email Address <span class="text-danger">*</span></label>
-                                        <div class="input-group-modern">
-                                            <span class="input-icon-left"><i class="fas fa-envelope"></i></span>
-                                            <input type="email" name="email" class="form-control-modern" value="<?php echo htmlspecialchars($admin_email); ?>" required placeholder="admin@kdpolytechnic.ac.in">
-                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern"><i class="fas fa-envelope text-primary me-1"></i> Official Email Address *</label>
+                                        <input type="email" name="email" class="form-control form-control-modern" value="<?= htmlspecialchars($admin_email) ?>" required>
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label-title">Contact Phone Number</label>
-                                        <div class="input-group-modern">
-                                            <span class="input-icon-left"><i class="fas fa-phone-alt"></i></span>
-                                            <input type="text" name="phone" class="form-control-modern" value="<?php echo htmlspecialchars($admin_phone); ?>" placeholder="+91 98765 43210">
-                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern"><i class="fas fa-phone text-primary me-1"></i> Contact Phone Number</label>
+                                        <input type="text" name="phone" class="form-control form-control-modern" value="<?= htmlspecialchars($admin_phone) ?>" placeholder="+91 98765 43210">
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label-title">Department</label>
-                                        <div class="input-group-modern">
-                                            <span class="input-icon-left"><i class="fas fa-building"></i></span>
-                                            <select name="department" class="form-control-modern" style="cursor: pointer;">
-                                                <option value="Computer Engineering" <?php echo ($admin_dept == 'Computer Engineering') ? 'selected' : ''; ?>>Computer Engineering</option>
-                                                <option value="Information Technology" <?php echo ($admin_dept == 'Information Technology') ? 'selected' : ''; ?>>Information Technology</option>
-                                                <option value="Mechanical Engineering" <?php echo ($admin_dept == 'Mechanical Engineering') ? 'selected' : ''; ?>>Mechanical Engineering</option>
-                                                <option value="Civil Engineering" <?php echo ($admin_dept == 'Civil Engineering') ? 'selected' : ''; ?>>Civil Engineering</option>
-                                                <option value="Electrical Engineering" <?php echo ($admin_dept == 'Electrical Engineering') ? 'selected' : ''; ?>>Electrical Engineering</option>
-                                                <option value="General Administration" <?php echo ($admin_dept == 'General Administration') ? 'selected' : ''; ?>>General Administration</option>
-                                            </select>
-                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern"><i class="fas fa-building text-primary me-1"></i> Department</label>
+                                        <input type="text" name="department" class="form-control form-control-modern" value="<?= htmlspecialchars($admin_dept) ?>" placeholder="e.g. Computer Engineering">
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label-title">System Role Authority</label>
-                                        <div class="input-group-modern" style="background: #f1f5f9;">
-                                            <span class="input-icon-left"><i class="fas fa-shield-alt text-primary"></i></span>
-                                            <input type="text" class="form-control-modern" value="Level 1 - Master Administrator" readonly>
-                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern"><i class="fas fa-user-shield text-secondary me-1"></i> System Role</label>
+                                        <input type="text" class="form-control form-control-modern" value="Super Administrator (HOD)" readonly>
                                     </div>
                                 </div>
 
-                                <div class="d-flex justify-content-end mt-4 pt-2 border-top">
-                                    <button type="submit" name="update_profile" class="btn-theme-primary">
-                                        <i class="fas fa-save"></i> Save Profile Changes
+                                <div class="mt-4 pt-3 border-top d-flex justify-content-end">
+                                    <button type="submit" name="update_profile" class="btn-gradient d-inline-flex align-items-center gap-2">
+                                        <i class="fas fa-save"></i> Save Profile Details
                                     </button>
                                 </div>
                             </form>
                         </div>
 
-                        <!-- 🔐 TAB 2: SECURITY & PASSWORD UPDATE -->
-                        <div class="tab-pane fade <?php echo ($active_tab == 'security') ? 'show active' : ''; ?>" id="tab-security" role="tabpanel">
+                        <!-- 🔐 TAB 2: SECURITY & PASSWORD -->
+                        <div class="tab-pane fade <?= ($active_tab == 'security') ? 'show active' : ''; ?>" id="tab-security" role="tabpanel">
                             <div class="mb-4">
-                                <h5 class="fw-bold text-dark mb-1">Update Security Credentials</h5>
-                                <p class="text-muted fw-semibold small">Please ensure your master password is secure. Keeping your administrative account safe is vital.</p>
+                                <h5 class="box-title">Password & Security Management</h5>
+                                <p class="text-muted fw-semibold small mb-0">Ensure your administrative account is protected with a strong, complex password.</p>
                             </div>
 
                             <form method="POST" action="Profile.php">
-                                <div class="mb-3">
-                                    <label class="form-label-title">Current Password <span class="text-danger">*</span></label>
-                                    <div class="input-group-modern">
-                                        <span class="input-icon-left"><i class="fas fa-unlock-alt"></i></span>
-                                        <input type="password" name="old_password" id="old_password" class="form-control-modern" required placeholder="Enter existing password">
-                                        <button type="button" class="btn-eye-toggle" onclick="togglePasswordVisibility('old_password', this)">
-                                            <i class="far fa-eye"></i>
-                                        </button>
-                                    </div>
-                                </div>
-
                                 <div class="row g-3">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label-title">New Password <span class="text-danger">*</span></label>
+                                    <div class="col-12">
+                                        <label class="form-label-modern"><i class="fas fa-lock text-primary me-1"></i> Current Password *</label>
                                         <div class="input-group-modern">
-                                            <span class="input-icon-left"><i class="fas fa-lock"></i></span>
-                                            <input type="password" name="new_password" id="new_password" class="form-control-modern" required placeholder="Minimum 6 characters" oninput="checkPasswordStrength(this.value)">
-                                            <button type="button" class="btn-eye-toggle" onclick="togglePasswordVisibility('new_password', this)">
-                                                <i class="far fa-eye"></i>
-                                            </button>
+                                            <input type="password" name="old_password" id="old_password" class="form-control form-control-modern" placeholder="Enter current password" required>
+                                            <button type="button" class="btn-eye" onclick="togglePasswordVisibility('old_password', this)"><i class="far fa-eye"></i></button>
                                         </div>
-                                        <div class="pwd-strength-bar">
-                                            <div id="passwordMeterFill" class="pwd-strength-fill"></div>
-                                        </div>
-                                        <small id="passwordStrengthText" class="text-muted fw-semibold" style="font-size: 11px;">Password strength</small>
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label-title">Confirm New Password <span class="text-danger">*</span></label>
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern"><i class="fas fa-key text-primary me-1"></i> New Password *</label>
                                         <div class="input-group-modern">
-                                            <span class="input-icon-left"><i class="fas fa-check-double"></i></span>
-                                            <input type="password" name="confirm_password" id="confirm_password" class="form-control-modern" required placeholder="Re-enter new password">
-                                            <button type="button" class="btn-eye-toggle" onclick="togglePasswordVisibility('confirm_password', this)">
-                                                <i class="far fa-eye"></i>
-                                            </button>
+                                            <input type="password" name="new_password" id="new_password" class="form-control form-control-modern" placeholder="Enter new password (min 6 chars)" oninput="checkPasswordStrength(this.value)" required>
+                                            <button type="button" class="btn-eye" onclick="togglePasswordVisibility('new_password', this)"><i class="far fa-eye"></i></button>
+                                        </div>
+                                        <div class="password-meter-bg">
+                                            <div class="password-meter-bar" id="passwordMeterBar"></div>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-1">
+                                            <small class="fw-bold text-muted" id="passwordStrengthText" style="font-size: 11px;">Strength: None</small>
+                                            <small class="text-muted" style="font-size: 11px;">Min 6 chars</small>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label-modern"><i class="fas fa-check-double text-primary me-1"></i> Confirm New Password *</label>
+                                        <div class="input-group-modern">
+                                            <input type="password" name="confirm_password" id="confirm_password" class="form-control form-control-modern" placeholder="Repeat new password" required>
+                                            <button type="button" class="btn-eye" onclick="togglePasswordVisibility('confirm_password', this)"><i class="far fa-eye"></i></button>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="p-3 bg-light rounded-3 my-3 border">
-                                    <div class="d-flex align-items-start gap-2">
-                                        <i class="fas fa-info-circle text-primary mt-1"></i>
-                                        <div class="small text-muted">
-                                            <strong>Security Recommendation:</strong>
-                                            Use a combination of upper and lowercase letters, numbers, and special symbols. This administrative account controls laboratory submissions and curriculum.
-                                        </div>
+                                <div class="p-3 mt-4 rounded-3 bg-light border">
+                                    <div class="d-flex align-items-center gap-2 text-dark fw-bold small mb-1">
+                                        <i class="fas fa-info-circle text-primary"></i> Password Security Recommendations
                                     </div>
+                                    <ul class="text-muted small mb-0 ps-3 fw-semibold">
+                                        <li>Use at least 8 characters with a mix of numbers, letters, and symbols.</li>
+                                        <li>Never reuse passwords across different academic or personal accounts.</li>
+                                    </ul>
                                 </div>
 
-                                <div class="d-flex justify-content-end mt-4 pt-2 border-top">
-                                    <button type="submit" name="update_password" class="btn-theme-primary">
-                                        <i class="fas fa-key"></i> Save New Password
+                                <div class="mt-4 pt-3 border-top d-flex justify-content-end">
+                                    <button type="submit" name="update_password" class="btn-gradient d-inline-flex align-items-center gap-2">
+                                        <i class="fas fa-key"></i> Update Password
                                     </button>
                                 </div>
                             </form>
                         </div>
 
                         <!-- ⚙️ TAB 3: SYSTEM PREFERENCES -->
-                        <div class="tab-pane fade <?php echo ($active_tab == 'preferences') ? 'show active' : ''; ?>" id="tab-preferences" role="tabpanel">
+                        <div class="tab-pane fade <?= ($active_tab == 'preferences') ? 'show active' : ''; ?>" id="tab-preferences" role="tabpanel">
                             <div class="mb-4">
-                                <h5 class="fw-bold text-dark mb-1">System & Notification Preferences</h5>
-                                <p class="text-muted fw-semibold small">Manage real-time notifications, automated dispatch alerts, and extra verification options.</p>
+                                <h5 class="box-title">Notification & Security Preferences</h5>
+                                <p class="text-muted fw-semibold small mb-0">Control administrative alerts, practical submission notifications, and multi-factor authentication.</p>
                             </div>
 
                             <form method="POST" action="Profile.php">
-                                
-                                <div class="switch-tile-card">
+                                <div class="toggle-card">
                                     <div class="d-flex align-items-center gap-3">
-                                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(37, 99, 235, 0.1); color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 19px;">
-                                            <i class="fas fa-envelope-open-text"></i>
-                                        </div>
+                                        <div class="icon-box-sm blue-box"><i class="fas fa-envelope-open-text"></i></div>
                                         <div>
-                                            <h6 class="fw-bold mb-1 text-dark">Email Dispatch Notifications</h6>
-                                            <small class="text-muted fw-semibold">Receive direct email notifications for portal-wide announcements and daily activity summaries.</small>
+                                            <h6 class="fw-bold text-dark mb-0">Email Notifications</h6>
+                                            <small class="text-muted fw-semibold">Receive daily summary reports and department circular alerts via official email.</small>
                                         </div>
                                     </div>
                                     <div class="form-check form-switch m-0">
-                                        <input class="form-check-input form-check-input-lg" type="checkbox" name="email_notifications" value="1" <?php echo $email_notifications ? 'checked' : ''; ?>>
+                                        <input class="form-check-input form-check-input-modern" type="checkbox" name="email_notifications" id="email_notifications" <?= ($email_notifications == 1) ? 'checked' : ''; ?>>
                                     </div>
                                 </div>
 
-                                <div class="switch-tile-card">
+                                <div class="toggle-card">
                                     <div class="d-flex align-items-center gap-3">
-                                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 19px;">
-                                            <i class="fas fa-shield-alt"></i>
-                                        </div>
+                                        <div class="icon-box-sm yellow-box"><i class="fas fa-bell"></i></div>
                                         <div>
-                                            <h6 class="fw-bold mb-1 text-dark">Two-Factor Authentication (2FA)</h6>
-                                            <small class="text-muted fw-semibold">Require secondary verification prompt when signing in from unfamiliar devices or IP locations.</small>
+                                            <h6 class="fw-bold text-dark mb-0">Practical Submission Alerts</h6>
+                                            <small class="text-muted fw-semibold">Trigger real-time alert badges when students submit practical assignments.</small>
                                         </div>
                                     </div>
                                     <div class="form-check form-switch m-0">
-                                        <input class="form-check-input form-check-input-lg" type="checkbox" name="two_factor_auth" value="1" <?php echo $two_factor_auth ? 'checked' : ''; ?>>
+                                        <input class="form-check-input form-check-input-modern" type="checkbox" name="submission_alerts" id="submission_alerts" <?= ($submission_alerts == 1) ? 'checked' : ''; ?>>
                                     </div>
                                 </div>
 
-                                <div class="switch-tile-card">
+                                <div class="toggle-card">
                                     <div class="d-flex align-items-center gap-3">
-                                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(245, 158, 11, 0.1); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 19px;">
-                                            <i class="fas fa-bell"></i>
-                                        </div>
+                                        <div class="icon-box-sm green-box"><i class="fas fa-shield-virus"></i></div>
                                         <div>
-                                            <h6 class="fw-bold mb-1 text-dark">Student Submission Instant Alerts</h6>
-                                            <small class="text-muted fw-semibold">Display real-time badge counters on the administrative dashboard when new student manuals arrive.</small>
+                                            <h6 class="fw-bold text-dark mb-0">Two-Factor Authentication (2FA)</h6>
+                                            <small class="text-muted fw-semibold">Require one-time verification challenge on logins from unrecognized devices.</small>
                                         </div>
                                     </div>
                                     <div class="form-check form-switch m-0">
-                                        <input class="form-check-input form-check-input-lg" type="checkbox" name="submission_alerts" value="1" <?php echo $submission_alerts ? 'checked' : ''; ?>>
+                                        <input class="form-check-input form-check-input-modern" type="checkbox" name="two_factor_auth" id="two_factor_auth" <?= ($two_factor_auth == 1) ? 'checked' : ''; ?>>
                                     </div>
                                 </div>
 
-                                <div class="d-flex justify-content-end mt-4 pt-2 border-top">
-                                    <button type="submit" name="update_preferences" class="btn-theme-primary">
-                                        <i class="fas fa-check-circle"></i> Save Preferences
+                                <div class="mt-4 pt-3 border-top d-flex justify-content-end">
+                                    <button type="submit" name="update_preferences" class="btn-gradient d-inline-flex align-items-center gap-2">
+                                        <i class="fas fa-sliders-h"></i> Save Preferences
                                     </button>
                                 </div>
                             </form>
                         </div>
 
                         <!-- 🛡️ TAB 4: SYSTEM PRIVILEGES MATRIX -->
-                        <div class="tab-pane fade <?php echo ($active_tab == 'permissions') ? 'show active' : ''; ?>" id="tab-permissions" role="tabpanel">
+                        <div class="tab-pane fade <?= ($active_tab == 'privileges') ? 'show active' : ''; ?>" id="tab-privileges" role="tabpanel">
                             <div class="mb-4">
-                                <h5 class="fw-bold text-dark mb-1">Administrative Privileges Matrix</h5>
-                                <p class="text-muted fw-semibold small">Active authorization permissions and privileges assigned to this super-administrator account.</p>
+                                <h5 class="box-title">Administrative Clearance & Privileges</h5>
+                                <p class="text-muted fw-semibold small mb-0">Active authorization permissions and clearance assigned to this super-administrator account.</p>
                             </div>
 
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <div class="privilege-card">
-                                        <div class="privilege-icon-box" style="background: rgba(37, 99, 235, 0.1); color: #2563eb;">
-                                            <i class="fas fa-users-cog"></i>
-                                        </div>
+                                        <div class="icon-box-sm blue-box"><i class="fas fa-users-cog"></i></div>
                                         <div>
-                                            <h6 class="fw-bold text-dark mb-1">Student & User Management</h6>
-                                            <small class="text-muted">Create, edit, batch upload, activate, and manage student and faculty accounts.</small>
-                                            <span class="badge bg-success-subtle text-success fw-bold mt-2 d-inline-block">Read / Write / Delete</span>
+                                            <h6 class="fw-bold text-dark mb-1">User & Student Management</h6>
+                                            <p class="text-muted small mb-2 fw-semibold">Full authority to enroll, batch import, edit, and manage students and faculty.</p>
+                                            <span class="badge bg-success-subtle text-success fw-bold">Full CRUD Granted</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="col-md-6">
                                     <div class="privilege-card">
-                                        <div class="privilege-icon-box" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
-                                            <i class="fas fa-file-pdf"></i>
-                                        </div>
+                                        <div class="icon-box-sm green-box"><i class="fas fa-file-pdf"></i></div>
                                         <div>
                                             <h6 class="fw-bold text-dark mb-1">Curriculum & Manuals</h6>
-                                            <small class="text-muted">Upload and publish department lab manuals, practical deadlines, and syllabus guidelines.</small>
-                                            <span class="badge bg-success-subtle text-success fw-bold mt-2 d-inline-block">Full Control</span>
+                                            <p class="text-muted small mb-2 fw-semibold">Upload, assign, and publish official practical lab manuals and deadlines.</p>
+                                            <span class="badge bg-success-subtle text-success fw-bold">Full Authority</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="col-md-6">
                                     <div class="privilege-card">
-                                        <div class="privilege-icon-box" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
-                                            <i class="fas fa-check-double"></i>
-                                        </div>
+                                        <div class="icon-box-sm yellow-box"><i class="fas fa-check-double"></i></div>
                                         <div>
-                                            <h6 class="fw-bold text-dark mb-1">Grading & Review Overrides</h6>
-                                            <small class="text-muted">Evaluate, approve, reject, grade, and override submission rubrics across all subjects.</small>
-                                            <span class="badge bg-success-subtle text-success fw-bold mt-2 d-inline-block">Full Authority</span>
+                                            <h6 class="fw-bold text-dark mb-1">Review & Marks Evaluation</h6>
+                                            <p class="text-muted small mb-2 fw-semibold">Inspect submissions, assign grades, approval overrides, and remarks.</p>
+                                            <span class="badge bg-success-subtle text-success fw-bold">Unrestricted Access</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="col-md-6">
                                     <div class="privilege-card">
-                                        <div class="privilege-icon-box" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
-                                            <i class="fas fa-database"></i>
-                                        </div>
+                                        <div class="icon-box-sm purple-box"><i class="fas fa-database"></i></div>
                                         <div>
-                                            <h6 class="fw-bold text-dark mb-1">Database & Architecture</h6>
-                                            <small class="text-muted">Database table auto-verification, schema updates, and direct SQL synchronization.</small>
-                                            <span class="badge bg-danger-subtle text-danger fw-bold mt-2 d-inline-block">Super Admin Only</span>
+                                            <h6 class="fw-bold text-dark mb-1">Database & Core Architecture</h6>
+                                            <p class="text-muted small mb-2 fw-semibold">Table self-healing verification, schema updates, and direct SQL queries.</p>
+                                            <span class="badge bg-danger-subtle text-danger fw-bold">Super Admin Level</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1173,11 +883,11 @@ elseif (strpos($user_agent, 'Safari') !== false && strpos($user_agent, 'Chrome')
 
     </div>
 
-    <!-- Bootstrap Bundle JS -->
+    <!-- Bootstrap Bundle JS (with Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // 🕒 Live Real-time Clock
+        // 🕒 Real-time Live Clock (Exact match to Dashboard)
         function updateLiveClock() {
             const now = new Date();
             const options = { 
@@ -1190,9 +900,10 @@ elseif (strpos($user_agent, 'Safari') !== false && strpos($user_agent, 'Chrome')
                 second: '2-digit', 
                 hour12: true 
             };
-            const timeStr = now.toLocaleDateString('en-IN', options);
-            const el = document.getElementById('liveClock');
-            if (el) el.innerText = timeStr;
+            const clockEl = document.getElementById('liveClock');
+            if (clockEl) {
+                clockEl.innerText = now.toLocaleDateString('en-IN', options);
+            }
         }
         setInterval(updateLiveClock, 1000);
         updateLiveClock();
@@ -1213,9 +924,9 @@ elseif (strpos($user_agent, 'Safari') !== false && strpos($user_agent, 'Chrome')
 
         // ⚡ Interactive Real-time Password Strength Meter
         function checkPasswordStrength(password) {
-            const fill = document.getElementById('passwordMeterFill');
+            const bar = document.getElementById('passwordMeterBar');
             const txt = document.getElementById('passwordStrengthText');
-            if (!fill || !txt) return;
+            if (!bar || !txt) return;
 
             let score = 0;
             if (password.length >= 6) score += 25;
@@ -1223,22 +934,26 @@ elseif (strpos($user_agent, 'Safari') !== false && strpos($user_agent, 'Chrome')
             if (/[0-9]/.test(password)) score += 25;
             if (/[^A-Za-z0-9]/.test(password)) score += 25;
 
-            fill.style.width = score + '%';
+            bar.style.width = score + '%';
 
-            if (score <= 25) {
-                fill.style.backgroundColor = '#ef4444';
+            if (score === 0) {
+                bar.style.backgroundColor = '#e2e8f0';
+                txt.innerText = 'Strength: None';
+                txt.style.color = '#64748b';
+            } else if (score <= 25) {
+                bar.style.backgroundColor = '#ef4444';
                 txt.innerText = 'Strength: Weak';
                 txt.style.color = '#ef4444';
             } else if (score <= 50) {
-                fill.style.backgroundColor = '#f59e0b';
+                bar.style.backgroundColor = '#f59e0b';
                 txt.innerText = 'Strength: Fair';
                 txt.style.color = '#f59e0b';
             } else if (score <= 75) {
-                fill.style.backgroundColor = '#2563eb';
+                bar.style.backgroundColor = '#3b82f6';
                 txt.innerText = 'Strength: Good';
-                txt.style.color = '#2563eb';
+                txt.style.color = '#3b82f6';
             } else {
-                fill.style.backgroundColor = '#10b981';
+                bar.style.backgroundColor = '#10b981';
                 txt.innerText = 'Strength: Strong & Secure 🛡️';
                 txt.style.color = '#10b981';
             }
