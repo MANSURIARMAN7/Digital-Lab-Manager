@@ -236,7 +236,11 @@ $recent_query = $conn->query("
                         ?>
                     </h4>
                 </div>
-                <div class="profile-avatar">AD</div>
+                <?php if ($has_photo): ?>
+                    <img src="<?= $photo_url ?>" alt="Avatar" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #ffffff; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);">
+                <?php else: ?>
+                    <div class="profile-avatar">AD</div>
+                <?php endif; ?>
             </a>
         </div>
 
