@@ -9,7 +9,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
     $faculty_id = $conn->real_escape_string($_POST['faculty_id']);
     $branch = $conn->real_escape_string($_POST['branch']);
     $semester = $conn->real_escape_string($_POST['semester']);
-    
+
     // Subjects ko array me convert karna
     $raw_subjects = $_POST['subjects'];
     $subject_array = array_filter(array_map('trim', explode(',', $raw_subjects)));
@@ -17,7 +17,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
     // 1. Current subjects fetch karo
     $fetch_sql = "SELECT subjects FROM users WHERE user_id = '$faculty_id'";
     $res = $conn->query($fetch_sql);
-    
+
     $existing_data = [];
     if ($res && $res->num_rows > 0) {
         $row = $res->fetch_assoc();
@@ -47,7 +47,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['assign_subject'])) {
 
     // 4. Wapas JSON banake Database me save kar do
     $new_json = $conn->real_escape_string(json_encode($existing_data));
-    
+
     $update_sql = "UPDATE users SET subjects = '$new_json' WHERE user_id = '$faculty_id'";
     if ($conn->query($update_sql)) {
         $msg = "<div class='alert alert-success shadow-sm rounded-3'><i class='fa-solid fa-check-circle me-2'></i> Subjects assigned to <strong>$branch ($semester)</strong> successfully!</div>";
@@ -104,7 +104,7 @@ $branches = [
             <?php echo $msg; ?>
 
             <form method="POST">
-                
+
                 <!-- 1. Select Faculty -->
                 <div class="mb-3">
                     <label class="form-label">1. Select Faculty</label>
@@ -159,3 +159,6 @@ $branches = [
 
 </body>
 </html>
+
+
+
