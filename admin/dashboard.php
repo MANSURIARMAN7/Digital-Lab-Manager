@@ -10,9 +10,12 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
 
 // Fetch Admin Details for Profile Pill
 $admin_id = $_SESSION['user_id'];
-$admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = '$admin_id'");
+$admin_query = $conn->query("SELECT name, department, profile_pic FROM users WHERE user_id = '$admin_id'");
 $admin_data = $admin_query ? $admin_query->fetch_assoc() : null;
 $admin_name = $admin_data['name'] ?? 'System Administrator';
+$admin_photo = $admin_data['profile_pic'] ?? null;
+$has_photo = (!empty($admin_photo) && file_exists("../uploads/profiles/" . $admin_photo));
+$photo_url = $has_photo ? "../uploads/profiles/" . htmlspecialchars($admin_photo) : '';
 
 // ==========================================
 // 📊 METRICS & COUNTERS QUERY

@@ -14,6 +14,12 @@ $admin_id = $_SESSION['user_id'];
 $message = "";
 $active_tab = "profile"; // default tab
 
+// Directory for profile pictures
+$upload_dir = "../uploads/profiles/";
+if (!is_dir($upload_dir)) {
+    @mkdir($upload_dir, 0777, true);
+}
+
 // ==========================================
 // 🛠️ SMART DB COLUMNS ENSURE
 // ==========================================
@@ -33,8 +39,32 @@ if ($check_alerts && $check_alerts->num_rows == 0) {
     @$conn->query("ALTER TABLE `users` ADD COLUMN `submission_alerts` TINYINT(1) DEFAULT 1");
 }
 
+$check_pic = $conn->query("SHOW COLUMNS FROM `users` LIKE 'profile_pic'");
+if ($check_pic && $check_pic->num_rows == 0) {
+    @$conn->query("ALTER TABLE `users` ADD COLUMN `profile_pic` VARCHAR(255) DEFAULT NULL");
+}
+
 // ==========================================
-// 👤 1. UPDATE PROFILE INFORMATION LOGIC
+// 🗑️ REMOVE PROFILE PHOTO LOGIC
+// ==========================================
+if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['remove_photo'])) {
+    $active_tab = "profile";
+    $old_pic_q = $conn->query("SELECT `profile_pic` FROM `users` WHERE `user_id` = '$admin_id'");
+    if ($old_pic_q && $old_pic_q->num_rows > 0) {
+        $old_pic = $old_pic_q->fetch_assoc()['profile_pic'] ?? '';
+        if (!empty($old_pic) && file_exists($upload_dir . $old_pic)) {
+            @unlink($upload_dir . $old_pic);
+        }
+    }
+    $conn->query("UPDATE `users` SET `profile_pic` = NULL WHERE `user_id` = '$admin_id'");
+    $message = '<div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(16, 185, 129, 0.12); color: #065f46; font-weight:700;" role="alert">
+        <i class="fas fa-trash-alt me-2 fs-5"></i> Profile picture removed successfully! Reverted to default avatar.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>';
+}
+
+// ==========================================
+// 👤 1. UPDATE PROFILE & PHOTO LOGIC
 // ==========================================
 if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['update_profile'])) {
     $active_tab = "profile";
@@ -43,25 +73,74 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') == 'POST' && isset($_POST['update_profile
     $phone = $conn->real_escape_string(trim($_POST['phone'] ?? ''));
     $department = $conn->real_escape_string(trim($_POST['department'] ?? ''));
 
-    if (!empty($name) && !empty($email)) {
-        $update_profile_query = "UPDATE `users` SET `name` = '$name', `email` = '$email', `phone` = '$phone', `department` = '$department' WHERE `user_id` = '$admin_id'";
-        if ($conn->query($update_profile_query)) {
-            $_SESSION['name'] = $name;
-            $message = '<div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(16, 185, 129, 0.12); color: #065f46; font-weight:700;" role="alert">
-                <i class="fas fa-check-circle me-2 fs-5"></i> Profile details updated successfully! 🎉
+    $new_pic_name = null;
+    $upload_ok = true;
+
+    // Handle Profile Photo Upload if provided
+    if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] === UPLOAD_ERR_OK) {
+        $allowed_exts = ['jpg', 'jpeg', 'png', 'webp'];
+        $file_tmp = $_FILES['profile_pic']['tmp_name'];
+        $file_name = $_FILES['profile_pic']['name'];
+        $file_size = $_FILES['profile_pic']['size'];
+        $ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+
+        if (!in_array($ext, $allowed_exts)) {
+            $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
+                <i class="fas fa-times-circle me-2 fs-5"></i> Only JPG, JPEG, PNG, and WEBP image formats are supported!
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>';
-        } else {
+            $upload_ok = false;
+        } elseif ($file_size > 5 * 1024 * 1024) {
             $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
-                <i class="fas fa-times-circle me-2 fs-5"></i> Database Error: ' . htmlspecialchars($conn->error) . '
+                <i class="fas fa-times-circle me-2 fs-5"></i> Profile picture size must be under 5MB!
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>';
+            $upload_ok = false;
+        } else {
+            $new_pic_name = "admin_" . preg_replace('/[^a-zA-Z0-9_-]/', '', $admin_id) . "_" . time() . "." . $ext;
+            $target_path = $upload_dir . $new_pic_name;
+
+            if (move_uploaded_file($file_tmp, $target_path)) {
+                // Delete existing old photo
+                $old_pic_q = $conn->query("SELECT `profile_pic` FROM `users` WHERE `user_id` = '$admin_id'");
+                if ($old_pic_q && $old_pic_q->num_rows > 0) {
+                    $old_pic = $old_pic_q->fetch_assoc()['profile_pic'] ?? '';
+                    if (!empty($old_pic) && file_exists($upload_dir . $old_pic)) {
+                        @unlink($upload_dir . $old_pic);
+                    }
+                }
+            } else {
+                $upload_ok = false;
+                $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
+                    <i class="fas fa-times-circle me-2 fs-5"></i> Failed to save uploaded image. Check folder permissions!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>';
+            }
+        }
+    }
+
+    if ($upload_ok) {
+        if (!empty($name) && !empty($email)) {
+            $pic_clause = ($new_pic_name !== null) ? ", `profile_pic` = '$new_pic_name'" : "";
+            $update_profile_query = "UPDATE `users` SET `name` = '$name', `email` = '$email', `phone` = '$phone', `department` = '$department' $pic_clause WHERE `user_id` = '$admin_id'";
+            if ($conn->query($update_profile_query)) {
+                $_SESSION['name'] = $name;
+                $message = '<div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(16, 185, 129, 0.12); color: #065f46; font-weight:700;" role="alert">
+                    <i class="fas fa-check-circle me-2 fs-5"></i> Profile details & photo updated successfully! 🎉
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>';
+            } else {
+                $message = '<div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(239, 68, 68, 0.12); color: #991b1b; font-weight:700;" role="alert">
+                    <i class="fas fa-times-circle me-2 fs-5"></i> Database Error: ' . htmlspecialchars($conn->error) . '
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>';
+            }
+        } else {
+            $message = '<div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(245, 158, 11, 0.12); color: #92400e; font-weight:700;" role="alert">
+                <i class="fas fa-exclamation-triangle me-2 fs-5"></i> Name and Email cannot be empty!
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>';
         }
-    } else {
-        $message = '<div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius:12px; background: rgba(245, 158, 11, 0.12); color: #92400e; font-weight:700;" role="alert">
-            <i class="fas fa-exclamation-triangle me-2 fs-5"></i> Name and Email cannot be empty!
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>';
     }
 }
 
@@ -156,6 +235,11 @@ $admin_created = !empty($admin_data['created_at']) ? date('M d, Y', strtotime($a
 $email_notifications = $admin_data['email_notifications'] ?? 1;
 $two_factor_auth = $admin_data['two_factor_auth'] ?? 0;
 $submission_alerts = $admin_data['submission_alerts'] ?? 1;
+
+// Profile Photo Resolution
+$profile_pic = $admin_data['profile_pic'] ?? null;
+$has_photo = (!empty($profile_pic) && file_exists($upload_dir . $profile_pic));
+$photo_url = $has_photo ? $upload_dir . htmlspecialchars($profile_pic) : '';
 
 // System statistics matching Dashboard
 $st_res = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'student'");
@@ -254,6 +338,7 @@ if (count($name_parts) >= 2) {
         .profile-welcome { display: block; font-size: 10px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
         .profile-name { margin: 0; font-size: 15px; color: var(--text-main); font-weight: 800; }
         .profile-avatar { width: 45px; height: 45px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);}
+        .profile-avatar-pill { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #ffffff; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); }
 
         /* 🚀 PREMIUM BUTTONS */
         .btn-gradient { 
@@ -286,34 +371,106 @@ if (count($name_parts) >= 2) {
         }
         .identity-avatar-wrap {
             position: relative;
-            width: 90px;
-            height: 90px;
-            margin: -45px auto 14px;
+            width: 95px;
+            height: 95px;
+            margin: -48px auto 14px;
         }
         .identity-avatar {
-            width: 90px;
-            height: 90px;
+            width: 95px;
+            height: 95px;
             border-radius: 50%;
             background: linear-gradient(135deg, #4f46e5, #3730a3);
             color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+            font-size: 30px;
             font-weight: 800;
             border: 4px solid #ffffff;
             box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
         }
+        .identity-avatar-img {
+            width: 95px;
+            height: 95px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ffffff;
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+            background: #ffffff;
+        }
+        .avatar-camera-btn {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 32px;
+            height: 32px;
+            background: var(--primary);
+            color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            cursor: pointer;
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+            transition: var(--transition-bounce);
+        }
+        .avatar-camera-btn:hover {
+            transform: scale(1.15);
+            background: #312e81;
+            color: #ffffff;
+        }
         .status-dot-active {
             position: absolute;
-            bottom: 4px;
+            top: 4px;
             right: 4px;
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             background: #10b981;
             border: 3px solid #ffffff;
             border-radius: 50%;
             box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+        }
+
+        /* 📸 PHOTO UPLOAD BOX INSIDE TAB */
+        .photo-upload-box {
+            background: #f8fafc;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 22px;
+            transition: var(--transition-bounce);
+        }
+        .photo-upload-box:hover {
+            border-color: var(--primary);
+            background: #f1f5f9;
+        }
+        .thumb-preview {
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .thumb-initials {
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5, #3730a3);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 800;
+            border: 3px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
 
         /* 📊 MINI STATS INSIDE PROFILE */
@@ -542,7 +699,11 @@ if (count($name_parts) >= 2) {
                         ?>
                     </h4>
                 </div>
-                <div class="profile-avatar"><?= $initials ?></div>
+                <?php if ($has_photo): ?>
+                    <img src="<?= $photo_url ?>" alt="Avatar" class="profile-avatar-pill">
+                <?php else: ?>
+                    <div class="profile-avatar"><?= $initials ?></div>
+                <?php endif; ?>
             </a>
         </div>
 
@@ -570,7 +731,18 @@ if (count($name_parts) >= 2) {
                     
                     <div class="px-4 pb-4 text-center">
                         <div class="identity-avatar-wrap">
-                            <div class="identity-avatar"><?= $initials ?></div>
+                            <?php if ($has_photo): ?>
+                                <img src="<?= $photo_url ?>" alt="Admin Avatar" class="identity-avatar-img" id="masterAvatarImg">
+                                <div class="identity-avatar d-none" id="masterAvatarInitials"><?= $initials ?></div>
+                            <?php else: ?>
+                                <div class="identity-avatar" id="masterAvatarInitials"><?= $initials ?></div>
+                                <img src="" alt="Admin Avatar" class="identity-avatar-img d-none" id="masterAvatarImg">
+                            <?php endif; ?>
+                            
+                            <!-- 📷 Camera Trigger Button -->
+                            <label for="profilePicInput" class="avatar-camera-btn" title="Upload New Photo">
+                                <i class="fas fa-camera"></i>
+                            </label>
                             <span class="status-dot-active" title="Account Active & Verified"></span>
                         </div>
 
@@ -663,10 +835,43 @@ if (count($name_parts) >= 2) {
                         <div class="tab-pane fade <?= ($active_tab == 'profile') ? 'show active' : ''; ?>" id="tab-profile" role="tabpanel">
                             <div class="mb-4">
                                 <h5 class="box-title">Administrative & Personal Information</h5>
-                                <p class="text-muted fw-semibold small mb-0">Update your official display name, contact phone number, and departmental records.</p>
+                                <p class="text-muted fw-semibold small mb-0">Update your official display name, contact phone number, profile photo, and departmental records.</p>
                             </div>
 
-                            <form method="POST" action="Profile.php">
+                            <form method="POST" action="Profile.php" enctype="multipart/form-data" id="profileForm">
+                                
+                                <!-- 📸 MODERN PROFILE PHOTO MANAGEMENT CARD -->
+                                <div class="photo-upload-box">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div id="tabThumbContainer">
+                                            <?php if ($has_photo): ?>
+                                                <img src="<?= $photo_url ?>" alt="Current Avatar" class="thumb-preview" id="tabAvatarThumb">
+                                                <div class="thumb-initials d-none" id="tabAvatarThumbInitials"><?= $initials ?></div>
+                                            <?php else: ?>
+                                                <div class="thumb-initials" id="tabAvatarThumbInitials"><?= $initials ?></div>
+                                                <img src="" alt="Preview" class="thumb-preview d-none" id="tabAvatarThumb">
+                                            <?php endif; ?>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-1">Profile Photo</h6>
+                                            <p class="text-muted small mb-0 fw-semibold">Upload an official avatar or photo (JPG, PNG, WEBP, Max 5MB).</p>
+                                            <div id="photoStatusText" class="small text-primary fw-bold mt-1 d-none">New photo selected! Click 'Save Profile Details' to apply.</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                                        <label for="profilePicInput" class="btn btn-sm btn-outline-primary fw-bold px-3 py-2 rounded-3" style="cursor: pointer;">
+                                            <i class="fas fa-upload me-1"></i> Choose Photo
+                                        </label>
+                                        <input type="file" name="profile_pic" id="profilePicInput" accept="image/png, image/jpeg, image/jpg, image/webp" class="d-none" onchange="previewSelectedPhoto(this)">
+                                        
+                                        <?php if ($has_photo): ?>
+                                            <button type="submit" name="remove_photo" class="btn btn-sm btn-outline-danger fw-bold px-3 py-2 rounded-3" onclick="return confirm('Are you sure you want to remove your profile photo?');">
+                                                <i class="fas fa-trash-alt me-1"></i> Remove
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label-modern"><i class="fas fa-user text-primary me-1"></i> Full Name *</label>
@@ -956,6 +1161,54 @@ if (count($name_parts) >= 2) {
                 bar.style.backgroundColor = '#10b981';
                 txt.innerText = 'Strength: Strong & Secure 🛡️';
                 txt.style.color = '#10b981';
+            }
+        }
+
+        // 📸 Instant Photo Preview
+        function previewSelectedPhoto(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                // Validate size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert("Selected file is too large! Please choose an image smaller than 5MB.");
+                    input.value = "";
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const dataUrl = e.target.result;
+
+                    // 1. Update Left Column Master Card Avatar
+                    const masterImg = document.getElementById('masterAvatarImg');
+                    const masterInitials = document.getElementById('masterAvatarInitials');
+                    if (masterImg) {
+                        masterImg.src = dataUrl;
+                        masterImg.classList.remove('d-none');
+                    }
+                    if (masterInitials) {
+                        masterInitials.classList.add('d-none');
+                    }
+
+                    // 2. Update Tab 1 Thumbnail Preview
+                    const tabThumb = document.getElementById('tabAvatarThumb');
+                    const tabInitials = document.getElementById('tabAvatarThumbInitials');
+                    if (tabThumb) {
+                        tabThumb.src = dataUrl;
+                        tabThumb.classList.remove('d-none');
+                    }
+                    if (tabInitials) {
+                        tabInitials.classList.add('d-none');
+                    }
+
+                    // 3. Show notification prompt
+                    const statusTxt = document.getElementById('photoStatusText');
+                    if (statusTxt) {
+                        statusTxt.classList.remove('d-none');
+                    }
+                };
+                reader.readAsDataURL(file);
             }
         }
     </script>
