@@ -14,31 +14,62 @@ $admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = 
 $admin_data = $admin_query->fetch_assoc();
 $admin_name = $admin_data['name'] ?? 'System Administrator';
 
-// Determine which year to show (Default to 1st Year)
-$year = isset($_GET['year']) ? (int)$_GET['year'] : 1;
-
-// Get Filtered Semester & Search Query
-$filter_sem = isset($_GET['sem']) ? $_GET['sem'] : 'all';
+// Get Parameters
 $search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$filter_sem = isset($_GET['sem']) ? $_GET['sem'] : 'all';
 
-// Year and Semester Configuration
-if ($year == 1) {
-    $allowed_sems = ['Semester 1', 'Semester 2'];
-    $year_title = "1st Year Students";
-    $theme_color = "#2563eb"; 
-} elseif ($year == 2) {
-    $allowed_sems = ['Semester 3', 'Semester 4'];
-    $year_title = "2nd Year Students";
-    $theme_color = "#10b981"; 
-} elseif ($year == 3) {
-    $allowed_sems = ['Semester 5', 'Semester 6'];
-    $year_title = "3rd Year Students";
-    $theme_color = "#f59e0b"; 
+// 🚀 FIXED: Check if it is a Global Search (Search exists, but Year is missing)
+$is_global_search = !isset($_GET['year']) && !empty($search_query);
+
+if ($is_global_search) {
+    // === GLOBAL SEARCH MODE ===
+    $year = 0; 
+    $year_title = "Global Search Results";
+    $theme_color = "#6366f1"; // Indigo Color for Global Search
+    $sql_sem_condition = "1=1"; // Match ALL Semesters
 } else {
-    $year = 1;
-    $allowed_sems = ['Semester 1', 'Semester 2'];
-    $year_title = "1st Year Students";
-    $theme_color = "#2563eb";
+    // === NORMAL YEAR FILTER MODE ===
+    $year = isset($_GET['year']) ? (int)$_GET['year'] : 1;
+
+    // 🚀 FIXED: Robust Semester Checking (Handles both '5' and 'Semester 5')
+    if ($year == 1) {
+        $sem_labels = ['Semester 1', 'Semester 2'];
+        $sem_values = "'Semester 1', '1', 'Semester 2', '2'";
+        $sem1_values = "'Semester 1', '1'";
+        $sem2_values = "'Semester 2', '2'";
+        $year_title = "1st Year Students";
+        $theme_color = "#2563eb"; 
+    } elseif ($year == 2) {
+        $sem_labels = ['Semester 3', 'Semester 4'];
+        $sem_values = "'Semester 3', '3', 'Semester 4', '4'";
+        $sem1_values = "'Semester 3', '3'";
+        $sem2_values = "'Semester 4', '4'";
+        $year_title = "2nd Year Students";
+        $theme_color = "#10b981"; 
+    } elseif ($year == 3) {
+        $sem_labels = ['Semester 5', 'Semester 6'];
+        $sem_values = "'Semester 5', '5', 'Semester 6', '6'";
+        $sem1_values = "'Semester 5', '5'";
+        $sem2_values = "'Semester 6', '6'";
+        $year_title = "3rd Year Students";
+        $theme_color = "#f59e0b"; 
+    } else {
+        $year = 1;
+        $sem_labels = ['Semester 1', 'Semester 2'];
+        $sem_values = "'Semester 1', '1', 'Semester 2', '2'";
+        $sem1_values = "'Semester 1', '1'";
+        $sem2_values = "'Semester 2', '2'";
+        $year_title = "1st Year Students";
+        $theme_color = "#2563eb";
+    }
+
+    if ($filter_sem == $sem_labels[0]) {
+        $sql_sem_condition = "(semester IN ($sem1_values) OR designation IN ($sem1_values))";
+    } elseif ($filter_sem == $sem_labels[1]) {
+        $sql_sem_condition = "(semester IN ($sem2_values) OR designation IN ($sem2_values))";
+    } else {
+        $sql_sem_condition = "(semester IN ($sem_values) OR designation IN ($sem_values))";
+    }
 }
 
 // ==========================================
@@ -54,24 +85,14 @@ if (isset($_GET['delete_id'])) {
     }
 }
 
-// ==========================================
-// 🗄️ FETCH STUDENTS WITH SEM & SEARCH QUERY - FIXED! 🐛🔨
-// ==========================================
-// Ab dono columns check honge: `semester` aur `designation`
-if ($filter_sem !== 'all' && in_array($filter_sem, $allowed_sems)) {
-    $safe_sem = $conn->real_escape_string($filter_sem);
-    $sql_sem_condition = "(semester = '$safe_sem' OR designation = '$safe_sem')";
-} else {
-    $sql_sem_condition = "(semester IN ('" . $allowed_sems[0] . "', '" . $allowed_sems[1] . "') OR designation IN ('" . $allowed_sems[0] . "', '" . $allowed_sems[1] . "'))";
-}
-
-// Add Search condition if user typed something
+// Add Search condition
 $sql_search_condition = "";
 if (!empty($search_query)) {
     $safe_search = $conn->real_escape_string($search_query);
     $sql_search_condition = " AND (name LIKE '%$safe_search%' OR email LIKE '%$safe_search%')";
 }
 
+// Final Query Execution
 $sql = "SELECT * FROM users WHERE role='student' AND ($sql_sem_condition) $sql_search_condition ORDER BY class_name ASC, batch ASC, name ASC";
 $students = $conn->query($sql);
 ?>
@@ -132,7 +153,6 @@ $students = $conn->query($sql);
             <li onclick="window.location.href='Submissions.php'"><i class="fas fa-folder-open"></i> Submissions</li>
             <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-circle"></i> Review & Marks</li>
             <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-bar"></i> Reports</li>
-            <li onclick="window.location.href='Expense Mgmt.php'"><i class="fas fa-wallet"></i> Expense Mgmt</li>
             <li class="mt-auto" onclick="window.location.href='../logout.php'" style="color: #f87171;"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
     </div>
@@ -148,7 +168,7 @@ $students = $conn->query($sql);
             
             <a href="Profile.php" class="profile-pill">
                 <div class="profile-text">
-                    <span class="profile-welcome">Welcome Back,</span>
+                    <span class="profile-welcome">K.D. Polytechnic</span>
                     <h4 class="profile-name">
                         <?php 
                             $name_parts = explode(' ', $admin_name);
@@ -156,7 +176,7 @@ $students = $conn->query($sql);
                         ?>
                     </h4>
                 </div>
-                <div class="profile-avatar">HOD</div>
+                <div class="profile-avatar">ADMIN</div>
             </a>
         </div>
 
@@ -168,30 +188,38 @@ $students = $conn->query($sql);
                 <h3 class="fw-bold text-dark mb-1" style="color: <?php echo $theme_color; ?> !important; font-size: 24px;">
                     <i class="fas fa-users me-2"></i> <?php echo $year_title; ?>
                 </h3>
-                <p class="text-muted small mb-0">Search, filter, or manage students enrolled in this year.</p>
+                <p class="text-muted small mb-0">
+                    <?php echo $is_global_search ? "Showing results from all semesters across the database." : "Search, filter, or manage students enrolled in this year."; ?>
+                </p>
             </div>
             
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <!-- LIVE SEARCH FORM -->
                 <form method="GET" action="view_students.php" class="d-flex">
-                    <input type="hidden" name="year" value="<?php echo $year; ?>">
-                    <input type="hidden" name="sem" value="<?php echo $filter_sem; ?>">
+                    <?php if(!$is_global_search): ?>
+                        <input type="hidden" name="year" value="<?php echo $year; ?>">
+                        <input type="hidden" name="sem" value="<?php echo $filter_sem; ?>">
+                    <?php endif; ?>
                     <div class="input-group">
                         <input type="text" name="search" class="form-control" placeholder="Search name or ID..." value="<?php echo htmlspecialchars($search_query); ?>" style="border-radius: 8px 0 0 8px; border: 2px solid #e2e8f0; font-size: 14px;">
                         <button type="submit" class="btn btn-primary" style="border-radius: 0 8px 8px 0;"><i class="fas fa-search"></i></button>
                     </div>
                 </form>
 
-                <!-- SEMESTER FILTER -->
+                <!-- SEMESTER FILTER (Hidden in Global Search Mode) -->
+                <?php if(!$is_global_search): ?>
                 <form method="GET" action="view_students.php">
                     <input type="hidden" name="year" value="<?php echo $year; ?>">
                     <input type="hidden" name="search" value="<?php echo htmlspecialchars($search_query); ?>">
                     <select name="sem" class="form-select fw-bold text-primary" style="border-radius: 8px; border: 2px solid #e2e8f0; cursor:pointer;" onchange="this.form.submit()">
                         <option value="all" <?php echo ($filter_sem == 'all') ? 'selected' : ''; ?>>All Semesters</option>
-                        <option value="<?php echo $allowed_sems[0]; ?>" <?php echo ($filter_sem == $allowed_sems[0]) ? 'selected' : ''; ?>><?php echo $allowed_sems[0]; ?></option>
-                        <option value="<?php echo $allowed_sems[1]; ?>" <?php echo ($filter_sem == $allowed_sems[1]) ? 'selected' : ''; ?>><?php echo $allowed_sems[1]; ?></option>
+                        <option value="<?php echo $sem_labels[0]; ?>" <?php echo ($filter_sem == $sem_labels[0]) ? 'selected' : ''; ?>><?php echo $sem_labels[0]; ?></option>
+                        <option value="<?php echo $sem_labels[1]; ?>" <?php echo ($filter_sem == $sem_labels[1]) ? 'selected' : ''; ?>><?php echo $sem_labels[1]; ?></option>
                     </select>
                 </form>
+                <?php else: ?>
+                    <a href="view_students.php?year=1" class="btn btn-outline-primary fw-bold" style="border-radius: 8px;">Clear Search</a>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -222,14 +250,13 @@ $students = $conn->query($sql);
                                             echo htmlspecialchars($dept[0]) . " Engg."; 
                                         ?>
                                     </td>
-                                    <!-- DISPLAY SEMESTER EVEN IF IT'S IN DESIGNATION -->
                                     <td class="fw-semibold text-primary">
                                         <?php echo htmlspecialchars(!empty($row['semester']) ? $row['semester'] : $row['designation']); ?>
                                     </td>
                                     <td><span class="badge-class">Class <?php echo !empty($row['class_name']) ? htmlspecialchars($row['class_name']) : 'N/A'; ?></span></td>
                                     <td><span class="badge-batch">Batch <?php echo !empty($row['batch']) ? htmlspecialchars($row['batch']) : 'N/A'; ?></span></td>
                                     <td class="text-end">
-                                        <a href="view_students.php?year=<?php echo $year; ?>&sem=<?php echo $filter_sem; ?>&search=<?php echo urlencode($search_query); ?>&delete_id=<?php echo $row['user_id']; ?>" 
+                                        <a href="view_students.php?<?php echo $is_global_search ? "search=".urlencode($search_query) : "year=$year&sem=$filter_sem&search=".urlencode($search_query); ?>&delete_id=<?php echo $row['user_id']; ?>" 
                                            class="btn btn-outline-danger btn-delete" 
                                            onclick="return confirm('Are you sure you want to remove this student?');">
                                             <i class="fas fa-trash-alt me-1"></i> Remove
