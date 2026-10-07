@@ -1,7 +1,6 @@
- <?php
+<?php
 session_start();
-// NAYA CHANGE 1: 'include' ki jagah 'require_once' lagaya taki DB connection strict rahe
-require_once '../db.php';
+include '../db.php';
 
 // 1. Admin Login Check
 if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
@@ -9,11 +8,11 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
-// Fetch Admin Details for Profile (Change 4: XSS Prevention)
+// Fetch Admin Details for Profile
 $admin_id = $_SESSION['user_id'];
 $admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = '$admin_id'");
 $admin_data = $admin_query->fetch_assoc();
-$admin_name = !empty($admin_data['name']) ? htmlspecialchars($admin_data['name']) : 'System Administrator';
+$admin_name = $admin_data['name'] ?? 'System Administrator';
 
 $message = "";
 
@@ -21,41 +20,24 @@ $message = "";
 // 🚀 ADD SINGLE STUDENT LOGIC
 // ==========================================
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
-    // Change 2: Empty Validation Check
-    if(empty($_POST['name']) || empty($_POST['email']) || empty($_POST['password'])) {
-        $message = "<div class='alert alert-warning alert-dismissible fade show' style='border-radius:10px;' role='alert'>All fields are required!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-    } 
-    // NAYA CHANGE 3 (LATEST): Backend check for Password Length to prevent Inspect Element hacking
-    elseif (strlen($_POST['password']) < 6) {
-        $message = "<div class='alert alert-danger alert-dismissible fade show' style='border-radius:10px;' role='alert'><i class='fas fa-shield-alt me-2'></i> Security Warning: Password must be at least 6 characters long!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-    } 
-    else {
-        $name = $conn->real_escape_string(trim($_POST['name']));
-        // Change 3: Sanitize Email Input
-        $raw_email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
-        $email = $conn->real_escape_string($raw_email); 
-        $password = password_hash($_POST['password'], PASSWORD_DEFAULT); 
-        $department = $conn->real_escape_string($_POST['department']);
-        $semester = $conn->real_escape_string($_POST['semester']);
-        $class_name = $conn->real_escape_string($_POST['class_name']);
-        $batch = $conn->real_escape_string($_POST['batch']);
+    $name = $conn->real_escape_string($_POST['name']);
+    $email = $conn->real_escape_string($_POST['email']); 
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT); 
+    $department = $conn->real_escape_string($_POST['department']);
+    $semester = $conn->real_escape_string($_POST['semester']);
+    $class_name = $conn->real_escape_string($_POST['class_name']);
+    $batch = $conn->real_escape_string($_POST['batch']);
 
-        // Change 1: Prepared Statement for SQL Injection Safety
-        $stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ?");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $check = $stmt->get_result();
-
-        if($check->num_rows > 0) {
-            $message = "<div class='alert alert-danger alert-dismissible fade show' style='border-radius:10px;' role='alert'>Student with this Enrollment/Email already exists!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+    $check = $conn->query("SELECT * FROM users WHERE email='$email'");
+    if($check->num_rows > 0) {
+        $message = "<div class='alert alert-danger alert-dismissible fade show' style='border-radius:10px;' role='alert'>Student with this Enrollment/Email already exists!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+    } else {
+        $sql = "INSERT INTO users (name, email, password, role, department, semester, class_name, batch) 
+                VALUES ('$name', '$email', '$password', 'student', '$department', '$semester', '$class_name', '$batch')";
+        if ($conn->query($sql)) {
+            $message = "<div class='alert alert-success alert-dismissible fade show' style='border-radius:10px;' role='alert'>Student Added Successfully to $semester - Class $class_name ($batch)!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
         } else {
-            $sql = "INSERT INTO users (name, email, password, role, department, semester, class_name, batch) 
-                    VALUES ('$name', '$email', '$password', 'student', '$department', '$semester', '$class_name', '$batch')";
-            if ($conn->query($sql)) {
-                $message = "<div class='alert alert-success alert-dismissible fade show' style='border-radius:10px;' role='alert'>Student Added Successfully to $semester - Class $class_name ($batch)!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-            } else {
-                $message = "<div class='alert alert-danger alert-dismissible fade show' style='border-radius:10px;' role='alert'>Error: " . $conn->error . "<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-            }
+            $message = "<div class='alert alert-danger alert-dismissible fade show' style='border-radius:10px;' role='alert'>Error: " . $conn->error . "<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
         }
     }
 }
@@ -65,50 +47,38 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
 // ==========================================
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bulk_import'])) {
     if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] == 0) {
-        // Change 5: CSV Extension Validation
-        $ext = pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION);
-        if (strtolower($ext) !== 'csv') {
-            $message = "<div class='alert alert-danger alert-dismissible fade show' style='border-radius:10px;' role='alert'>Please upload a valid .csv file format.<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-        } else {
-            $file = $_FILES['csv_file']['tmp_name'];
-            $handle = fopen($file, "r");
-            
-            $success_count = 0;
-            $duplicate_count = 0;
+        $file = $_FILES['csv_file']['tmp_name'];
+        $handle = fopen($file, "r");
+        
+        $success_count = 0;
+        $duplicate_count = 0;
 
-            fgetcsv($handle); // Skip header
+        fgetcsv($handle); // Skip header
 
-            while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                if(count($data) >= 7) {
-                    // Change 6: Trim whitespace from CSV data
-                    $name = trim($conn->real_escape_string($data[0]));
-                    $email = filter_var(trim($data[1]), FILTER_SANITIZE_EMAIL);
-                    $email = $conn->real_escape_string($email);
-                    $password = password_hash(trim($data[2]), PASSWORD_DEFAULT);
-                    $department = trim($conn->real_escape_string($data[3]));
-                    $semester = trim($conn->real_escape_string($data[4]));
-                    $class_name = trim($conn->real_escape_string($data[5]));
-                    $batch = trim($conn->real_escape_string($data[6]));
+        while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+            if(count($data) >= 7) {
+                $name = $conn->real_escape_string($data[0]);
+                $email = $conn->real_escape_string($data[1]);
+                $password = password_hash($data[2], PASSWORD_DEFAULT);
+                $department = $conn->real_escape_string($data[3]);
+                $semester = $conn->real_escape_string($data[4]);
+                $class_name = $conn->real_escape_string($data[5]);
+                $batch = $conn->real_escape_string($data[6]);
 
-                    $stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ?");
-                    $stmt->bind_param("s", $email);
-                    $stmt->execute();
-                    $check = $stmt->get_result();
-
-                    if($check->num_rows == 0) {
-                        $sql = "INSERT INTO users (name, email, password, role, department, semester, class_name, batch) 
-                                VALUES ('$name', '$email', '$password', 'student', '$department', '$semester', '$class_name', '$batch')";
-                        if($conn->query($sql)) {
-                            $success_count++;
-                        }
-                    } else {
-                        $duplicate_count++;
+                $check = $conn->query("SELECT user_id FROM users WHERE email='$email'");
+                if($check->num_rows == 0) {
+                    $sql = "INSERT INTO users (name, email, password, role, department, semester, class_name, batch) 
+                            VALUES ('$name', '$email', '$password', 'student', '$department', '$semester', '$class_name', '$batch')";
+                    if($conn->query($sql)) {
+                        $success_count++;
                     }
+                } else {
+                    $duplicate_count++;
                 }
             }
-            fclose($handle);
-            $message = "<div class='alert alert-success alert-dismissible fade show' style='border-radius:10px;' role='alert'><i class='fas fa-check-circle me-2'></i>Bulk Import Complete: <strong>$success_count</strong> Students Added, <strong>$duplicate_count</strong> Duplicates Skipped.<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
         }
+        fclose($handle);
+        $message = "<div class='alert alert-success alert-dismissible fade show' style='border-radius:10px;' role='alert'><i class='fas fa-check-circle me-2'></i>Bulk Import Complete: <strong>$success_count</strong> Students Added, <strong>$duplicate_count</strong> Duplicates Skipped.<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
     } else {
         $message = "<div class='alert alert-danger alert-dismissible fade show' style='border-radius:10px;' role='alert'>Please upload a valid CSV file.<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
     }
@@ -129,13 +99,12 @@ $yr3_count = ($yr3_res) ? $yr3_res->fetch_assoc()['total'] : 0;
 // ==========================================
 // 📢 LIVE NOTICE BOARD
 // ==========================================
-// Change 7: Added Error Handling (or die) to query
 $live_notices = $conn->query("
     SELECT s.subject_name, s.status, u.name, COALESCE(NULLIF(u.semester, ''), u.designation) AS semester 
     FROM student_submissions s 
     JOIN users u ON s.student_id = u.user_id 
     ORDER BY s.submitted_at DESC LIMIT 3
-") or die("Database Error: " . $conn->error);
+");
 ?>
 
 <!DOCTYPE html>
@@ -143,8 +112,7 @@ $live_notices = $conn->query("
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Change 9: Meaningful Page Title -->
-    <title>Student Management | K.D. Polytechnic Admin Portal</title>
+    <title>Student Management - Admin</title>
     
     <!-- Bootstrap, FontAwesome & PREMIUM GOOGLE FONT -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -172,6 +140,7 @@ $live_notices = $conn->query("
             display: flex; height: 100vh; overflow: hidden; margin: 0; color: var(--text-main);
         }
         
+        /* 🔥 PREMIUM BLUE SIDEBAR */
         .sidebar { 
             width: var(--sidebar-width); 
             background: linear-gradient(195deg, #1e3a8a 0%, #4338ca 100%);
@@ -186,10 +155,7 @@ $live_notices = $conn->query("
         .nav-links { list-style: none; padding: 25px 15px; margin: 0; flex-grow: 1; }
         .nav-links li { 
             padding: 13px 20px; margin: 8px 0; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 15px; 
-            font-size: 14.5px; font-weight: 600; color: #dbeafe; 
-            /* Change 10: Smooth active state transition */
-            transition: background-color 0.3s ease, transform 0.3s ease, color 0.3s ease; 
-            border-left: 3px solid transparent;
+            font-size: 14.5px; font-weight: 600; color: #dbeafe; transition: var(--transition-bounce); border-left: 3px solid transparent;
         }
         .nav-links li:hover { color: #ffffff; background: rgba(255,255,255,0.1); transform: translateX(5px); }
         .nav-links li.active { 
@@ -199,9 +165,11 @@ $live_notices = $conn->query("
         .nav-links li i { font-size: 18px; }
         .nav-links li.mt-auto { color: #fca5a5 !important; }
 
+        /* ✨ MAIN CONTENT ANIMATION */
         .main { flex: 1; padding: 30px 45px; overflow-y: auto; height: 100vh; animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes fadeUp { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
 
+        /* 🌈 TOPBAR & PROFILE PILL */
         .topbar { padding: 0 0 15px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px;}
         .clock-badge { background: var(--surface); border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 18px; color: #475569; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-float); }
         
@@ -214,8 +182,9 @@ $live_notices = $conn->query("
         .profile-text { text-align: right; margin-right: 18px; }
         .profile-welcome { display: block; font-size: 10px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
         .profile-name { margin: 0; font-size: 15px; color: var(--text-main); font-weight: 800; }
-        .profile-avatar { width: 45px; height: 45px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);}
+        .profile-avatar { width: 45px; height: 45px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);}
 
+        /* 🏆 FLOATING STAT CARDS (Year Cards) */
         .stat-card { 
             background: var(--surface); border-radius: var(--radius-xl); padding: 26px; border: 1px solid rgba(226, 232, 240, 0.8); 
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); position: relative; overflow: hidden; transition: var(--transition-bounce); cursor: pointer; margin-bottom: 20px;
@@ -231,10 +200,12 @@ $live_notices = $conn->query("
         .green-box { background: rgba(16, 185, 129, 0.1); color: #10b981; }
         .yellow-box { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
 
+        /* 📦 CONTENT BOXES */
         .content-box { background: var(--surface); border-radius: var(--radius-xl); padding: 30px; border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); transition: var(--transition-bounce); margin-bottom: 25px;}
         .content-box:hover { box-shadow: var(--shadow-float); }
         .box-title { font-size: 17px; font-weight: 800; color: var(--text-main); margin-bottom: 15px; }
 
+        /* 🚀 PREMIUM BUTTONS */
         .btn-gradient { 
             background: linear-gradient(135deg, #4f46e5, #3b82f6); color: white; border: none; font-weight: 700; padding: 10px 20px; border-radius: 10px; 
             box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3); transition: var(--transition-bounce);
@@ -246,6 +217,7 @@ $live_notices = $conn->query("
         }
         .btn-outline-modern:hover { background: #f8fafc; transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0,0,0,0.05); }
 
+        /* 🔔 NOTICES */
         .notice-alert { 
             padding: 16px 20px; border-radius: 12px; display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; 
             border: 1px solid rgba(226, 232, 240, 0.8); transition: var(--transition-bounce); background: var(--surface);
@@ -256,11 +228,13 @@ $live_notices = $conn->query("
         .notice-info { background: rgba(59, 130, 246, 0.05); border-color: rgba(59, 130, 246, 0.2); color: #1d4ed8; }
         .notice-success { background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.2); color: #047857; }
 
+        /* SEARCH INPUT */
         .search-modern { border-radius: 10px 0 0 10px !important; border: 1px solid #cbd5e1; font-weight: 500; font-size: 14px;}
         .search-modern:focus { box-shadow: none; border-color: var(--primary); }
         .btn-search { border-radius: 0 10px 10px 0 !important; background: var(--primary); color: white; padding: 0 20px; font-weight: 700; border: none; transition: var(--transition-bounce);}
         .btn-search:hover { background: var(--primary-hover); }
 
+        /* SCROLLBAR */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -284,11 +258,7 @@ $live_notices = $conn->query("
             <li onclick="window.location.href='Submissions.php'"><i class="fas fa-inbox"></i> Submissions</li>
             <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-double"></i> Review & Marks</li>
             <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-pie"></i> Reports</li>
-            
-            <!-- NAYA CHANGE 2: Logout karne se pehle Confirm Popup aayega -->
-            <li class="mt-auto" onclick="if(confirm('Are you sure you want to logout?')) { window.location.href='../logout.php'; }">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </li>
+            <li class="mt-auto" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
     </div>
 
@@ -304,8 +274,7 @@ $live_notices = $conn->query("
                 
                 <!-- GLOBAL SEARCH FOR TOPBAR -->
                 <form action="view_students.php" method="GET" class="d-flex shadow-sm" style="border-radius: 10px;">
-                    <!-- Change 14: Disable browser autocomplete on search -->
-                    <input type="text" name="search" autocomplete="off" class="form-control search-modern px-4" placeholder="Search globally..." required style="width: 250px;">
+                    <input type="text" name="search" class="form-control search-modern px-4" placeholder="Search globally..." required style="width: 250px;">
                     <button type="submit" class="btn-search"><i class="fas fa-search"></i></button>
                 </form>
             </div>
@@ -316,18 +285,14 @@ $live_notices = $conn->query("
                     <h4 class="profile-name">
                         <?php 
                             $name_parts = explode(' ', $admin_name);
-                            echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : htmlspecialchars($admin_name);
+                            echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : 'Admin';
                         ?>
                     </h4>
                 </div>
-                <!-- Change 15: Generate profile avatar initials dynamically -->
-                <div class="profile-avatar">
-                    <?php echo strtoupper(substr($admin_name, 0, 2)); ?>
-                </div>
+                <div class="profile-avatar">AD</div>
             </a>
         </div>
 
-        <!-- System Messages Array Alert -->
         <?php echo $message; ?>
 
         <!-- PAGE HEADER -->
@@ -354,8 +319,7 @@ $live_notices = $conn->query("
             <div class="col-md-7">
                 <h5 class="fw-bold mb-4" style="color: var(--text-main);">Manage Students by Year</h5>
 
-                <!-- Change 13: Added tooltip titles for accessibility -->
-                <div class="stat-card" title="Click to view 1st Year Students" onclick="window.location.href='view_students.php?year=1'">
+                <div class="stat-card" onclick="window.location.href='view_students.php?year=1'">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <div class="stat-card-title">Manage Sem 1 & 2</div>
@@ -366,7 +330,7 @@ $live_notices = $conn->query("
                     </div>
                 </div>
 
-                <div class="stat-card" title="Click to view 2nd Year Students" onclick="window.location.href='view_students.php?year=2'">
+                <div class="stat-card" onclick="window.location.href='view_students.php?year=2'">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <div class="stat-card-title">Manage Sem 3 & 4</div>
@@ -377,7 +341,7 @@ $live_notices = $conn->query("
                     </div>
                 </div>
 
-                <div class="stat-card" title="Click to view 3rd Year Students" onclick="window.location.href='view_students.php?year=3'">
+                <div class="stat-card" onclick="window.location.href='view_students.php?year=3'">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <div class="stat-card-title">Manage Sem 5 & 6</div>
@@ -396,7 +360,7 @@ $live_notices = $conn->query("
                 <div class="content-box">
                     <h6 class="box-title"><i class="fas fa-search text-primary me-2"></i> Quick Search</h6>
                     <form action="view_students.php" method="GET" class="d-flex mt-3 shadow-sm" style="border-radius: 10px;">
-                        <input type="text" name="search" autocomplete="off" class="form-control search-modern" placeholder="Enrollment No. or Name..." required>
+                        <input type="text" name="search" class="form-control search-modern" placeholder="Enrollment No. or Name..." required>
                         <button type="submit" class="btn-search"><i class="fas fa-arrow-right"></i></button>
                     </form>
                     <small class="text-muted mt-3 d-block fw-semibold">Directly find any student from any year.</small>
@@ -417,11 +381,7 @@ $live_notices = $conn->query("
                                 <i class="fas <?php echo $iconClass; ?> notice-icon"></i>
                                 <div>
                                     <h6 class="fw-bold mb-1" style="font-size: 14px;">New: <?php echo htmlspecialchars($notice['subject_name']); ?></h6>
-                                    <p class="mb-0 text-muted fw-semibold" style="font-size: 12.5px;">
-                                        <?php echo htmlspecialchars($notice['name']); ?> (<?php echo htmlspecialchars($notice['semester']); ?>) - 
-                                        <!-- Change 19: Notice status badge -->
-                                        <span class="badge bg-secondary text-uppercase" style="font-size: 10px;"><?php echo htmlspecialchars($notice['status']); ?></span>
-                                    </p>
+                                    <p class="mb-0 text-muted fw-semibold" style="font-size: 12.5px;"><?php echo htmlspecialchars($notice['name']); ?> (<?php echo htmlspecialchars($notice['semester']); ?>) - <?php echo $notice['status']; ?></p>
                                 </div>
                             </div>
                         <?php $i++; endwhile; ?>
@@ -445,24 +405,20 @@ $live_notices = $conn->query("
             <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
                 <div class="modal-header" style="background: var(--bg-body); border-bottom: 1px solid #e2e8f0; padding: 20px 25px;">
                     <h5 class="modal-title fw-bold" style="color: var(--text-main);"><i class="fas fa-file-csv text-success me-2"></i> Bulk Import Students</h5>
-                    <!-- Change 11: Added aria-label to close button -->
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
                     <div class="alert alert-info" style="font-size: 13px; border-left: 4px solid #0ea5e9; border-radius: 10px; font-weight: 600;">
                         <strong><i class="fas fa-info-circle me-1"></i> CSV Format Required:</strong><br>
                         Col 1: Name | Col 2: Email | Col 3: Pass | Col 4: Dept | Col 5: Sem | Col 6: Class | Col 7: Batch<br>
                         <em class="text-muted mt-1 d-block">(Row 1 must be headers and will be skipped).</em>
-                        <!-- Change 16: Sample CSV Link -->
-                        <a href="sample_students.csv" class="badge bg-light text-dark mt-2 text-decoration-none border p-2"><i class="fas fa-download"></i> Download Sample CSV</a>
                     </div>
-                    <!-- onsubmit disable/spinner logic -->
-                    <form action="" method="POST" enctype="multipart/form-data" onsubmit="document.getElementById('importBtn').disabled=true; document.getElementById('importBtn').innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i> Importing...';">
+                    <form action="" method="POST" enctype="multipart/form-data">
                         <div class="mb-4 mt-3">
                             <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">Upload CSV File</label>
                             <input type="file" name="csv_file" class="form-control" accept=".csv" required style="border-radius: 10px; padding: 12px;">
                         </div>
-                        <button type="submit" name="bulk_import" id="importBtn" class="btn-gradient w-100">
+                        <button type="submit" name="bulk_import" class="btn-gradient w-100">
                             <i class="fas fa-cloud-upload-alt me-2"></i> Start Import Process
                         </button>
                     </form>
@@ -477,11 +433,10 @@ $live_notices = $conn->query("
             <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
                 <div class="modal-header" style="background: var(--bg-body); border-bottom: 1px solid #e2e8f0; padding: 20px 25px;">
                     <h5 class="modal-title fw-bold" style="color: var(--text-main);"><i class="fas fa-user-plus text-primary me-2"></i> Add New Student</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <!-- onsubmit disable/spinner logic -->
-                    <form action="" method="POST" onsubmit="document.getElementById('saveBtn').disabled=true; document.getElementById('saveBtn').innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i> Saving...';">
+                    <form action="" method="POST">
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">Full Name</label>
@@ -501,8 +456,6 @@ $live_notices = $conn->query("
                                     <option value="IT Engineering">IT Engg.</option>
                                     <option value="Civil Engineering">Civil Engg.</option>
                                     <option value="Mechanical Engineering">Mechanical Engg.</option>
-                                    <!-- Change 18: Added Automobile Branch -->
-                                    <option value="Automobile Engineering">Automobile Engg.</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -541,11 +494,10 @@ $live_notices = $conn->query("
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold small text-muted">Login Password</label>
-                                <!-- Change 12: Added minlength validation -->
-                                <input type="password" name="password" minlength="6" class="form-control" required placeholder="Default Password" style="border-radius: 10px; padding: 12px;">
+                                <input type="password" name="password" class="form-control" required placeholder="Default Password" style="border-radius: 10px; padding: 12px;">
                             </div>
                         </div>
-                        <button type="submit" name="add_student" id="saveBtn" class="btn-gradient w-100 mt-2">
+                        <button type="submit" name="add_student" class="btn-gradient w-100 mt-2">
                             <i class="fas fa-save me-2"></i> Save Student Record
                         </button>
                     </form>
@@ -557,27 +509,13 @@ $live_notices = $conn->query("
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Change 8: Formatted Live Clock to 12-hour AM/PM format
         function updateClock() {
             const now = new Date();
-            const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
             document.getElementById('liveClock').innerText = now.toLocaleDateString('en-IN', options);
         }
         setInterval(updateClock, 1000);
         updateClock();
-
-        // Change 17: Auto-dismiss alerts after 5 seconds
-        setTimeout(() => {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            });
-        }, 5000);
     </script>
 </body>
 </html>
-<?php 
-// Change 20: Explicitly close MySQL connection at the end of the script
-$conn->close(); 
-?>
