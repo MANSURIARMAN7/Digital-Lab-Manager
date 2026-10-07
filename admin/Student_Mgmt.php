@@ -1,7 +1,7 @@
-
 <?php
 session_start();
-include '../db.php';
+// NAYA CHANGE 1: 'include' ki jagah 'require_once' lagaya taki DB connection strict rahe
+require_once '../db.php';
 
 // 1. Admin Login Check
 if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
@@ -279,7 +279,11 @@ $live_notices = $conn->query("
             <li onclick="window.location.href='Submissions.php'"><i class="fas fa-inbox"></i> Submissions</li>
             <li onclick="window.location.href='Review & Marks.php'"><i class="fas fa-check-double"></i> Review & Marks</li>
             <li onclick="window.location.href='Reports.php'"><i class="fas fa-chart-pie"></i> Reports</li>
-            <li class="mt-auto" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>
+            
+            <!-- NAYA CHANGE 2: Logout karne se pehle Confirm Popup aayega -->
+            <li class="mt-auto" onclick="if(confirm('Are you sure you want to logout?')) { window.location.href='../logout.php'; }">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </li>
         </ul>
     </div>
 
@@ -447,7 +451,7 @@ $live_notices = $conn->query("
                         <!-- Change 16: Sample CSV Link -->
                         <a href="sample_students.csv" class="badge bg-light text-dark mt-2 text-decoration-none border p-2"><i class="fas fa-download"></i> Download Sample CSV</a>
                     </div>
-                    <!-- NAYA CHANGE YAHAN HAI: onsubmit disable/spinner logic add kiya -->
+                    <!-- onsubmit disable/spinner logic -->
                     <form action="" method="POST" enctype="multipart/form-data" onsubmit="document.getElementById('importBtn').disabled=true; document.getElementById('importBtn').innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i> Importing...';">
                         <div class="mb-4 mt-3">
                             <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">Upload CSV File</label>
@@ -471,7 +475,7 @@ $live_notices = $conn->query("
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <!-- NAYA CHANGE YAHAN HAI: onsubmit disable/spinner logic add kiya -->
+                    <!-- onsubmit disable/spinner logic -->
                     <form action="" method="POST" onsubmit="document.getElementById('saveBtn').disabled=true; document.getElementById('saveBtn').innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i> Saving...';">
                         <div class="row mb-3">
                             <div class="col-md-6">
