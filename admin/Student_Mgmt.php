@@ -1,4 +1,4 @@
-<?php
+ <?php
 session_start();
 // NAYA CHANGE 1: 'include' ki jagah 'require_once' lagaya taki DB connection strict rahe
 require_once '../db.php';
@@ -24,7 +24,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
     // Change 2: Empty Validation Check
     if(empty($_POST['name']) || empty($_POST['email']) || empty($_POST['password'])) {
         $message = "<div class='alert alert-warning alert-dismissible fade show' style='border-radius:10px;' role='alert'>All fields are required!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-    } else {
+    } 
+    // NAYA CHANGE 3 (LATEST): Backend check for Password Length to prevent Inspect Element hacking
+    elseif (strlen($_POST['password']) < 6) {
+        $message = "<div class='alert alert-danger alert-dismissible fade show' style='border-radius:10px;' role='alert'><i class='fas fa-shield-alt me-2'></i> Security Warning: Password must be at least 6 characters long!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+    } 
+    else {
         $name = $conn->real_escape_string(trim($_POST['name']));
         // Change 3: Sanitize Email Input
         $raw_email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
