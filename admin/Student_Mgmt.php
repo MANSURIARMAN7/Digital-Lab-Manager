@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 include '../db.php';
@@ -446,12 +447,13 @@ $live_notices = $conn->query("
                         <!-- Change 16: Sample CSV Link -->
                         <a href="sample_students.csv" class="badge bg-light text-dark mt-2 text-decoration-none border p-2"><i class="fas fa-download"></i> Download Sample CSV</a>
                     </div>
-                    <form action="" method="POST" enctype="multipart/form-data">
+                    <!-- NAYA CHANGE YAHAN HAI: onsubmit disable/spinner logic add kiya -->
+                    <form action="" method="POST" enctype="multipart/form-data" onsubmit="document.getElementById('importBtn').disabled=true; document.getElementById('importBtn').innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i> Importing...';">
                         <div class="mb-4 mt-3">
                             <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">Upload CSV File</label>
                             <input type="file" name="csv_file" class="form-control" accept=".csv" required style="border-radius: 10px; padding: 12px;">
                         </div>
-                        <button type="submit" name="bulk_import" class="btn-gradient w-100">
+                        <button type="submit" name="bulk_import" id="importBtn" class="btn-gradient w-100">
                             <i class="fas fa-cloud-upload-alt me-2"></i> Start Import Process
                         </button>
                     </form>
@@ -469,7 +471,8 @@ $live_notices = $conn->query("
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <form action="" method="POST">
+                    <!-- NAYA CHANGE YAHAN HAI: onsubmit disable/spinner logic add kiya -->
+                    <form action="" method="POST" onsubmit="document.getElementById('saveBtn').disabled=true; document.getElementById('saveBtn').innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i> Saving...';">
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">Full Name</label>
@@ -533,7 +536,7 @@ $live_notices = $conn->query("
                                 <input type="password" name="password" minlength="6" class="form-control" required placeholder="Default Password" style="border-radius: 10px; padding: 12px;">
                             </div>
                         </div>
-                        <button type="submit" name="add_student" class="btn-gradient w-100 mt-2">
+                        <button type="submit" name="add_student" id="saveBtn" class="btn-gradient w-100 mt-2">
                             <i class="fas fa-save me-2"></i> Save Student Record
                         </button>
                     </form>
@@ -565,3 +568,7 @@ $live_notices = $conn->query("
     </script>
 </body>
 </html>
+<?php 
+// Change 20: Explicitly close MySQL connection at the end of the script
+$conn->close(); 
+?>
