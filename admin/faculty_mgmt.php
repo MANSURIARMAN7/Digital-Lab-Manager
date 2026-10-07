@@ -252,7 +252,7 @@ $faculty_list = $conn->query("SELECT * FROM users WHERE role='faculty' $sql_sear
                     <i class="fas fa-print text-primary me-2"></i> Print List
                 </button>
 
-                <!-- 📊 FIXED: EXPORT TO EXCEL  BUTTON miuuuuuuu catttt-->
+                <!-- 📊 FIXED: EXPORT TO EXCEL  BUTTON sohannn-->
                 <button class="btn-outline-modern ms-2" onclick="exportTableToCSV('Faculty_List.csv')" title="Download Excel File">
                     <i class="fas fa-file-excel text-success me-2"></i> Export
                 </button>
