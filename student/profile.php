@@ -455,3 +455,32 @@ $approved = $stats['approved'] ?? 0;
     </script>
 </body>
 </html>
+
+<div class="table-section">
+  <h3 style="color:#0f172a; font-size:16px; margin-bottom:15px;">Recent Submissions</h3>
+   <table>
+    <thead>
+      <tr>
+        <th>Submission ID</th>
+        <th>Manual Name</th>
+        <th>Status</th>
+        <th>Submitted On</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php
+      $submissions_query = $conn->query("SELECT submission_id, manual_name, status, submitted_on FROM student_submissions WHERE student_id = '$enrollment' ORDER BY submitted_on DESC LIMIT 5");
+      if ($submissions_query && $submissions_query->num_rows > 0) {
+          while ($submission = $submissions_query->fetch_assoc()) {
+              echo "<tr>";
+              echo "<td>" . htmlspecialchars($submission['submission_id']) . "</td>";
+              echo "<td>" . htmlspecialchars($submission['manual_name']) . "</td>";
+              echo "<td>" . htmlspecialchars($submission['status']) . "</td>";
+              echo "<td>" . htmlspecialchars($submission['submitted_on']) . "</td>";
+              echo "</tr>";
+          }
+      } else {
+          echo "<tr><td colspan='4' style='text-align:center;'>No recent submissions found.</td></tr>";
+      }
+      ?>
+    </tbody>
