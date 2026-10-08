@@ -500,3 +500,6 @@ $approved = $stats['approved'] ?? 0;
                                 JOIN users u ON s.student_id = u.user_id 
                                 WHERE s.subject_name = '$safe_sub' 
                                 ORDER BY s.submitted_at DESC LIMIT 5";
+                                   
+                    $rec_res = $conn->query($rec_s   
+                    $rec_res = $conn->query($rec_s
