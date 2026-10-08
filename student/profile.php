@@ -506,4 +506,12 @@ $approved = $stats['approved'] ?? 0;
 
 
 
-                    
+                        if ($rec_res && $rec_res->num_rows > 0) {
+                        while ($r = $rec_res->fetch_assoc()) {
+                            $st_cls = strtolower($r['status']);
+                            echo "<tr>";
+                            echo "<td><strong>".htmlspecialchars($r['student_name'])."</strong></td>";
+                            echo "<td>".htmlspecialchars($r['student_enrollment'])."</td>";
+                            echo "<td><span class='badge {$st_cls}'>".htmlspecialchars($r['status'])."</span></td>";
+                            echo "<td><strong>".($r['status'] == 'Pending' ? '--' : $r['marks'] . ' / 20')."</strong></td>";
+                            echo "</tr>";
