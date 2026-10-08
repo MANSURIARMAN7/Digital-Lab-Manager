@@ -492,3 +492,5 @@ $approved = $stats['approved'] ?? 0;
                     <th>Status</th>
                     <th>Marks</th>
                 </tr>
+
+                 <?php
