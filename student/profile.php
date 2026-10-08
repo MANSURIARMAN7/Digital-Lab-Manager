@@ -505,8 +505,3 @@ $approved = $stats['approved'] ?? 0;
                     $rec_res = $conn->query($rec_s
 
 
-
-                        if ($rec_res && $rec_res->num_rows > 0) {
-                        while ($r = $rec_res->fetch_assoc()) {
-                            $st_cls = strtolower($r['status']);
-                         
