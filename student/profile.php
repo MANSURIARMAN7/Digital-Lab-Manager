@@ -484,3 +484,5 @@ $approved = $stats['approved'] ?? 0;
       }
       ?>
     </tbody>
+    </table>
+  </div>
