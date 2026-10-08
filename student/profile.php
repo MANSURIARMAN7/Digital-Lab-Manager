@@ -486,3 +486,9 @@ $approved = $stats['approved'] ?? 0;
     </tbody>
     </table>
   </div>
+ <tr>
+                    <th>Student Name</th>
+                    <th>Enrollment No.</th>
+                    <th>Status</th>
+                    <th>Marks</th>
+                </tr>
