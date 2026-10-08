@@ -494,3 +494,9 @@ $approved = $stats['approved'] ?? 0;
                 </tr>
 
                  <?php
+                 if (!empty($selected_subject)) {
+                    $rec_sql = "SELECT s.*, u.name as student_name, u.email as student_enrollment 
+                                FROM student_submissions s 
+                                JOIN users u ON s.student_id = u.user_id 
+                                WHERE s.subject_name = '$safe_sub' 
+                                ORDER BY s.submitted_at DESC LIMIT 5";
