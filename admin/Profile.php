@@ -427,3 +427,6 @@ $total_faculty = $q_faculty ? $q_faculty->fetch_assoc()['cnt'] : 0;
     </script>
 </body>
 </html>
+
+
+
