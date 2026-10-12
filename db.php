@@ -28,6 +28,7 @@ try {
 $createUsersTable = "CREATE TABLE IF NOT EXISTS `users` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `user_id` VARCHAR(50) NOT NULL UNIQUE,
+    `email` VARCHAR(100) DEFAULT NULL,
     `password` VARCHAR(255) NOT NULL,
     `role` ENUM('admin', 'faculty', 'student') NOT NULL,
     `name` VARCHAR(100) NOT NULL,
@@ -59,6 +60,11 @@ $createSubmissionsTable = "CREATE TABLE IF NOT EXISTS `submissions` (
 $conn->query($createSubmissionsTable);
 
 // Add missing columns if table already existed without them
+$checkEmail = $conn->query("SHOW COLUMNS FROM `users` LIKE 'email'");
+if ($checkEmail && $checkEmail->num_rows == 0) {
+    $conn->query("ALTER TABLE `users` ADD COLUMN `email` VARCHAR(100) DEFAULT NULL");
+}
+
 $checkSubjects = $conn->query("SHOW COLUMNS FROM `users` LIKE 'subjects'");
 if ($checkSubjects && $checkSubjects->num_rows == 0) {
     $conn->query("ALTER TABLE `users` ADD COLUMN `subjects` TEXT DEFAULT NULL");
