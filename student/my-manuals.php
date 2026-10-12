@@ -449,3 +449,27 @@ $upcoming_deadlines = $conn->query($deadlines_query);
             const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
             document.getElementById('liveClock').innerText = now.toLocaleDateString('en-IN', options);
         }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Live Search Filter Logic
+        function filterManuals() {
+            let input = document.getElementById("manualSearch").value.toLowerCase();
+            let rows = document.querySelectorAll(".manual-row");
+
+            rows.forEach(row => {
+                let text = row.querySelector(".subject-title").innerText.toLowerCase();
+                let subject = row.querySelector(".text-primary").innerText.toLowerCase();
+                
+                if (text.includes(input) || subject.includes(input)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            });
+        }
+    </script>
+</body> 
+</html>
+
+                        <!-- Bootstrap JS -->   
