@@ -9,14 +9,11 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'faculty') {
 $faculty_id = $_SESSION['user_id'];
 $faculty_name = isset($_SESSION['name']) ? htmlspecialchars($_SESSION['name']) : 'Faculty';
 
-// Generate Initials for Profile Avatar
 $name_parts = explode(' ', trim($faculty_name));
 $initials = strtoupper(substr($name_parts[0], 0, 1));
-if (count($name_parts) > 1) {
-    $initials .= strtoupper(substr(end($name_parts), 0, 1));
-}
+if (count($name_parts) > 1) { $initials .= strtoupper(substr(end($name_parts), 0, 1)); }
 
-// 🔥 SMART DB FIX: Add Rubric Columns dynamically if they don't exist
+// 🔥 SMART DB FIX: Add Rubric Columns & History Column if they don't exist
 $check_rubric = $conn->query("SHOW COLUMNS FROM student_submissions LIKE 'mark_reg'");
 if ($check_rubric && $check_rubric->num_rows == 0) {
     @$conn->query("ALTER TABLE student_submissions ADD COLUMN mark_reg INT DEFAULT 0 AFTER marks");
@@ -24,29 +21,25 @@ if ($check_rubric && $check_rubric->num_rows == 0) {
     @$conn->query("ALTER TABLE student_submissions ADD COLUMN mark_obs INT DEFAULT 0 AFTER mark_und");
     @$conn->query("ALTER TABLE student_submissions ADD COLUMN mark_viva INT DEFAULT 0 AFTER mark_obs");
 }
+$check_col = $conn->query("SHOW COLUMNS FROM student_submissions LIKE 'old_file_path'");
+if ($check_col && $check_col->num_rows == 0) {
+    @$conn->query("ALTER TABLE student_submissions ADD COLUMN old_file_path TEXT NULL AFTER file_path");
+}
 
 $msg = "";
 
-// ==========================================
-// 🚀 EVALUATION & SUBMIT LOGIC
-// ==========================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    
-    // 1. Reset Marks
     if (isset($_POST['action_type']) && $_POST['action_type'] == 'single_grade' && $_POST['action'] == 'Reset') {
         $sub_id = intval($_POST['submission_id']);
         if($conn->query("UPDATE student_submissions SET status='Pending', marks=0, mark_reg=0, mark_und=0, mark_obs=0, mark_viva=0, feedback=NULL WHERE submission_id=$sub_id")){
             $msg = "<div class='alert-custom alert-warning'><i class='fas fa-undo me-2'></i> Evaluation Reset Successfully!</div>";
         }
     }
-    
-    // 2. Grade/Reject Submission
     elseif (isset($_POST['action_type']) && $_POST['action_type'] == 'rubric_grade') {
         $sub_id = intval($_POST['submission_id']);
         $action = $_POST['action'];
         $remark = $conn->real_escape_string(trim($_POST['remark']));
         
-        // 🔥 FIX: IF REJECTED, MARKS MUST BE ZERO
         if ($action == 'Reject') {
             $reg = 0; $und = 0; $obs = 0; $viva = 0; $total = 0;
             $status = 'Rejected';
@@ -58,50 +51,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $total = $reg + $und + $obs + $viva;
             $status = 'Approved';
         }
-        
-        // Save full rubric breakdown
         if($conn->query("UPDATE student_submissions SET status='$status', marks=$total, mark_reg=$reg, mark_und=$und, mark_obs=$obs, mark_viva=$viva, feedback='$remark' WHERE submission_id=$sub_id")){
             $msg = "<div class='alert-custom alert-success'><i class='fas fa-check-circle me-2'></i> Grade Saved: $total/20 ($status)</div>";
         }
     }
-    
-    // 3. Bulk Approve
     elseif (isset($_POST['action_type']) && $_POST['action_type'] == 'bulk_approve') {
         $b_sub = $conn->real_escape_string($_POST['bulk_subject']);
         if($conn->query("UPDATE student_submissions SET status='Approved', marks=20, mark_reg=5, mark_und=5, mark_obs=5, mark_viva=5, feedback='Auto Approved by Faculty' WHERE subject_name='$b_sub' AND status='Pending'")){
             $msg = "<div class='alert-custom alert-success'><i class='fas fa-check-double me-2'></i> Bulk Approval Successful!</div>";
         }
     }
-    
-    // 4. Export CSV
-    elseif (isset($_POST['export_csv'])) {
-        header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="Marks_Report.csv"');
-        $out = fopen('php://output', 'w');
-        fputcsv($out, ['Student Name', 'Enrollment No.', 'Subject', 'Practical No', 'Status', 'Regularity', 'Understanding', 'Observation', 'Viva', 'Total Marks', 'Feedback']);
-        
-        $e_sub = $conn->real_escape_string($_POST['export_subject']);
-        $q = "SELECT s.*, u.name as student_name, u.email as student_enrollment FROM student_submissions s JOIN users u ON s.student_id = u.user_id WHERE s.subject_name='$e_sub' ORDER BY u.email ASC";
-        $res = $conn->query($q);
-        
-        if($res) {
-            while($row = $res->fetch_assoc()) {
-                fputcsv($out, [$row['student_name'], $row['student_enrollment'], $row['subject_name'], $row['practical_no'], $row['status'], $row['mark_reg'], $row['mark_und'], $row['mark_obs'], $row['mark_viva'], $row['marks'], $row['feedback']]);
-            }
-        }
-        fclose($out);
-        exit();
-    }
 }
 
-// ==========================================
-// 🧠 SMART MAPPING LOGIC
-// ==========================================
+// Filters & Logic
 $available_branches = [];
 $branch_res = $conn->query("SELECT DISTINCT department FROM subjects WHERE department IS NOT NULL AND department != ''");
-if($branch_res && $branch_res->num_rows > 0) {
-    while($r = $branch_res->fetch_assoc()) { $available_branches[] = $r['department']; }
-}
+if($branch_res && $branch_res->num_rows > 0) { while($r = $branch_res->fetch_assoc()) { $available_branches[] = $r['department']; } }
 if(empty($available_branches)) $available_branches = ['Computer Engineering'];
 $selected_branch = isset($_GET['branch']) ? $_GET['branch'] : $available_branches[0];
 
@@ -115,22 +80,23 @@ $fac_name_safe = $conn->real_escape_string($faculty_name);
 
 $sub_query = "SELECT subject_name FROM subjects WHERE faculty_name LIKE '%$fac_name_safe%' AND department = '$safe_br' AND semester = '$sem_number'";
 $sub_res = $conn->query($sub_query);
-if ($sub_res && $sub_res->num_rows > 0) {
-    while($r = $sub_res->fetch_assoc()) { $available_subjects[] = $r['subject_name']; }
-}
+if ($sub_res && $sub_res->num_rows > 0) { while($r = $sub_res->fetch_assoc()) { $available_subjects[] = $r['subject_name']; } }
 $selected_subject = isset($_GET['subject']) ? $_GET['subject'] : (!empty($available_subjects) ? $available_subjects[0] : '');
 $status_filter = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'All';
 $search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'recent';
 
-// FETCH SUBMISSIONS
 $submissions_data = [];
 $t_total = 0; $t_pending = 0; $t_approved = 0; $t_rejected = 0;
 
 if (!empty($selected_subject)) {
     $safe_sub = $conn->real_escape_string($selected_subject);
-    $q = "SELECT s.*, u.name as student_name, u.email as student_enrollment FROM student_submissions s JOIN users u ON s.student_id = u.user_id WHERE s.subject_name = '$safe_sub'";
+    $q = "SELECT s.*, u.name as student_name, u.email as student_enrollment, lm.end_date 
+          FROM student_submissions s 
+          JOIN users u ON s.student_id = u.user_id 
+          LEFT JOIN lab_manuals lm ON s.manual_id = lm.id
+          WHERE s.subject_name = '$safe_sub'";
     
-    // Quick query for stats before filtering
     $stat_q = $conn->query("SELECT status FROM student_submissions WHERE subject_name = '$safe_sub'");
     if($stat_q) {
         while($st = $stat_q->fetch_assoc()){
@@ -146,7 +112,12 @@ if (!empty($selected_subject)) {
         $safe_search = $conn->real_escape_string($search_query);
         $q .= " AND (u.name LIKE '%$safe_search%' OR u.email LIKE '%$safe_search%')";
     }
-    $q .= " ORDER BY s.submitted_at DESC";
+    
+    if ($sort_by == 'name_asc') { $q .= " ORDER BY u.name ASC"; } 
+    elseif ($sort_by == 'name_desc') { $q .= " ORDER BY u.name DESC"; } 
+    elseif ($sort_by == 'marks_high') { $q .= " ORDER BY s.marks DESC"; } 
+    elseif ($sort_by == 'marks_low') { $q .= " ORDER BY s.marks ASC"; } 
+    else { $q .= " ORDER BY s.submitted_at DESC"; }
     
     $res = $conn->query($q);
     if ($res) { while($row = $res->fetch_assoc()) { $submissions_data[] = $row; } }
@@ -167,100 +138,80 @@ if (!empty($selected_subject)) {
         :root { 
             --sidebar-width: 270px; 
             --primary: #4338ca; 
-            --primary-hover: #3730a3;
             --bg-body: #f8fafc;
             --surface: #ffffff;
             --text-main: #0f172a;
             --text-muted: #64748b;
-            --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             --transition-bounce: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
         body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; color: var(--text-main); }
-        
-        /* 🔥 SIDEBAR */
-        .sidebar { width: var(--sidebar-width); background: linear-gradient(195deg, #1e3a8a 0%, #4338ca 100%); color: #ffffff; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; box-shadow: 4px 0 24px rgba(0,0,0,0.08); }
+        .sidebar { width: var(--sidebar-width); background: linear-gradient(195deg, #1e3a8a 0%, #4338ca 100%); color: #ffffff; display: flex; flex-direction: column; z-index: 10; box-shadow: 4px 0 24px rgba(0,0,0,0.08); }
         .sidebar-logo-container { padding: 35px 20px 25px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); }
         .sidebar-logo-container img { width: 85px; height: 85px; margin-bottom: 15px; border-radius: 50%; padding: 4px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); }
         .sidebar-title h2 { font-size: 19px; font-weight: 800; margin: 0;}
-        .sidebar-subtitle { font-size: 12px; color: #bfdbfe; margin-top: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;}
         
         .nav-links { list-style: none; padding: 25px 15px; margin: 0; flex-grow: 1; }
         .nav-links li { padding: 13px 20px; margin: 8px 0; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 600; color: #dbeafe; transition: var(--transition-bounce); }
         .nav-links li:hover { color: #ffffff; background: rgba(255,255,255,0.1); transform: translateX(5px); }
-        .nav-links li.active { background: rgba(255, 255, 255, 0.2); color: #ffffff; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .nav-links li i { font-size: 18px; }
+        .nav-links li.active { background: rgba(255, 255, 255, 0.2); color: #ffffff; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-left: 4px solid white;}
         .nav-links li.mt-auto { color: #fca5a5 !important; }
 
-        .main { flex: 1; padding: 30px 45px; overflow-y: auto; height: 100vh; animation: fadeUp 0.8s forwards; }
-        @keyframes fadeUp { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
-
-        /* 🌐 TOPBAR */
+        .main { flex: 1; padding: 30px 45px; overflow-y: auto; height: 100vh; }
         .topbar { padding: 0 0 15px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px;}
-        .clock-badge { background: var(--surface); border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 18px; color: #475569; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-float); }
+        .clock-badge { background: var(--surface); border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 18px; color: #475569; font-weight: 700; font-size: 13px; }
         
-        .profile-pill { display: flex; align-items: center; background-color: var(--surface); padding: 10px 22px 10px 28px; border-radius: 50px; border: 1px solid rgba(226, 232, 240, 0.8); cursor: pointer; text-decoration: none; color: inherit; transition: var(--transition-bounce); box-shadow: var(--shadow-float); }
+        .profile-pill { display: flex; align-items: center; background-color: var(--surface); padding: 10px 22px 10px 28px; border-radius: 50px; border: 1px solid rgba(226, 232, 240, 0.8); text-decoration: none; color: inherit; }
         .profile-text { text-align: right; margin-right: 18px; }
-        .profile-welcome { display: block; font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-        .profile-name { margin: 0; font-size: 17px; color: var(--text-main); font-weight: 900; letter-spacing: 0.3px;}
-        .profile-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.4);}
+        .profile-welcome { display: block; font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; margin-bottom: 2px; }
+        .profile-name { margin: 0; font-size: 17px; color: var(--text-main); font-weight: 900;}
+        .profile-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; }
 
-        /* 📊 MINI STATS RIBBON */
         .stats-ribbon { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap;}
-        .stat-badge { flex: 1; min-width: 150px; background: white; padding: 15px 20px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.01);}
+        .stat-badge { flex: 1; min-width: 150px; background: white; padding: 15px 20px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 15px;}
         .stat-badge i { font-size: 24px; }
         .stat-badge .info h4 { margin: 0; font-size: 22px; font-weight: 800; line-height: 1;}
-        .stat-badge .info span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);}
+        .stat-badge .info span { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);}
 
-        /* 🎛️ SMART FILTER PANEL (Search Bar Alignment Fixed) */
-        .filter-panel { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 15px rgba(0,0,0,0.02); margin-bottom: 25px; }
-        .filter-panel label { color: var(--primary); font-size: 11px; margin-bottom: 6px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; display: block;}
-        .filter-panel select { width: 100%; padding: 0 15px; height: 42px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; background: #f8fafc; font-weight: 600; font-size: 13.5px; transition: var(--transition-bounce);}
-        .filter-panel select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); background: #ffffff;}
+        .filter-panel { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 25px; }
+        .filter-panel label { color: var(--primary); font-size: 11px; margin-bottom: 6px; text-transform: uppercase; font-weight: 800; display: block;}
+        .filter-panel select, .filter-panel input.form-control { width: 100%; padding: 0 15px; height: 42px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: 600; font-size: 13.5px;}
+        .filter-panel select:focus, .filter-panel input.form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); background: #ffffff;}
         
-        /* 🔍 SEARCH BAR FIX */
-        .search-wrapper { display: flex; height: 42px; border-radius: 8px; overflow: hidden; border: 1px solid #cbd5e1; background: #f8fafc; transition: var(--transition-bounce);}
-        .search-wrapper:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); background: #ffffff;}
+        .search-wrapper { display: flex; height: 42px; border-radius: 8px; overflow: hidden; border: 1px solid #cbd5e1; background: #f8fafc;}
         .search-wrapper input { border: none; background: transparent; padding: 0 15px; font-weight: 600; font-size: 13.5px; width: 100%; outline: none; }
-        .search-wrapper button { border: none; background: var(--primary); color: white; padding: 0 20px; font-weight: bold; transition: 0.2s; cursor: pointer; }
-        .search-wrapper button:hover { background: var(--primary-hover); }
+        .search-wrapper button { border: none; background: var(--primary); color: white; padding: 0 20px; font-weight: bold; cursor: pointer; }
 
-        /* TABLE */
-        .content-box { background: var(--surface); border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); overflow: hidden;}
-        .table-custom th { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 2px solid #e2e8f0; padding: 15px 10px; background: #f8fafc;}
+        .content-box { background: var(--surface); border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;}
+        .table-custom th { font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); padding: 15px 10px; background: #f8fafc; border-bottom: 2px solid #e2e8f0;}
         .table-custom td { vertical-align: middle; font-size: 14px; font-weight: 600; padding: 15px 10px; color: var(--text-main); border-bottom: 1px solid #f1f5f9; }
-        .table-custom tbody tr:hover td { background-color: #f8fafc; }
         
-        .badge-modern { padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-modern { padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
         .status-Pending { background: #fef3c7; color: #d97706; border: 1px solid #fde68a;}
         .status-Approved { background: #d1fae5; color: #059669; border: 1px solid #a7f3d0;}
         .status-Rejected { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;}
 
-        .btn-action { background: rgba(59, 130, 246, 0.1); color: #2563eb; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; transition: var(--transition-bounce); display: inline-flex; align-items: center; gap: 6px;}
+        .btn-action { background: rgba(59, 130, 246, 0.1); color: #2563eb; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px;}
         .btn-action:hover { background: #2563eb; color: white; transform: translateY(-2px); }
         .btn-grade { background: linear-gradient(135deg, #f59e0b, #d97706); color: white;}
-        .btn-grade:hover { background: #b45309; color: white; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);}
+        .btn-grade:hover { background: #b45309; color: white;}
         .btn-score { background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid rgba(16, 185, 129, 0.2); }
         .btn-score:hover { background: #059669; color: white; }
+        
+        /* 🔥 OLD FILE BUTTON STYLING */
+        .btn-old-file { background: rgba(239,68,68,0.1); color: #dc2626; border: 1px solid rgba(239,68,68,0.2); }
+        .btn-old-file:hover { background: #dc2626; color: white; }
 
         .alert-custom { padding: 12px 20px; border-radius: 10px; margin-bottom: 20px; font-size: 13.5px; font-weight: 700; display: flex; align-items: center;}
         .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
         .alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
 
-        /* 🌟 MODALS STYLING (Standardized Bootstrap Modals) */
         .modal-content { border-radius: 16px; border: none; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
         .modal-header-custom { background: linear-gradient(135deg, #1e3a8a, #4338ca); padding: 18px 25px; color: white; display: flex; justify-content: space-between; align-items: center;}
         .modal-header-custom h5 { margin: 0; font-size: 18px; font-weight: 800; }
-        .btn-close-custom { background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;}
-        .btn-close-custom:hover { background: rgba(255,255,255,0.4); }
-
+        .btn-close-custom { background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;}
         .rubric-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 15px;}
         .rubric-input { border: 2px solid #cbd5e1; border-radius: 8px; font-weight: 800; color: var(--primary); text-align: center; padding: 8px;}
-        .rubric-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);}
         
-        .score-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; font-weight: 600;}
-        .score-item:last-child { border-bottom: none; }
-
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -276,6 +227,7 @@ if (!empty($selected_subject)) {
         </div>
         <ul class="nav-links">
             <li onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
+            <li onclick="window.location.href='manage_manuals.php'"><i class="fas fa-file-pdf"></i> Upload Manuals</li>
             <li class="active" onclick="window.location.href='labmanual_list.php'"><i class="fas fa-check-double"></i> Review & Evaluate</li>
             <li onclick="window.location.href='reports.php'"><i class="fas fa-chart-pie"></i> Reports</li>
             <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> Profile</li>
@@ -288,14 +240,13 @@ if (!empty($selected_subject)) {
             <div class="d-flex align-items-center gap-3">
                 <div class="clock-badge"><i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span></div>
             </div>
-            
             <a href="profile.php" class="profile-pill">
                 <div class="profile-text">
                     <span class="profile-welcome">Welcome Back,</span>
                     <h4 class="profile-name">
                         <?php 
                             $disp_name = htmlspecialchars($faculty_name);
-                            if(stripos($disp_name, 'Prof') === false && stripos($disp_name, 'Dr') === false) { echo "Prof. " . $disp_name; } else { echo $disp_name; }
+                            echo (stripos($disp_name, 'Prof') === false && stripos($disp_name, 'Dr') === false) ? "Prof. " . $disp_name : $disp_name;
                         ?>
                     </h4>
                 </div>
@@ -318,13 +269,6 @@ if (!empty($selected_subject)) {
                         <i class="fas fa-check-double me-1"></i> Bulk Approve
                     </button>
                 </form>
-                <form method="POST">
-                    <input type="hidden" name="export_csv" value="1">
-                    <input type="hidden" name="export_subject" value="<?php echo htmlspecialchars($selected_subject); ?>">
-                    <button type="submit" class="btn btn-outline-primary fw-bold px-3 py-2 bg-white" style="border-radius: 8px;">
-                        <i class="fas fa-file-csv me-1"></i> Export Data
-                    </button>
-                </form>
             </div>
         </div>
 
@@ -335,9 +279,9 @@ if (!empty($selected_subject)) {
             <div class="stat-badge border-start border-4 border-danger"><i class="fas fa-times-circle text-danger"></i><div class="info"><h4><?php echo $t_rejected; ?></h4><span>Needs Redo</span></div></div>
         </div>
 
-        <!-- 🎛️ FIXED FILTER PANEL (Search Bar Alignment Resolved) -->
+        <!-- FILTER PANEL -->
         <div class="filter-panel">
-            <form method="GET" id="filterForm" class="row align-items-end g-3">
+            <form method="GET" id="filterForm" class="row align-items-end g-3 w-100">
                 <div class="col-md-2">
                     <label><i class="fas fa-building me-1"></i> Branch</label>
                     <select name="branch" class="form-select" onchange="this.form.submit()">
@@ -350,7 +294,7 @@ if (!empty($selected_subject)) {
                         <?php foreach($available_semesters as $s) { echo "<option value='".htmlspecialchars($s)."' ".($selected_sem==$s?'selected':'').">".htmlspecialchars($s)."</option>"; } ?>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label><i class="fas fa-book me-1"></i> Subject</label>
                     <select name="subject" class="form-select" onchange="this.form.submit()">
                         <?php if(empty($available_subjects)) echo "<option value=''>No Subjects</option>"; ?>
@@ -366,12 +310,20 @@ if (!empty($selected_subject)) {
                         <option value="Rejected" <?php if($status_filter=='Rejected') echo 'selected';?>>Rejected</option>
                     </select>
                 </div>
-                
-                <!-- 🔍 FIXED SEARCH BAR ALIGNMENT -->
-                <div class="col-md-3">
-                    <label><i class="fas fa-search me-1"></i> Search Student</label>
+                <div class="col-md-2">
+                    <label><i class="fas fa-sort-amount-down me-1"></i> Sort By</label>
+                    <select name="sort_by" class="form-select" onchange="this.form.submit()">
+                        <option value="recent" <?php if($sort_by=='recent') echo 'selected';?>>Recently Added</option>
+                        <option value="name_asc" <?php if($sort_by=='name_asc') echo 'selected';?>>Name (A-Z)</option>
+                        <option value="name_desc" <?php if($sort_by=='name_desc') echo 'selected';?>>Name (Z-A)</option>
+                        <option value="marks_high" <?php if($sort_by=='marks_high') echo 'selected';?>>Marks (High to Low)</option>
+                        <option value="marks_low" <?php if($sort_by=='marks_low') echo 'selected';?>>Marks (Low to High)</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label><i class="fas fa-search me-1"></i> Search</label>
                     <div class="search-wrapper">
-                        <input type="text" name="search" placeholder="Name or Enroll No..." value="<?php echo htmlspecialchars($search_query); ?>">
+                        <input type="text" name="search" placeholder="Name/ID..." value="<?php echo htmlspecialchars($search_query); ?>">
                         <button type="submit"><i class="fas fa-search"></i></button>
                     </div>
                 </div>
@@ -410,6 +362,16 @@ if (!empty($selected_subject)) {
                                     <span class="bg-light border px-2 py-1 rounded fw-bold text-dark" style="font-size:12px;">
                                         <i class="fas fa-file-code text-muted me-1"></i> <?php echo htmlspecialchars($row['practical_no']); ?>
                                     </span>
+                                    <?php 
+                                    if (!empty($row['end_date']) && $row['end_date'] != '0000-00-00') {
+                                        $deadline = strtotime($row['end_date']);
+                                        $submitted = strtotime($row['submitted_at']);
+                                        if ($submitted > $deadline + 86400) { 
+                                            $days_late = floor(($submitted - $deadline) / 86400);
+                                            echo "<br><span class='badge bg-danger mt-1' style='font-size:10px;'><i class='fas fa-exclamation-triangle'></i> Late by $days_late Days</span>";
+                                        }
+                                    }
+                                    ?>
                                 </td>
                                 <td>
                                     <span class="badge-modern status-<?php echo htmlspecialchars($row['status']); ?>">
@@ -427,6 +389,14 @@ if (!empty($selected_subject)) {
                                         $pos = strpos($raw_path, 'uploads/');
                                         $safe_pdf_path = ($pos !== false) ? '../' . substr($raw_path, $pos) : '../' . $raw_path;
                                         
+                                        // 🔥 NEW: Path for Old/Rejected File
+                                        $old_path = $row['old_file_path'] ?? '';
+                                        $safe_old_path = '';
+                                        if(!empty($old_path)){
+                                            $pos_old = strpos($old_path, 'uploads/');
+                                            $safe_old_path = ($pos_old !== false) ? '../' . substr($old_path, $pos_old) : '../' . $old_path;
+                                        }
+                                        
                                         $rubric_data = json_encode([
                                             'reg' => $row['mark_reg'], 'und' => $row['mark_und'],
                                             'obs' => $row['mark_obs'], 'viva' => $row['mark_viva'],
@@ -434,10 +404,18 @@ if (!empty($selected_subject)) {
                                         ]);
                                     ?>
                                     
-                                    <!-- 👀 FIXED: OPEN PDF IN MODAL INSTEAD OF NEW TAB -->
-                                    <button type="button" class="btn-action me-2" onclick="viewDocument('<?php echo htmlspecialchars($safe_pdf_path); ?>')">
+                                    <button type="button" class="btn-action me-1" onclick="viewDocument('<?php echo htmlspecialchars($safe_pdf_path); ?>')" title="View Current Submission">
                                         <i class="fas fa-eye"></i> View
                                     </button>
+
+                                    <!-- 🔥 NEW: VIEW OLD REJECTED FILE BUTTON -->
+                                    <?php if(!empty($safe_old_path)): ?>
+                                        <button type="button" class="btn-action btn-old-file me-2" onclick="viewDocument('<?php echo htmlspecialchars($safe_old_path); ?>')" title="View Previously Rejected File">
+                                            <i class="fas fa-history"></i> Old
+                                        </button>
+                                    <?php else: ?>
+                                        <span class="me-2"></span> <!-- spacing alignment -->
+                                    <?php endif; ?>
                                     
                                     <?php if($row['status'] == 'Pending'): ?>
                                         <button type="button" class="btn-action btn-grade shadow-sm" onclick="openGradeModal(<?php echo $row['submission_id']; ?>, '<?php echo addslashes($row['student_name']); ?>', '<?php echo addslashes($row['practical_no']); ?>')">
@@ -466,7 +444,7 @@ if (!empty($selected_subject)) {
         </div>
     </div>
 
-    <!-- 🌟 MODAL 1: VIEW PDF INLINE -->
+    <!-- View PDF Modal -->
     <div class="modal fade" id="pdfModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content" style="height: 85vh;">
@@ -481,7 +459,7 @@ if (!empty($selected_subject)) {
         </div>
     </div>
 
-    <!-- 🌟 MODAL 2: GRADE SUBMISSION (RUBRIC) -->
+    <!-- Grade Modal -->
     <div class="modal fade" id="gradeModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -492,7 +470,6 @@ if (!empty($selected_subject)) {
                     </div>
                     <button type="button" class="btn-close-custom" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
                 </div>
-                
                 <form method="POST" class="p-4 bg-white">
                     <input type="hidden" name="action_type" value="rubric_grade">
                     <input type="hidden" name="submission_id" id="modal_sub_id">
@@ -505,25 +482,25 @@ if (!empty($selected_subject)) {
                         </div>
                     </div>
 
-                    <div class="bg-light border p-3 rounded-3 mb-3">
+                    <div class="rubric-box">
                         <div class="row g-3">
-                            <div class="col-6"><label class="form-label small fw-bold text-muted mb-1">Regularity (0-5)</label><input type="number" name="mark_reg" class="form-control text-center fw-bold text-primary" min="0" max="5" value="5" required></div>
-                            <div class="col-6"><label class="form-label small fw-bold text-muted mb-1">Understanding (0-5)</label><input type="number" name="mark_und" class="form-control text-center fw-bold text-primary" min="0" max="5" value="5" required></div>
-                            <div class="col-6"><label class="form-label small fw-bold text-muted mb-1">Observation (0-5)</label><input type="number" name="mark_obs" class="form-control text-center fw-bold text-primary" min="0" max="5" value="5" required></div>
-                            <div class="col-6"><label class="form-label small fw-bold text-muted mb-1">Viva (0-5)</label><input type="number" name="mark_viva" class="form-control text-center fw-bold text-primary" min="0" max="5" value="5" required></div>
+                            <div class="col-6"><label class="form-label small fw-bold text-muted mb-1">Regularity (0-5)</label><input type="number" name="mark_reg" class="form-control rubric-input" min="0" max="5" value="5" required></div>
+                            <div class="col-6"><label class="form-label small fw-bold text-muted mb-1">Understanding (0-5)</label><input type="number" name="mark_und" class="form-control rubric-input" min="0" max="5" value="5" required></div>
+                            <div class="col-6"><label class="form-label small fw-bold text-muted mb-1">Observation (0-5)</label><input type="number" name="mark_obs" class="form-control rubric-input" min="0" max="5" value="5" required></div>
+                            <div class="col-6"><label class="form-label small fw-bold text-muted mb-1">Viva / Quiz (0-5)</label><input type="number" name="mark_viva" class="form-control rubric-input" min="0" max="5" value="5" required></div>
                         </div>
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label small fw-bold text-dark mb-2">Faculty Remark (Optional)</label>
-                        <input type="text" name="remark" class="form-control bg-light" placeholder="e.g. Good logic, improve indentation...">
+                        <label class="form-label small fw-bold text-dark mb-2"><i class="fas fa-comment-dots text-muted me-1"></i> Faculty Remark (Optional)</label>
+                        <input type="text" name="remark" class="form-control bg-light border-0" placeholder="e.g. Logic is clear, improve code indentation..." style="box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-2">
                         <button type="button" class="btn text-muted fw-bold" data-bs-dismiss="modal">Cancel</button>
                         <div class="d-flex gap-2">
-                            <button type="submit" name="action" value="Reject" class="btn btn-outline-danger fw-bold px-4">Reject & Redo</button>
-                            <button type="submit" name="action" value="Approve" class="btn btn-success fw-bold px-4">Save & Approve</button>
+                            <button type="submit" name="action" value="Reject" class="btn btn-outline-danger fw-bold px-4" style="border-radius: 8px;">Reject</button>
+                            <button type="submit" name="action" value="Approve" class="btn btn-success fw-bold px-4 shadow-sm" style="border-radius: 8px;">Save Marks</button>
                         </div>
                     </div>
                 </form>
@@ -531,7 +508,7 @@ if (!empty($selected_subject)) {
         </div>
     </div>
 
-    <!-- 🌟 MODAL 3: SCORECARD PREVIEW -->
+    <!-- Scorecard Modal -->
     <div class="modal fade" id="scoreModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -540,23 +517,29 @@ if (!empty($selected_subject)) {
                     <button type="button" class="btn-close-custom" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="modal-body p-4 bg-white">
-                    <div class="text-center mb-4"><h5 id="score_student_name" class="fw-bold text-dark mb-1">Student Name</h5></div>
+                    <div class="text-center mb-4">
+                        <h5 id="score_student_name" class="fw-bold text-dark mb-1">Student Name</h5>
+                        <p id="score_prac_no" class="text-muted small fw-bold mb-0">Practical Details</p>
+                    </div>
                     <div class="bg-light border rounded-3 p-3 mb-4">
-                        <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted fw-bold">Regularity</span><span id="score_reg" class="text-primary fw-bold"></span></div>
-                        <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted fw-bold">Understanding</span><span id="score_und" class="text-primary fw-bold"></span></div>
-                        <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted fw-bold">Observation</span><span id="score_obs" class="text-primary fw-bold"></span></div>
-                        <div class="d-flex justify-content-between"><span class="text-muted fw-bold">Viva / Quiz</span><span id="score_viva" class="text-primary fw-bold"></span></div>
+                        <div class="score-item"><span class="text-muted">Regularity</span><span id="score_reg" class="text-primary fw-bold"></span></div>
+                        <div class="score-item"><span class="text-muted">Understanding</span><span id="score_und" class="text-primary fw-bold"></span></div>
+                        <div class="score-item"><span class="text-muted">Observation</span><span id="score_obs" class="text-primary fw-bold"></span></div>
+                        <div class="score-item border-bottom-0 pb-0"><span class="text-muted">Viva / Quiz</span><span id="score_viva" class="text-primary fw-bold"></span></div>
                     </div>
-                    <div class="d-flex justify-content-between bg-dark text-white p-3 rounded-3 mb-3">
-                        <span class="text-uppercase fw-bold">Total Marks</span><h4 id="score_total" class="mb-0 fw-bold text-warning"></h4>
+                    <div class="d-flex justify-content-between align-items-center bg-dark text-white p-3 rounded-3 mb-4 shadow-sm">
+                        <span class="text-uppercase fw-bold" style="letter-spacing: 1px;">Total Marks</span>
+                        <h4 id="score_total" class="mb-0 fw-bold text-warning"></h4>
                     </div>
-                    <div class="p-3 bg-light border-start border-4 border-info rounded"><span class="text-muted small fw-bold d-block mb-1">Faculty Remark:</span><div id="score_remark" class="fst-italic text-dark"></div></div>
+                    <div>
+                        <span class="text-uppercase fw-bold text-muted small d-block mb-2">Faculty Remark:</span>
+                        <div id="score_remark" class="p-3 bg-light border-start border-4 border-info rounded" style="font-style: italic; color: #334155;"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function updateClock() {
@@ -569,14 +552,16 @@ if (!empty($selected_subject)) {
 
         function viewDocument(url) {
             document.getElementById('pdfIframe').src = url;
-            new bootstrap.Modal(document.getElementById('pdfModal')).show();
+            var myModal = new bootstrap.Modal(document.getElementById('pdfModal'));
+            myModal.show();
         }
 
         function openGradeModal(subId, studentName, pracNo) {
             document.getElementById('modal_sub_id').value = subId;
             document.getElementById('modal_student_name').innerText = studentName;
             document.getElementById('modal_practical_no').innerText = "Manual: " + pracNo;
-            new bootstrap.Modal(document.getElementById('gradeModal')).show();
+            var myModal = new bootstrap.Modal(document.getElementById('gradeModal'));
+            myModal.show();
         }
 
         function viewScorecard(marksData, studentName) {
@@ -586,8 +571,15 @@ if (!empty($selected_subject)) {
             document.getElementById('score_obs').innerText = marksData.obs + " / 5";
             document.getElementById('score_viva').innerText = marksData.viva + " / 5";
             document.getElementById('score_total').innerText = marksData.total + " / 20";
-            document.getElementById('score_remark').innerText = marksData.feedback ? '"' + marksData.feedback + '"' : 'No remarks provided.';
-            new bootstrap.Modal(document.getElementById('scoreModal')).show();
+            
+            let remarkBox = document.getElementById('score_remark');
+            if(marksData.feedback && marksData.feedback.trim() !== '') {
+                remarkBox.innerText = '"' + marksData.feedback + '"';
+            } else {
+                remarkBox.innerHTML = '<span class="text-muted">No specific remarks provided.</span>';
+            }
+            var myModal = new bootstrap.Modal(document.getElementById('scoreModal'));
+            myModal.show();
         }
     </script>
 </body>
