@@ -548,3 +548,86 @@ $recent_subs = $conn->query($recent_query);
                 <div class="profile-avatar"><?php echo $initials; ?></div>
             </a>
         </div>
+        /* STATS GRID */
+        .stat-card { background: var(--surface); border-radius: 16px; padding: 25px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); transition: var(--transition-bounce); cursor: pointer; position: relative; overflow: hidden; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-float); border-color: #cbd5e1; }
+        .stat-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; }
+        .card-blue::after { background: #3b82f6; }
+        .card-yellow::after { background: #f59e0b; }
+        .card-green::after { background: #10b981; }
+        .card-red::after { background: #ef4444; }
+        .stat-info h6 { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0; }
+        .stat-info h2 { font-size: 32px; font-weight: 800; color: var(--text-main); margin: 0; }
+        .stat-icon { width: 55px; height: 55px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+
+        /* 📦 CONTENT BOXES */
+        .content-box { background: var(--surface); border-radius: var(--radius-xl); padding: 30px; border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); transition: var(--transition-bounce); margin-bottom: 25px;}
+        .content-box:hover { box-shadow: var(--shadow-float); }
+        .box-title { font-size: 17px; font-weight: 800; color: var(--text-main); margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f1f5f9; }
+
+        /* TASK LIST */
+        .task-item { background: #f8fafc; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; transition: var(--transition-bounce); }
+        .task-item:hover { background: #ffffff; box-shadow: 0 5px 15px rgba(0,0,0,0.05); transform: translateX(5px); border-color: #cbd5e1; }
+        .btn-upload { background: var(--primary); color: white; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; text-decoration: none; transition: var(--transition-bounce); }
+        .btn-upload:hover { background: var(--primary-hover); color: white; transform: scale(1.05); }
+
+        /* TABLE */
+        .table-custom th { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 2px solid #e2e8f0; padding: 15px 10px; }
+        .table-custom td { vertical-align: middle; font-size: 14px; font-weight: 600; padding: 15px 10px; color: var(--text-main); border-bottom: 1px solid #f1f5f9; }
+        .badge-modern { padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status-Pending { background: rgba(245,158,11,0.1); color: #d97706; }
+        .status-Approved { background: rgba(16,185,129,0.1); color: #059669; }
+        .status-Rejected { background: rgba(239,68,68,0.1); color: #dc2626; }
+        .btn-view { background: rgba(16, 185, 129, 0.1); color: #059669; border: none; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; transition: var(--transition-bounce); }
+        .btn-view:hover { background: #059669; color: white; transform: scale(1.05); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-logo-container">
+            <img src="../assets/images/college-logo.png" alt="KDP Logo">
+            <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
+            <div class="sidebar-subtitle">Student Portal</div>
+        </div>
+        <ul class="nav-links">
+            <li class="active" onclick="window.location.href='Stdashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
+            <li onclick="window.location.href='my-manuals.php'"><i class="fas fa-book-open"></i> Course Manuals</li>
+            <li onclick="window.location.href='history.php'"><i class="fas fa-history"></i> My Submissions</li>
+            <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> Profile</li>
+            <li class="mt-auto" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>
+        </ul>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main">
+        
+        <!-- TOPBAR -->
+        <div class="topbar">
+            <div class="d-flex align-items-center gap-3">
+                <div class="clock-badge">
+                    <i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span>
+                </div>
+                <div class="security-badge d-none d-md-flex align-items-center">
+                    <i class="fas fa-shield-check me-2"></i> Secure Session Verified
+                </div>
+            </div>
+            
+            <a href="profile.php" class="profile-pill">
+                <div class="profile-text">
+                    <span class="profile-welcome">Logged in as</span>
+                    <h4 class="profile-name">
+                        <?php 
+                            echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : $student_name;
+                        ?>
+                    </h4>
+                    <span style="font-size:11px; font-weight:700; color:var(--primary);"><?php echo htmlspecialchars($enrollment); ?></span>
+                </div>
+                <div class="profile-avatar"><?php echo $initials; ?></div>
+            </a>
+        </div>
