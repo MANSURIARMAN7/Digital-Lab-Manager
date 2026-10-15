@@ -663,5 +663,19 @@ body.dark-mode .notif-item {
     color: #cbd5e1 !important;
 }
 body.dark-mode .notif-item strong {
+
+/* Dark Mode Support */
+body.dark-mode .notif-popup {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+body.dark-mode .notif-item {
+    border-bottom-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+body.dark-mode .notif-item strong {
+    color: #f8fafc !important;
+}
     color: #f8fafc !important;
 }
