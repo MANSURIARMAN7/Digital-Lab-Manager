@@ -340,3 +340,64 @@ if (!empty($selected_subject)) {
 </html>
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <script>
+        function openModal(subId, studentName, pracNo) {
+            document.getElementById('modal_sub_id').value = subId;
+            document.getElementById('modal_student_name').innerText = studentName;
+            document.getElementById('modal_practical_no').innerText = pracNo;
+            document.getElementById('gradeModal').style.display = 'flex';
+        }
+        function closeModal() {
+            document.getElementById('gradeModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
+    <script>
+        function openModal(subId, studentName, pracNo) {
+            document.getElementById('modal_sub_id').value = subId;
+            document.getElementById('modal_student_name').innerText = studentName;
+            document.getElementById('modal_practical_no').innerText = pracNo;
+            document.getElementById('gradeModal').style.display = 'flex';
+        }
+        function closeModal() {
+            document.getElementById('gradeModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
+    <script>
+        function openModal(subId, studentName, pracNo) {
+            document.getElementById('modal_sub_id').value = subId;
+            document.getElementById('modal_student_name').innerText = studentName;
+            document.getElementById('modal_practical_no').innerText = pracNo;
+            document.getElementById('gradeModal').style.display = 'flex';
+        }
+        function closeModal() {
+            document.getElementById('gradeModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>vs
