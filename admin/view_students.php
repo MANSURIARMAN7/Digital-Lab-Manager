@@ -291,7 +291,7 @@ $students = $conn->query($sql);
             </form>
         </div>
 
-        <!-- 📋 TABLE SECTION-->
+        <!-- 📋 TABLE SECTION FOR ALL FACULTY & STUDENTS-->
         <div class="content-box p-0">
             <div class="table-responsive">
                 <table class="table table-custom mb-0">
