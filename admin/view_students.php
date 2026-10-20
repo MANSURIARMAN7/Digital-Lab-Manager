@@ -278,7 +278,7 @@ $students = $conn->query($sql);
             <div class="text-primary fw-bold"><i class="fas fa-globe me-2"></i> Global Database Search Active</div>
             <?php endif; ?>
 
-            <!-- LIVE SEARCH FORM FOR ALL STUDENT AND FACULTY-->
+            <!-- LIVE SEARCH FORM -->
             <form method="GET" action="view_students.php" class="m-0">
                 <?php if(!$is_global_search): ?>
                     <input type="hidden" name="year" value="<?php echo $year; ?>">
