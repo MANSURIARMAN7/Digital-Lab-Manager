@@ -8,69 +8,108 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
-// Fetch Admin Details for Profile
 $admin_id = $_SESSION['user_id'];
-$admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = '$admin_id'");
-$admin_data = $admin_query->fetch_assoc();
-$admin_name = $admin_data['name'] ?? 'System Administrator';
+$msg = "";
 
-$name_parts = explode(' ', trim($admin_name));
-$initials = strtoupper(substr($name_parts[0], 0, 1));
-if (count($name_parts) > 1) {
-    $initials .= strtoupper(substr(end($name_parts), 0, 1));
-}
+// ==========================================
+// 1. ADD FACULTY LOGIC (Fixed Email Unique Error)
+// ==========================================
+if (isset($_POST['add_faculty'])) {
+    $emp_id = $conn->real_escape_string(trim($_POST['emp_id']));
+    $name = $conn->real_escape_string(trim($_POST['name']));
+    $dept = $conn->real_escape_string(trim($_POST['department']));
+    $designation = $conn->real_escape_string(trim($_POST['designation']));
+    $email = trim($_POST['email']);
+    
+    // SMART FIX: If email is empty, set it to NULL to avoid UNIQUE constraint duplicate errors
+    $email_val = empty($email) ? "NULL" : "'" . $conn->real_escape_string($email) . "'";
+    $default_pass = "123456";
 
-$message = "";
-
-// ➕ ADD NEW FACULTY LOGIC (BACKEND)
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_faculty'])) {
-    $emp_id = $conn->real_escape_string($_POST['emp_id']);
-    $name = $conn->real_escape_string($_POST['name']);
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-    $department = $conn->real_escape_string($_POST['department']);
-    $designation = $conn->real_escape_string($_POST['designation']);
-
-    // Check if Faculty ID already exists (using email field for emp_id)
-    $check = $conn->query("SELECT * FROM users WHERE email='$emp_id'");
-    if($check->num_rows > 0) {
-        $message = "<div class='alert alert-danger alert-dismissible fade show shadow-sm' style='border-radius:10px;' role='alert'><i class='fas fa-exclamation-circle me-2'></i>Faculty with this ID / Email already exists!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+    // Duplicate Check
+    $check = $conn->query("SELECT user_id FROM users WHERE user_id='$emp_id'");
+    if ($check->num_rows > 0) {
+        $msg = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-circle me-2'></i> <b>Duplicate Entry!</b> Employee ID '$emp_id' already exists.</div>";
     } else {
-        $sql = "INSERT INTO users (name, email, password, role, department, designation) 
-                VALUES ('$name', '$emp_id', '$password', 'faculty', '$department', '$designation')";
-        
+        $sql = "INSERT INTO users (user_id, name, email, password, role, department, designation) 
+                VALUES ('$emp_id', '$name', $email_val, '$default_pass', 'faculty', '$dept', '$designation')";
         if ($conn->query($sql)) {
-            $message = "<div class='alert alert-success alert-dismissible fade show shadow-sm' style='border-radius:10px;' role='alert'><i class='fas fa-check-circle me-2'></i>Faculty Member Added Successfully!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
+            $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-check-circle me-2'></i> Faculty <b>$name</b> added successfully!</div>";
         } else {
-            // FIX: If designation column is missing, add it
-            if(strpos($conn->error, "designation") !== false) {
-                $conn->query("ALTER TABLE users ADD COLUMN designation VARCHAR(100) NULL");
-                $conn->query($sql); // Retry
-                $message = "<div class='alert alert-success alert-dismissible fade show shadow-sm' style='border-radius:10px;' role='alert'><i class='fas fa-check-circle me-2'></i>Faculty Member Added Successfully!<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-            } else {
-                $message = "<div class='alert alert-danger alert-dismissible fade show shadow-sm' style='border-radius:10px;' role='alert'>Error: " . $conn->error . "<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>";
-            }
+            $msg = "<div class='alert alert-danger shadow-sm'><i class='fas fa-times-circle me-2'></i> Database Error: " . $conn->error . "</div>";
         }
     }
 }
 
-// 🗑️ DELETE FACULTY LOGIC
-if (isset($_GET['delete_id'])) {
-    $del_id = $conn->real_escape_string($_GET['delete_id']);
-    $conn->query("DELETE FROM users WHERE user_id='$del_id' AND role='faculty'");
-    header("Location: faculty_mgmt.php");
-    exit();
+// ==========================================
+// 2. EDIT FACULTY LOGIC
+// ==========================================
+if (isset($_POST['edit_faculty'])) {
+    $emp_id = $conn->real_escape_string(trim($_POST['edit_emp_id']));
+    $name = $conn->real_escape_string(trim($_POST['edit_name']));
+    $dept = $conn->real_escape_string(trim($_POST['edit_department']));
+    $designation = $conn->real_escape_string(trim($_POST['edit_designation']));
+    $email = trim($_POST['edit_email']);
+    
+    $email_val = empty($email) ? "NULL" : "'" . $conn->real_escape_string($email) . "'";
+    
+    $conn->query("UPDATE users SET name='$name', department='$dept', designation='$designation', email=$email_val WHERE user_id='$emp_id' AND role='faculty'");
+    $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-check-circle me-2'></i> Faculty details updated successfully!</div>";
 }
 
-// 🔍 SEARCH & FETCH FACULTY LIST
-$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
-$sql_search = "";
-
-if(!empty($search_query)) {
-    $safe_search = $conn->real_escape_string($search_query);
-    $sql_search = " AND (name LIKE '%$safe_search%' OR email LIKE '%$safe_search%' OR department LIKE '%$safe_search%')";
+// ==========================================
+// 3. SAFE DELETE LOGIC
+// ==========================================
+if (isset($_POST['delete_faculty_btn'])) {
+    $del_id = $conn->real_escape_string($_POST['delete_id']);
+    
+    // Deleting faculty
+    if($conn->query("DELETE FROM users WHERE user_id='$del_id' AND role='faculty'")) {
+        $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-trash-alt me-2'></i> Faculty record securely deleted.</div>";
+    } else {
+        $msg = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-triangle me-2'></i> Error deleting record!</div>";
+    }
 }
 
-$faculty_list = $conn->query("SELECT * FROM users WHERE role='faculty' $sql_search ORDER BY name ASC");
+// ==========================================
+// 4. RESET PASSWORD LOGIC
+// ==========================================
+if (isset($_POST['reset_pass_btn'])) {
+    $reset_id = $conn->real_escape_string($_POST['reset_id']);
+    $conn->query("UPDATE users SET password='123456' WHERE user_id='$reset_id' AND role='faculty'");
+    $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-key me-2'></i> Password for Employee '$reset_id' has been reset to <b>123456</b>.</div>";
+}
+
+// ==========================================
+// 5. FETCH, FILTER, SEARCH & SORTING
+// ==========================================
+$where = "role='faculty'";
+
+// Department Filter
+$dept_filter = $_GET['dept'] ?? 'all';
+if ($dept_filter !== 'all') {
+    $safe_dept = $conn->real_escape_string($dept_filter);
+    $where .= " AND department = '$safe_dept'";
+}
+
+// Search
+$search = $_GET['search'] ?? '';
+if (!empty($search)) {
+    $safe_search = $conn->real_escape_string($search);
+    $where .= " AND (name LIKE '%$safe_search%' OR user_id LIKE '%$safe_search%')";
+}
+
+// Sorting
+$sort = $_GET['sort'] ?? 'name_asc';
+$order_by = "name ASC";
+if ($sort == 'name_desc') $order_by = "name DESC";
+elseif ($sort == 'emp_asc') $order_by = "user_id ASC";
+elseif ($sort == 'emp_desc') $order_by = "user_id DESC";
+
+$faculty_list = $conn->query("SELECT * FROM users WHERE $where ORDER BY $order_by");
+$total_faculty = $faculty_list->num_rows;
+
+// Fetch unique departments for filter dropdown
+$dept_query = $conn->query("SELECT DISTINCT department FROM users WHERE role='faculty' AND department != ''");
 ?>
 
 <!DOCTYPE html>
@@ -78,92 +117,81 @@ $faculty_list = $conn->query("SELECT * FROM users WHERE role='faculty' $sql_sear
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Faculty Management - KDP Admin</title>
+    <title>Faculty Management - Admin Portal</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     
     <style>
-        :root { 
-            --sidebar-width: 270px; 
-            --primary: #4338ca; 
-            --primary-hover: #3730a3;
+        :root {
+            --sidebar-width: 270px;
+            --primary: #4338ca;
             --bg-body: #f8fafc;
             --surface: #ffffff;
             --text-main: #0f172a;
             --text-muted: #64748b;
-            --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            --radius-xl: 16px;
-            --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --transition-bounce: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
+        /* FIX: Uniform body styling to prevent scrollbar shifting */
+        * { box-sizing: border-box; }
         body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; color: var(--text-main); }
         
-        /* 🔥 PREMIUM BLUE SIDEBAR */
-        .sidebar { width: var(--sidebar-width); background: linear-gradient(195deg, #1e3a8a 0%, #4338ca 100%); color: #ffffff; display: flex; flex-direction: column; z-index: 10; box-shadow: 4px 0 24px rgba(0,0,0,0.08); }
+        /* SIDEBAR (Perfectly Uniform across all pages) */
+        .sidebar { width: var(--sidebar-width); min-width: var(--sidebar-width); background: linear-gradient(195deg, #1e3a8a 0%, #4338ca 100%); color: #ffffff; display: flex; flex-direction: column; z-index: 10; box-shadow: 4px 0 24px rgba(0,0,0,0.08); }
         .sidebar-logo-container { padding: 35px 20px 25px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); }
         .sidebar-logo-container img { width: 85px; height: 85px; margin-bottom: 15px; border-radius: 50%; padding: 4px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); }
         .sidebar-title h2 { font-size: 19px; font-weight: 800; margin: 0;}
-        .sidebar-subtitle { font-size: 12px; color: #bfdbfe; margin-top: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;}
         
         .nav-links { list-style: none; padding: 25px 15px; margin: 0; flex-grow: 1; }
         .nav-links li { padding: 13px 20px; margin: 8px 0; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 600; color: #dbeafe; transition: var(--transition-bounce); }
-        .nav-links li:hover, .nav-links li.active { color: #ffffff; background: rgba(255,255,255,0.2); }
-        .nav-links li.active { font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-left: 4px solid white;}
-        .nav-links li i { font-size: 18px; }
-        .nav-links li.mt-auto { color: #fca5a5 !important; }
+        .nav-links li:hover { color: #ffffff; background: rgba(255,255,255,0.1); }
+        .nav-links li.active { background: rgba(255, 255, 255, 0.2); color: #ffffff; font-weight: 700; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-left: 4px solid #ffffff;}
 
-        .main { flex: 1; padding: 30px 45px; overflow-y: auto; height: 100vh; animation: fadeUp 0.8s forwards; }
+        /* MAIN CONTENT - scrollbar fixed to avoid width shift */
+        .main { flex: 1; padding: 30px 45px; overflow-y: scroll; height: 100vh; animation: fadeUp 0.8s forwards; }
         @keyframes fadeUp { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
 
-        /* 🌐 TOPBAR */
-        .topbar { padding: 0 0 15px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px;}
-        .clock-badge { background: var(--surface); border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 18px; color: #475569; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-float); }
-        
-        .profile-pill { display: flex; align-items: center; background-color: var(--surface); padding: 10px 22px 10px 28px; border-radius: 50px; border: 1px solid rgba(226, 232, 240, 0.8); cursor: pointer; text-decoration: none; color: inherit; transition: var(--transition-bounce); box-shadow: var(--shadow-float); }
-        .profile-pill:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 15px 25px -5px rgba(0,0,0,0.1); border-color: #cbd5e1;}
+        /* TOPBAR & PROFILE PILL */
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;}
+        .clock-badge { background: var(--surface); border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 18px; color: #475569; font-weight: 700; font-size: 13px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
+        .profile-pill { display: flex; align-items: center; background: linear-gradient(135deg, #1e3a8a, #4338ca); padding: 12px 25px 12px 30px; border-radius: 50px; cursor: pointer; text-decoration: none; color: white; transition: var(--transition-bounce); box-shadow: 0 10px 20px rgba(67, 56, 202, 0.2); border: 2px solid rgba(255,255,255,0.1);}
+        .profile-pill:hover { transform: translateY(-3px); box-shadow: 0 15px 25px rgba(67, 56, 202, 0.3); border-color: rgba(255,255,255,0.3);}
         .profile-text { text-align: right; margin-right: 18px; }
-        .profile-welcome { display: block; font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; margin-bottom: 2px; }
-        .profile-name { margin: 0; font-size: 17px; color: var(--text-main); font-weight: 900;}
-        .profile-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.4);}
+        .profile-welcome { display: block; font-size: 11px; color: #bfdbfe; font-weight: 800; text-transform: uppercase; margin-bottom: 2px; letter-spacing: 0.5px;}
+        .profile-name { margin: 0; font-size: 18px; color: white; font-weight: 900;}
+        .profile-avatar { background: white; color: var(--primary); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);}
 
-        /* 📦 CONTENT CARDS */
-        .content-box { background: var(--surface); border-radius: var(--radius-xl); padding: 25px; border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); transition: var(--transition-bounce); margin-bottom: 25px;}
-        .content-box:hover { box-shadow: var(--shadow-float); }
-        .box-title { font-size: 17px; font-weight: 800; color: var(--text-main); margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between;}
-
-        /* 🚀 BUTTONS & INPUTS */
-        .btn-gradient { background: linear-gradient(135deg, #4f46e5, #3b82f6); color: white; border: none; font-weight: 800; padding: 12px 20px; border-radius: 8px; transition: var(--transition-bounce); display: inline-flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px;}
-        .btn-gradient:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(79, 70, 229, 0.3); color: white; }
+        /* HEADER & TOOLBAR */
+        .page-header { background: white; border-radius: 16px; padding: 20px 25px; margin-bottom: 25px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;}
         
-        .form-label { font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;}
-        .form-control, .form-select { border-radius: 8px; border: 1px solid #cbd5e1; padding: 12px 15px; font-size: 14.5px; font-weight: 600; background: #f8fafc;}
-        .form-control:focus, .form-select:focus { background: white; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); }
-
-        .search-wrapper { display: flex; height: 42px; border-radius: 8px; overflow: hidden; border: 1px solid #cbd5e1; background: #f8fafc;}
-        .search-wrapper input { border: none; background: transparent; padding: 0 15px; font-weight: 600; font-size: 13.5px; width: 100%; outline: none; }
-        .search-wrapper button { border: none; background: var(--primary); color: white; padding: 0 20px; font-weight: bold; cursor: pointer; transition: 0.2s;}
-        .search-wrapper button:hover { background: var(--primary-hover); }
+        .toolbar { background: linear-gradient(135deg, rgba(67, 56, 202, 0.03), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(67, 56, 202, 0.1); border-radius: 16px; padding: 20px; margin-bottom: 25px; }
+        .form-select, .form-control { border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 14px;}
+        .form-select:focus, .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);}
 
         /* TABLE */
-        .table-custom th { font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); padding: 15px 10px; background: #f8fafc; border-bottom: 2px solid #e2e8f0;}
-        .table-custom td { vertical-align: middle; font-size: 14px; font-weight: 600; padding: 15px 10px; color: var(--text-main); border-bottom: 1px solid #f1f5f9; }
-        .table-custom tbody tr:hover td { background-color: #f8fafc; }
+        .content-box { background: var(--surface); border-radius: 16px; padding: 25px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);}
+        .table-custom th { font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); border-bottom: 2px solid #e2e8f0; padding: 15px 10px; background: #f8fafc;}
+        .table-custom td { vertical-align: middle; font-size: 14px; font-weight: 600; padding: 15px 10px; border-bottom: 1px solid #f1f5f9; }
         
-        .badge-modern { padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;}
-        .status-Active { background: #d1fae5; color: #059669; border: 1px solid #a7f3d0;}
+        .emp-link { color: var(--primary); font-weight: 800; text-decoration: none; cursor: pointer; transition: 0.2s;}
+        .emp-link:hover { color: #1e3a8a; text-decoration: underline; }
 
-        .btn-action { background: rgba(239, 68, 68, 0.1); color: #dc2626; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px;}
-        .btn-action:hover { background: #dc2626; color: white; transform: translateY(-2px); }
+        .btn-action-delete { background: rgba(239, 68, 68, 0.1); color: #dc2626; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; transition: 0.2s; }
+        .btn-action-delete:hover { background: #dc2626; color: white; transform: translateY(-2px); }
+        
+        .btn-action-reset { background: rgba(245, 158, 11, 0.1); color: #d97706; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; transition: 0.2s; }
+        .btn-action-reset:hover { background: #d97706; color: white; transform: translateY(-2px); }
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body>
 
+    <!-- UNIFORM SIDEBAR -->
     <div class="sidebar">
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
@@ -184,160 +212,170 @@ $faculty_list = $conn->query("SELECT * FROM users WHERE role='faculty' $sql_sear
         
         <!-- UNIFORM TOPBAR -->
         <div class="topbar">
-            <div class="d-flex align-items-center gap-3">
-                <div class="clock-badge"><i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span></div>
-            </div>
+            <div class="clock-badge"><i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span></div>
             
             <a href="Profile.php" class="profile-pill">
                 <div class="profile-text">
-                    <span class="profile-welcome">System Admin</span>
-                    <h4 class="profile-name">
-                        <?php 
-                            $disp_name = htmlspecialchars($admin_name);
-                            echo (count($name_parts) > 1) ? mb_substr($name_parts[0], 0, 1) . '. ' . $name_parts[count($name_parts)-1] : $disp_name;
-                        ?>
-                    </h4>
+                    <span class="profile-welcome">Welcome Back,</span>
+                    <h4 class="profile-name">Head of Department</h4>
                 </div>
-                <div class="profile-avatar"><?php echo $initials; ?></div>
+                <div class="profile-avatar"><i class="fas fa-user-tie"></i></div>
             </a>
         </div>
+        
+        <?php echo $msg; ?>
 
-        <?php echo $message; ?>
-
-        <!-- PAGE HEADER -->
-        <div class="d-flex justify-content-between align-items-center mb-4 mt-2">
-            <div class="d-flex align-items-center gap-3">
-                <div style="width: 55px; height: 55px; border-radius: 14px; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 24px;">
-                    <i class="fas fa-chalkboard-teacher"></i>
-                </div>
-                <div>
-                    <h3 class="fw-bold mb-1" style="font-size: 26px; color: var(--text-main);">Faculty Management</h3>
-                    <p class="text-muted fw-semibold small mb-0">Add new teaching staff and manage their portal access.</p>
-                </div>
+        <!-- HEADER -->
+        <div class="page-header">
+            <div>
+                <h3 class="fw-bold text-dark mb-1"><i class="fas fa-chalkboard-teacher text-primary me-2"></i> Faculty Management</h3>
+                <p class="text-muted fw-semibold small mb-0">Manage faculty records and assigned departments.</p>
             </div>
-            
-            <?php if(!empty($search_query)): ?>
-                <a href="faculty_mgmt.php" class="btn btn-outline-danger fw-bold" style="border-radius: 8px; padding: 10px 20px;">
-                    <i class="fas fa-times me-2"></i> Clear Search
-                </a>
-            <?php endif; ?>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary fw-bold px-4" data-bs-toggle="modal" data-bs-target="#addModal"><i class="fas fa-user-plus me-2"></i> Add Faculty</button>
+            </div>
         </div>
 
-        <div class="row g-4">
+        <!-- TOOLBAR (Filters & Search) -->
+        <div class="toolbar">
+            <form method="GET" action="faculty_mgmt.php" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-primary text-uppercase">Department Filter</label>
+                    <select name="dept" class="form-select bg-white">
+                        <option value="all" <?php echo $dept_filter == 'all' ? 'selected' : ''; ?>>All Departments</option>
+                        <?php if($dept_query && $dept_query->num_rows > 0): ?>
+                            <?php while($d = $dept_query->fetch_assoc()): ?>
+                                <option value="<?php echo htmlspecialchars($d['department']); ?>" <?php echo $dept_filter == $d['department'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($d['department']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        <?php endif; ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-primary text-uppercase">Sort By</label>
+                    <select name="sort" class="form-select bg-white">
+                        <option value="name_asc" <?php echo $sort == 'name_asc' ? 'selected' : ''; ?>>Name (A-Z)</option>
+                        <option value="name_desc" <?php echo $sort == 'name_desc' ? 'selected' : ''; ?>>Name (Z-A)</option>
+                        <option value="emp_asc" <?php echo $sort == 'emp_asc' ? 'selected' : ''; ?>>Employee ID (Ascending)</option>
+                        <option value="emp_desc" <?php echo $sort == 'emp_desc' ? 'selected' : ''; ?>>Employee ID (Descending)</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-primary text-uppercase">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Search ID or Name..." value="<?php echo htmlspecialchars($search); ?>">
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary fw-bold w-100">Apply</button>
+                    <a href="faculty_mgmt.php" class="btn btn-outline-secondary fw-bold w-100">Clear</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- DATA TABLE -->
+        <div class="content-box">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold m-0">Registered Faculty</h5>
+                <span class="badge bg-primary px-3 py-2 rounded-pill">Total Faculty: <?php echo $total_faculty; ?></span>
+            </div>
             
-            <!-- LEFT COLUMN: ADD FACULTY FORM -->
-            <div class="col-lg-4">
-                <div class="content-box h-100">
-                    <h5 class="box-title"><i class="fas fa-user-plus text-primary me-2"></i> Add New Faculty</h5>
-                    
-                    <form action="" method="POST">
+            <div class="table-responsive">
+                <table class="table table-custom w-100" id="facultyTable">
+                    <thead>
+                        <tr>
+                            <th>Employee ID</th>
+                            <th>Faculty Name & Email</th>
+                            <th>Department & Role</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if($faculty_list->num_rows > 0): ?>
+                            <?php while($row = $faculty_list->fetch_assoc()): ?>
+                                <tr>
+                                    <td>
+                                        <a href="#" class="emp-link" onclick="openEditModal('<?php echo $row['user_id']; ?>', '<?php echo htmlspecialchars(addslashes($row['name'])); ?>', '<?php echo htmlspecialchars($row['department']); ?>', '<?php echo htmlspecialchars(addslashes($row['designation'])); ?>', '<?php echo htmlspecialchars(addslashes($row['email'])); ?>')">
+                                            <?php echo htmlspecialchars($row['user_id']); ?>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark"><?php echo htmlspecialchars($row['name']); ?></div>
+                                        <div class="text-muted small"><?php echo htmlspecialchars($row['email'] ?: 'No Email'); ?></div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark"><?php echo htmlspecialchars($row['department']); ?></div>
+                                        <span class="badge bg-light text-dark border border-secondary mt-1"><?php echo htmlspecialchars($row['designation'] ?: 'Faculty Member'); ?></span>
+                                    </td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn-action-reset me-1" onclick="openResetModal('<?php echo $row['user_id']; ?>', '<?php echo htmlspecialchars(addslashes($row['name'])); ?>')" title="Reset Password to 123456">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                        <button type="button" class="btn-action-delete" onclick="openDeleteModal('<?php echo $row['user_id']; ?>', '<?php echo htmlspecialchars(addslashes($row['name'])); ?>')" title="Delete Faculty">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr><td colspan="4" class="text-center py-4 text-muted fw-bold">No faculty records found.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODALS -->
+
+    <!-- 1. Add Faculty Modal -->
+    <div class="modal fade" id="addModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-primary text-white rounded-top-4">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-user-plus me-2"></i> Add New Faculty</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body p-4">
+                        <div class="alert alert-info small fw-bold mb-3"><i class="fas fa-info-circle me-1"></i> Default login password: <b>123456</b></div>
+                        
                         <div class="mb-3">
-                            <label class="form-label">Faculty ID / Emp Code</label>
+                            <label class="form-label small fw-bold text-muted text-uppercase">Employee ID <span class="text-danger">*</span></label>
                             <input type="text" name="emp_id" class="form-control" required placeholder="e.g. FAC001">
                         </div>
-
                         <div class="mb-3">
-                            <label class="form-label">Full Name</label>
-                            <input type="text" name="name" class="form-control" required placeholder="e.g. Rahul Sir">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" required placeholder="Dr. / Prof. Name">
                         </div>
-
                         <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <input type="text" name="password" class="form-control" required value="123456" placeholder="Default Password">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Email Address <span class="text-muted fw-normal">(Optional)</span></label>
+                            <input type="email" name="email" class="form-control" placeholder="faculty@example.com">
                         </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Department</label>
-                            <select name="department" class="form-select" required>
-                                <option value="Computer Engineering">Computer Engineering</option>
-                                <option value="IT Engineering">IT Engineering</option>
-                                <option value="Civil Engineering">Civil Engineering</option>
-                                <option value="Mechanical Engineering">Mechanical Engineering</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label">Designation</label>
-                            <input type="text" name="designation" class="form-control" required placeholder="e.g. Assistant Professor">
-                        </div>
-
-                        <button type="submit" name="add_faculty" class="btn-gradient w-100 justify-content-center">
-                            <i class="fas fa-save me-2"></i> Save Faculty Member
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- RIGHT COLUMN: ACTIVE TEACHING STAFF TABLE -->
-            <div class="col-lg-8">
-                <div class="content-box h-100 p-0 overflow-hidden">
-                    <div class="d-flex justify-content-between align-items-center p-4 border-bottom">
-                        <div class="d-flex align-items-center gap-2">
-                            <h5 class="box-title mb-0 border-0 pb-0"><i class="fas fa-users text-success me-2"></i> Active Teaching Staff</h5>
-                            <span class="badge bg-primary rounded-pill px-2 py-1 ms-2"><?php echo $faculty_list->num_rows; ?> Total</span>
-                        </div>
-                        
-                        <div class="d-flex gap-2">
-                            <form method="GET" class="m-0" style="width: 200px;">
-                                <div class="search-wrapper">
-                                    <input type="text" name="search" placeholder="Search..." value="<?php echo htmlspecialchars($search_query); ?>">
-                                    <button type="submit"><i class="fas fa-search"></i></button>
-                                </div>
-                            </form>
-                            <button class="btn btn-outline-dark fw-bold border-1 border-secondary" onclick="exportTableToCSV('Faculty_List.csv')" title="Export to Excel">
-                                <i class="fas fa-file-csv"></i>
-                            </button>
-                            <button class="btn btn-outline-dark fw-bold border-1 border-secondary" onclick="window.print()" title="Print List">
-                                <i class="fas fa-print"></i>
-                            </button>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Department <span class="text-danger">*</span></label>
+                                <select name="department" class="form-select" required>
+                                    <option value="" disabled selected>-- Select --</option>
+                                    <option value="Computer Engineering">Computer Engineering</option>
+                                    <option value="IT Engineering">IT Engineering</option>
+                                    <option value="Civil Engineering">Civil Engineering</option>
+                                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Designation</label>
+                                <input type="text" name="designation" class="form-control" placeholder="e.g. Senior Lecturer">
+                            </div>
                         </div>
                     </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-custom mb-0" id="facultyTable">
-                            <thead>
-                                <tr>
-                                    <th class="ps-4">EMP ID</th>
-                                    <th>Name & Designation</th>
-                                    <th>Department</th>
-                                    <th>Status</th>
-                                    <th class="text-end pe-4">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if($faculty_list && $faculty_list->num_rows > 0): ?>
-                                    <?php while($fac = $faculty_list->fetch_assoc()): ?>
-                                        <tr>
-                                            <td class="ps-4 fw-bold" style="color: var(--primary);"><?php echo htmlspecialchars($fac['email']); ?></td>
-                                            <td>
-                                                <div class="fw-bold text-dark" style="font-size: 14.5px;"><?php echo htmlspecialchars($fac['name']); ?></div>
-                                                <div class="text-muted fw-bold mt-1" style="font-size: 11.5px;"><i class="fas fa-briefcase me-1"></i> <?php echo htmlspecialchars($fac['designation'] ?? 'Faculty'); ?></div>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($fac['department']); ?></td>
-                                            <td><span class="badge-modern status-Active"><i class="fas fa-check-circle me-1"></i> Active</span></td>
-                                            <td class="text-end pe-4">
-                                                <a href="faculty_mgmt.php?delete_id=<?php echo $fac['user_id']; ?>" 
-                                                   class="btn-action" 
-                                                   title="Delete Faculty"
-                                                   onclick="return confirm('Are you sure you want to remove this faculty member?');">
-                                                    <i class="fas fa-trash-alt"></i> Remove
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    <?php endwhile; ?>
-                                <?php else: ?>
-                                    <tr>
-                                        <td colspan="5" class="text-center text-muted py-5">
-                                            <i class="fas fa-search mb-3" style="font-size: 40px; color: #cbd5e1;"></i><br>
-                                            <span class="fw-bold fs-5 text-dark">No faculty found.</span><br>
-                                            <small class="fw-semibold">Try a different search or use the form on the left to add staff.</small>
-                                        </td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
+                    <div class="modal-footer bg-light border-0 rounded-bottom-4">
+                        <button type="submit" name="add_faculty" class="btn btn-primary fw-bold px-4 w-100">Save Faculty</button>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     </div>
@@ -426,37 +464,52 @@ $faculty_list = $conn->query("SELECT * FROM users WHERE role='faculty' $sql_sear
 
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    
     <script>
+        $(document).ready(function() {
+            $('#facultyTable').DataTable({
+                "pageLength": 10,
+                "lengthMenu": [10, 25, 50, 100],
+                "searching": false, 
+                "ordering": false,  
+                "info": true,
+                "language": {
+                    "lengthMenu": "Display _MENU_ records"
+                }
+            });
+        });
+
+        function openEditModal(emp_id, name, dept, designation, email) {
+            document.getElementById('edit_emp_id').value = emp_id;
+            document.getElementById('edit_name').value = name;
+            document.getElementById('edit_department').value = dept;
+            document.getElementById('edit_designation').value = designation;
+            document.getElementById('edit_email').value = email;
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        }
+
+        function openDeleteModal(emp_id, name) {
+            document.getElementById('delete_id_input').value = emp_id;
+            document.getElementById('delete_faculty_name').innerText = name + " (" + emp_id + ")";
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        }
+
+        function openResetModal(emp_id, name) {
+            document.getElementById('reset_id_input').value = emp_id;
+            document.getElementById('reset_faculty_name').innerText = name + " (" + emp_id + ")";
+            new bootstrap.Modal(document.getElementById('resetModal')).show();
+        }
+
         function updateClock() {
             const now = new Date();
             const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-            document.getElementById('liveClock').innerText = now.toLocaleDateString('en-IN', options);
+            const clockEl = document.getElementById('liveClock');
+            if(clockEl) clockEl.innerText = now.toLocaleDateString('en-IN', options);
         }
         setInterval(updateClock, 1000);
         updateClock();
-
-        function exportTableToCSV(filename) {
-            var csv = [];
-            var rows = document.querySelectorAll("#facultyTable tr");
-            
-            for (var i = 0; i < rows.length; i++) {
-                var row = [], cols = rows[i].querySelectorAll("td, th");
-                // Skip the last column (Action)
-                for (var j = 0; j < cols.length - 1; j++) { 
-                    var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " - ");
-                    row.push('"' + data + '"');
-                }
-                csv.push(row.join(","));
-            }
-
-            var csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
-            var downloadLink = document.createElement("a");
-            downloadLink.download = filename;
-            downloadLink.href = window.URL.createObjectURL(csvFile);
-            downloadLink.style.display = "none";
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-        }
     </script>
 </body>
 </html>
