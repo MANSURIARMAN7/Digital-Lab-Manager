@@ -18,10 +18,11 @@ $faculty_name = $fac_data['name'];
 $designation = !empty($fac_data['designation']) ? $fac_data['designation'] : 'Faculty Member';
 
 // Robust Mapping Query from the main 'subjects' table where Admin actually assigns the faculty
-$safe_id = strtolower($conn->real_escape_string($faculty_id));
+$assigned_subjects = $conn->query("SELECT subject_code, subject_name, department, semester FROM subjects WHERE faculty_name LIKE '%$faculty_id%' AND status='Active'");$safe_id = strtolower($conn->real_escape_string($faculty_id));
 $safe_name = strtolower($conn->real_escape_string($faculty_name));
 
 $assigned_subjects = $conn->query("SELECT subject_code, subject_name, department, semester FROM subjects WHERE (LOWER(faculty_name) LIKE '%$safe_id%' OR LOWER(faculty_name) LIKE '%$safe_name%') AND status='Active'");
+
 // ==========================================
 // UPLOAD LAB MANUAL LOGIC
 // ==========================================
