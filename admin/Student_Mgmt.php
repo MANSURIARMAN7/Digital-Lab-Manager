@@ -606,4 +606,3 @@ bhota
 hamza
 gatti
 arman
-vasi
