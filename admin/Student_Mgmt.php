@@ -604,5 +604,5 @@ $total_students = $students->num_rows;
 sohan
 bhota
 hamza
-gatti
+
 
