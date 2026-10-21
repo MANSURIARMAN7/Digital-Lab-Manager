@@ -221,7 +221,6 @@ $live_notices = $conn->query("
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
-            <div class="sidebar-subtitle">Admin Portal</div>
         </div>
         <ul class="nav-links">
             <li onclick="window.location.href='dashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
@@ -233,7 +232,10 @@ $live_notices = $conn->query("
         </ul>
     </div>
 
+    <!-- MAIN CONTENT -->
     <div class="main">
+        
+        <!-- UNIFORM TOPBAR -->
         <div class="topbar">
             <div class="d-flex align-items-center gap-3">
                 <div class="clock-badge"><i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span></div>
@@ -351,8 +353,10 @@ $live_notices = $conn->query("
 
             </div>
         </div>
+
     </div>
 
+<<<<<<< HEAD
     <!-- BULK IMPORT MODAL -->
     <div class="modal fade" id="bulkImportModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -378,10 +382,72 @@ $live_notices = $conn->query("
                         </button>
                     </form>
                 </div>
+=======
+    <!-- MODALS -->
+
+    <!-- 1. Add Student Modal -->
+    <div class="modal fade" id="addModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-primary text-white rounded-top-4">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-user-plus me-2"></i> Add New Student</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body p-4">
+                        <div class="alert alert-info small fw-bold mb-3"><i class="fas fa-info-circle me-1"></i> Default password will be <b>123456</b></div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Enrollment No. <span class="text-danger">*</span></label>
+                            <input type="text" name="enrollment" class="form-control" required placeholder="e.g. 226310307001">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" required placeholder="Student Name">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Department <span class="text-danger">*</span></label>
+                            <select name="department" class="form-select" required>
+                                <option value="" disabled selected>-- Select --</option>
+                                <option value="Computer Engineering">Computer Engineering</option>
+                                <option value="IT Engineering">IT Engineering</option>
+                                <option value="Civil Engineering">Civil Engineering</option>
+                                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Sem <span class="text-danger">*</span></label>
+                                <select name="semester" class="form-select" required>
+                                    <option value="" disabled selected>-</option>
+                                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                                    <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Batch <span class="text-danger">*</span></label>
+                                <select name="batch" class="form-select" required>
+                                    <option value="" disabled selected>-- Select Batch --</option>
+                                    <option value="A1">A1</option><option value="A2">A2</option><option value="A3">A3</option>
+                                    <option value="B1">B1</option><option value="B2">B2</option><option value="B3">B3</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Email Address <span class="text-muted fw-normal">(Optional)</span></label>
+                            <input type="email" name="email" class="form-control" placeholder="student@example.com">
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-0 rounded-bottom-4">
+                        <button type="submit" name="add_student" class="btn btn-primary fw-bold px-4 w-100">Save Student</button>
+                    </div>
+                </form>
+>>>>>>> pr-arman-to-main
             </div>
         </div>
     </div>
 
+<<<<<<< HEAD
     <!-- ADD STUDENT MODAL -->
     <div class="modal fade" id="addStudentModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -455,12 +521,131 @@ $live_notices = $conn->query("
                     <button type="submit" name="add_student" class="btn-gradient w-100 justify-content-center">
                         <i class="fas fa-save me-2"></i> Save Student Record
                     </button>
+=======
+    <!-- 2. Edit Student Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-dark text-white rounded-top-4">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-user-edit me-2"></i> Edit Student Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Enrollment No. (Locked)</label>
+                            <input type="text" name="edit_enrollment" id="edit_enrollment" class="form-control bg-light" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" name="edit_name" id="edit_name" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Department <span class="text-danger">*</span></label>
+                            <select name="edit_department" id="edit_department" class="form-select" required>
+                                <option value="Computer Engineering">Computer Engineering</option>
+                                <option value="IT Engineering">IT Engineering</option>
+                                <option value="Civil Engineering">Civil Engineering</option>
+                                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Sem <span class="text-danger">*</span></label>
+                                <select name="edit_semester" id="edit_semester" class="form-select" required>
+                                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                                    <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Batch <span class="text-danger">*</span></label>
+                                <select name="edit_batch" id="edit_batch" class="form-select" required>
+                                    <option value="A1">A1</option><option value="A2">A2</option><option value="A3">A3</option>
+                                    <option value="B1">B1</option><option value="B2">B2</option><option value="B3">B3</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Email Address <span class="text-muted fw-normal">(Optional)</span></label>
+                            <input type="email" name="edit_email" id="edit_email" class="form-control">
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-0 rounded-bottom-4">
+                        <button type="submit" name="edit_student" class="btn btn-dark fw-bold px-4 w-100">Update Record</button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 
+    <!-- 3. Bulk Import Modal -->
+    <div class="modal fade" id="importModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-success text-white rounded-top-4">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-file-csv me-2"></i> Bulk Import Students</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="modal-body p-4">
+                        <div class="alert alert-warning small fw-bold mb-4">
+                            <i class="fas fa-info-circle me-1"></i> Ensure CSV columns exactly match:<br>
+                            <strong>Enrollment, Name, Branch, Semester, Batch, Email</strong><br>
+                            <em>(Duplicates safely skipped. Password set to 123456)</em>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Upload CSV File <span class="text-danger">*</span></label>
+                            <input type="file" name="csv_file" class="form-control p-2" accept=".csv" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-0 rounded-bottom-4">
+                        <button type="submit" name="import_csv" class="btn btn-success fw-bold px-4 w-100">Run Import Process</button>
+                    </div>
+>>>>>>> pr-arman-to-main
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-body p-4 text-center">
+                    <i class="fas fa-exclamation-triangle text-danger mb-3" style="font-size: 50px;"></i>
+                    <h4 class="fw-bold text-dark mb-2">Delete Student?</h4>
+                    <p class="text-muted fw-semibold mb-4">You are about to delete <strong id="delete_student_name" class="text-danger"></strong>. All their lab submissions will also be wiped out. This action cannot be undone.</p>
+                    <form method="POST" class="d-flex gap-2">
+                        <input type="hidden" name="delete_id" id="delete_id_input">
+                        <button type="button" class="btn btn-light fw-bold w-50" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" name="delete_student_btn" class="btn btn-danger fw-bold w-50">Yes, Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Reset Password Modal -->
+    <div class="modal fade" id="resetModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-body p-4 text-center">
+                    <i class="fas fa-key text-warning mb-3" style="font-size: 50px;"></i>
+                    <h4 class="fw-bold text-dark mb-2">Reset Password</h4>
+                    <p class="text-muted fw-semibold mb-4">Reset password to <b>123456</b> for <strong id="reset_student_name" class="text-primary"></strong>?</p>
+                    <form method="POST" class="d-flex gap-2">
+                        <input type="hidden" name="reset_id" id="reset_id_input">
+                        <button type="button" class="btn btn-light fw-bold w-50" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" name="reset_pass_btn" class="btn btn-warning text-dark fw-bold w-50">Yes, Reset</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<<<<<<< HEAD
     <script>
         function updateClock() {
             const now = new Date();
@@ -469,6 +654,46 @@ $live_notices = $conn->query("
         }
         setInterval(updateClock, 1000);
         updateClock();
+=======
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            $('#studentTable').DataTable({
+                "pageLength": 10,
+                "lengthMenu": [10, 25, 50, 100],
+                "searching": false, // PHP custom search handled
+                "ordering": false,  // PHP custom sorting handled
+                "info": true,
+                "language": {
+                    "lengthMenu": "Display _MENU_ records"
+                }
+            });
+        });
+
+        function openEditModal(enroll, name, dept, sem, batch, email) {
+            document.getElementById('edit_enrollment').value = enroll;
+            document.getElementById('edit_name').value = name;
+            document.getElementById('edit_department').value = dept;
+            document.getElementById('edit_semester').value = sem;
+            document.getElementById('edit_batch').value = batch;
+            document.getElementById('edit_email').value = email;
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        }
+
+        function openDeleteModal(enroll, name) {
+            document.getElementById('delete_id_input').value = enroll;
+            document.getElementById('delete_student_name').innerText = name + " (" + enroll + ")";
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        }
+
+        function openResetModal(enroll, name) {
+            document.getElementById('reset_id_input').value = enroll;
+            document.getElementById('reset_student_name').innerText = name + " (" + enroll + ")";
+            new bootstrap.Modal(document.getElementById('resetModal')).show();
+        }
+>>>>>>> pr-arman-to-main
     </script>
 </body>
 </html>

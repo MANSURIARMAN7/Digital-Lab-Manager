@@ -1,4 +1,5 @@
 <?php
+ob_start();
 session_start();
 include '../db.php'; // Database connection
 
@@ -183,14 +184,13 @@ $total_subjects_assigned = $q_subs ? $q_subs->fetch_assoc()['cnt'] : 0;
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
-            <div class="sidebar-subtitle">Faculty Portal</div>
         </div>
         <ul class="nav-links">
-            <li onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
-            <li onclick="window.location.href='manage_manuals.php'"><i class="fas fa-file-pdf"></i> Upload Manuals</li>
-            <li onclick="window.location.href='labmanual_list.php'"><i class="fas fa-check-double"></i> Review & Evaluate</li>
+            <li onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
+            <li onclick="window.location.href='upload_manual.php'"><i class="fas fa-file-upload"></i> Upload Manuals</li>
+            <li onclick="window.location.href='review_submissions.php'"><i class="fas fa-check-double"></i> Review Submissions</li>
             <li onclick="window.location.href='reports.php'"><i class="fas fa-chart-pie"></i> Reports</li>
-            <li class="active" onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> Profile</li>
+            <li class="active" onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> My Profile</li>
             <li class="mt-auto" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
     </div>
@@ -270,6 +270,7 @@ $total_subjects_assigned = $q_subs ? $q_subs->fetch_assoc()['cnt'] : 0;
                     </div>
                 </div>
             </div>
+        </div>
 
             <!-- RIGHT COLUMN: FUNCTIONAL SETTINGS TABS -->
             <div class="col-md-8">
@@ -374,12 +375,15 @@ $total_subjects_assigned = $q_subs ? $q_subs->fetch_assoc()['cnt'] : 0;
                                 </div>
                             </div>
                         </div>
+                    </form>
+                </div>
 
                     </div>
                 </div>
             </div>
 
         </div>
+
     </div>
 
     <!-- Bootstrap JS -->

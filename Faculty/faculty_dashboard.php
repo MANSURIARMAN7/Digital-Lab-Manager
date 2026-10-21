@@ -1,4 +1,5 @@
 <?php
+ob_start();
 session_start();
 include '../db.php';
 
@@ -77,7 +78,6 @@ $workload_percent = ($total_sub > 0) ? round(($graded_count / $total_sub) * 100)
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
     <style>
         :root { 
             --sidebar-width: 270px; 
@@ -94,11 +94,10 @@ $workload_percent = ($total_sub > 0) ? round(($graded_count / $total_sub) * 100)
 
         body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; color: var(--text-main); }
         
-        .sidebar { width: var(--sidebar-width); background: linear-gradient(195deg, #1e3a8a 0%, #4338ca 100%); color: #ffffff; display: flex; flex-direction: column; z-index: 10; box-shadow: 4px 0 24px rgba(0,0,0,0.08); }
+        .sidebar { width: var(--sidebar-width); min-width: var(--sidebar-width); background: linear-gradient(195deg, #1e3a8a 0%, #4338ca 100%); color: #ffffff; display: flex; flex-direction: column; z-index: 10; box-shadow: 4px 0 24px rgba(0,0,0,0.08); }
         .sidebar-logo-container { padding: 35px 20px 25px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); }
         .sidebar-logo-container img { width: 85px; height: 85px; margin-bottom: 15px; border-radius: 50%; padding: 4px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); }
         .sidebar-title h2 { font-size: 19px; font-weight: 800; margin: 0;}
-        .sidebar-subtitle { font-size: 13px; color: #bfdbfe; margin-top: 5px; font-weight: 500; letter-spacing: 0.5px;} 
         
         .nav-links { list-style: none; padding: 25px 15px; margin: 0; flex-grow: 1; }
         .nav-links li { padding: 13px 20px; margin: 8px 0; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 15px; font-size: 14.5px; font-weight: 600; color: #dbeafe; transition: var(--transition-bounce); }
@@ -117,9 +116,9 @@ $workload_percent = ($total_sub > 0) ? round(($graded_count / $total_sub) * 100)
         .profile-pill { display: flex; align-items: center; background-color: var(--surface); padding: 10px 22px 10px 28px; border-radius: 50px; border: 1px solid rgba(226, 232, 240, 0.8); cursor: pointer; text-decoration: none; color: inherit; transition: var(--transition-bounce); box-shadow: var(--shadow-float); }
         .profile-pill:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 15px 25px -5px rgba(0,0,0,0.1); border-color: #cbd5e1;}
         .profile-text { text-align: right; margin-right: 18px; }
-        .profile-welcome { display: block; font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; margin-bottom: 2px; }
-        .profile-name { margin: 0; font-size: 17px; color: var(--text-main); font-weight: 900;}
-        .profile-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #4f46e5, #3730a3); color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.4);}
+        .profile-welcome { display: block; font-size: 11px; color: #bfdbfe; font-weight: 800; text-transform: uppercase; margin-bottom: 2px; letter-spacing: 0.5px;}
+        .profile-name { margin: 0; font-size: 17px; color: white; font-weight: 900;}
+        .profile-avatar { background: white; color: var(--primary); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);}
 
         .welcome-banner { background: linear-gradient(135deg, #1e3a8a, #4338ca); border-radius: var(--radius-xl); padding: 35px 40px; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(67, 56, 202, 0.15); margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;}
         .welcome-banner::before { content: '\f51c'; font-family: 'Font Awesome 5 Free'; font-weight: 900; position: absolute; right: 20px; top: -20px; font-size: 180px; color: rgba(255,255,255,0.05); }
@@ -171,14 +170,13 @@ $workload_percent = ($total_sub > 0) ? round(($graded_count / $total_sub) * 100)
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
-            <div class="sidebar-subtitle">Faculty Portal</div>
         </div>
         <ul class="nav-links">
-            <li class="active" onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
-            <li onclick="window.location.href='manage_manuals.php'"><i class="fas fa-file-pdf"></i> Upload Manuals</li>
-            <li onclick="window.location.href='labmanual_list.php'"><i class="fas fa-check-double"></i> Review & Evaluate</li>
+            <li class="active" onclick="window.location.href='faculty_dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
+            <li onclick="window.location.href='upload_manual.php'"><i class="fas fa-file-upload"></i> Upload Manuals</li>
+            <li onclick="window.location.href='review_submissions.php'"><i class="fas fa-check-double"></i> Review Submissions</li>
             <li onclick="window.location.href='reports.php'"><i class="fas fa-chart-pie"></i> Reports</li>
-            <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> Profile</li>
+            <li onclick="window.location.href='profile.php'"><i class="fas fa-user-circle"></i> My Profile</li>
             <li class="mt-auto" onclick="window.location.href='../logout.php'"><i class="fas fa-sign-out-alt"></i> Logout</li>
         </ul>
     </div>
@@ -203,7 +201,7 @@ $workload_percent = ($total_sub > 0) ? round(($graded_count / $total_sub) * 100)
                         ?>
                     </h4>
                 </div>
-                <div class="profile-avatar"><?php echo $initials; ?></div>
+                <div class="profile-avatar"><i class="fas fa-user-tie"></i></div>
             </a>
         </div>
 
@@ -376,7 +374,8 @@ $workload_percent = ($total_sub > 0) ? round(($graded_count / $total_sub) * 100)
         function updateClock() {
             const now = new Date();
             const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-            document.getElementById('liveClock').innerText = now.toLocaleDateString('en-IN', options);
+            const clockEl = document.getElementById('liveClock');
+            if(clockEl) clockEl.innerText = now.toLocaleDateString('en-IN', options);
         }
         setInterval(updateClock, 1000);
         updateClock();

@@ -12,7 +12,6 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
 $admin_id = $_SESSION['user_id'];
 $admin_query = $conn->query("SELECT name FROM users WHERE user_id = '$admin_id'");
 $admin_data = $admin_query->fetch_assoc();
-$admin_name = $admin_data['name'] ?? 'System Administrator';
 
 // Generate Initials
 $name_parts = explode(' ', trim($admin_name));
@@ -44,19 +43,18 @@ $total_subjects = ($subject_count_res) ? $subject_count_res->fetch_assoc()['tota
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        :root { 
-            --sidebar-width: 270px; 
-            --primary: #4338ca; 
-            --primary-hover: #3730a3;
+        :root {
+            --sidebar-width: 270px;
+            --primary: #4338ca;
             --bg-body: #f8fafc;
             --surface: #ffffff;
             --text-main: #0f172a;
             --text-muted: #64748b;
-            --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            --radius-xl: 16px;
-            --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --transition-bounce: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
+        /* FIX: Uniform body styling to prevent scrollbar shifting */
+        * { box-sizing: border-box; }
         body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; height: 100vh; overflow: hidden; margin: 0; color: var(--text-main); }
         
         /* 🔥 SIDEBAR */
@@ -106,7 +104,6 @@ $total_subjects = ($subject_count_res) ? $subject_count_res->fetch_assoc()['tota
         .action-card p { font-size: 13px; font-weight: 500; color: var(--text-muted); margin: 0;}
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
@@ -117,7 +114,6 @@ $total_subjects = ($subject_count_res) ? $subject_count_res->fetch_assoc()['tota
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
-            <div class="sidebar-subtitle">Admin Portal</div>
         </div>
         <ul class="nav-links">
             <li class="active" onclick="window.location.href='dashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
@@ -148,7 +144,7 @@ $total_subjects = ($subject_count_res) ? $subject_count_res->fetch_assoc()['tota
                         ?>
                     </h4>
                 </div>
-                <div class="profile-avatar"><?php echo $initials; ?></div>
+                <div class="profile-avatar"><i class="fas fa-user-tie"></i></div>
             </a>
         </div>
 
@@ -204,13 +200,14 @@ $total_subjects = ($subject_count_res) ? $subject_count_res->fetch_assoc()['tota
 
     </div>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Live Clock Script
         function updateClock() {
             const now = new Date();
             const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-            document.getElementById('liveClock').innerText = now.toLocaleDateString('en-IN', options);
+            const clockEl = document.getElementById('liveClock');
+            if(clockEl) clockEl.innerText = now.toLocaleDateString('en-IN', options);
         }
         setInterval(updateClock, 1000);
         updateClock();

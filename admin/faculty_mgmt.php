@@ -168,7 +168,6 @@ $faculty_list = $conn->query("SELECT * FROM users WHERE role='faculty' $sql_sear
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
-            <div class="sidebar-subtitle">Admin Portal</div>
         </div>
         <ul class="nav-links">
             <li onclick="window.location.href='dashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
@@ -180,7 +179,10 @@ $faculty_list = $conn->query("SELECT * FROM users WHERE role='faculty' $sql_sear
         </ul>
     </div>
 
+    <!-- MAIN CONTENT -->
     <div class="main">
+        
+        <!-- UNIFORM TOPBAR -->
         <div class="topbar">
             <div class="d-flex align-items-center gap-3">
                 <div class="clock-badge"><i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span></div>
@@ -340,6 +342,89 @@ $faculty_list = $conn->query("SELECT * FROM users WHERE role='faculty' $sql_sear
         </div>
     </div>
 
+    <!-- 2. Edit Faculty Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-dark text-white rounded-top-4">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-user-edit me-2"></i> Edit Faculty Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Employee ID (Locked)</label>
+                            <input type="text" name="edit_emp_id" id="edit_emp_id" class="form-control bg-light" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" name="edit_name" id="edit_name" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Email Address</label>
+                            <input type="email" name="edit_email" id="edit_email" class="form-control">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Department <span class="text-danger">*</span></label>
+                                <select name="edit_department" id="edit_department" class="form-select" required>
+                                    <option value="Computer Engineering">Computer Engineering</option>
+                                    <option value="IT Engineering">IT Engineering</option>
+                                    <option value="Civil Engineering">Civil Engineering</option>
+                                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Designation</label>
+                                <input type="text" name="edit_designation" id="edit_designation" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-0 rounded-bottom-4">
+                        <button type="submit" name="edit_faculty" class="btn btn-dark fw-bold px-4 w-100">Update Record</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-body p-4 text-center">
+                    <i class="fas fa-exclamation-triangle text-danger mb-3" style="font-size: 50px;"></i>
+                    <h4 class="fw-bold text-dark mb-2">Delete Faculty?</h4>
+                    <p class="text-muted fw-semibold mb-4">You are about to delete <strong id="delete_faculty_name" class="text-danger"></strong>. Make sure they are not assigned to active subjects. This action cannot be undone.</p>
+                    <form method="POST" class="d-flex gap-2">
+                        <input type="hidden" name="delete_id" id="delete_id_input">
+                        <button type="button" class="btn btn-light fw-bold w-50" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" name="delete_faculty_btn" class="btn btn-danger fw-bold w-50">Yes, Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Reset Password Modal -->
+    <div class="modal fade" id="resetModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-body p-4 text-center">
+                    <i class="fas fa-key text-warning mb-3" style="font-size: 50px;"></i>
+                    <h4 class="fw-bold text-dark mb-2">Reset Password</h4>
+                    <p class="text-muted fw-semibold mb-4">Reset password to <b>123456</b> for <strong id="reset_faculty_name" class="text-primary"></strong>?</p>
+                    <form method="POST" class="d-flex gap-2">
+                        <input type="hidden" name="reset_id" id="reset_id_input">
+                        <button type="button" class="btn btn-light fw-bold w-50" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" name="reset_pass_btn" class="btn btn-warning text-dark fw-bold w-50">Yes, Reset</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function updateClock() {

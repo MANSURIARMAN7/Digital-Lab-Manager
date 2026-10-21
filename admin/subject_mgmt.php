@@ -14,9 +14,14 @@ $admin_query = $conn->query("SELECT name, department FROM users WHERE user_id = 
 $admin_data = $admin_query->fetch_assoc();
 $admin_name = $admin_data['name'] ?? 'System Administrator';
 
-$name_parts = explode(' ', trim($admin_name));
-$initials = strtoupper(substr($name_parts[0], 0, 1));
-if (count($name_parts) > 1) { $initials .= strtoupper(substr(end($name_parts), 0, 1)); }
+// Fetch faculties for the dropdown (Format: Name (ID))
+$faculties_query = $conn->query("SELECT user_id, name FROM users WHERE role='faculty' ORDER BY name ASC");
+$faculty_list = [];
+if($faculties_query && $faculties_query->num_rows > 0) {
+    while($fac = $faculties_query->fetch_assoc()){
+        $faculty_list[] = $fac['name'] . " (" . $fac['user_id'] . ")";
+    }
+}
 
 // Ensure subjects table exists
 $conn->query("CREATE TABLE IF NOT EXISTS subjects (
@@ -175,7 +180,6 @@ $subjects_list = $conn->query("SELECT * FROM subjects $sql_search ORDER BY semes
         <div class="sidebar-logo-container">
             <img src="../assets/images/college-logo.png" alt="KDP Logo">
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
-            <div class="sidebar-subtitle">Admin Portal</div>
         </div>
         <ul class="nav-links">
             <li onclick="window.location.href='dashboard.php'"><i class="fas fa-border-all"></i> Dashboard</li>
@@ -187,7 +191,10 @@ $subjects_list = $conn->query("SELECT * FROM subjects $sql_search ORDER BY semes
         </ul>
     </div>
 
+    <!-- MAIN CONTENT -->
     <div class="main">
+        
+        <!-- UNIFORM TOPBAR -->
         <div class="topbar">
             <div class="d-flex align-items-center gap-3">
                 <div class="clock-badge"><i class="far fa-clock text-primary me-2"></i><span id="liveClock">Loading time...</span></div>
@@ -371,6 +378,81 @@ $subjects_list = $conn->query("SELECT * FROM subjects $sql_search ORDER BY semes
         </div>
     </div>
 
+    <!-- 2. Edit Subject Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header bg-dark text-white rounded-top-4">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-edit me-2"></i> Edit Subject Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body p-4">
+                        <input type="hidden" name="edit_id" id="edit_id">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Code <span class="text-danger">*</span></label>
+                                <input type="text" name="edit_subject_code" id="edit_subject_code" class="form-control" required>
+                            </div>
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Subject Name <span class="text-danger">*</span></label>
+                                <input type="text" name="edit_subject_name" id="edit_subject_name" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Department <span class="text-danger">*</span></label>
+                                <select name="edit_department" id="edit_department" class="form-select" required>
+                                    <option value="Computer Engineering">Computer Engineering</option>
+                                    <option value="IT Engineering">IT Engineering</option>
+                                    <option value="Civil Engineering">Civil Engineering</option>
+                                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Sem <span class="text-danger">*</span></label>
+                                <select name="edit_semester" id="edit_semester" class="form-select" required>
+                                    <?php for($i=1; $i<=6; $i++) echo "<option value='$i'>$i</option>"; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Assign Faculty <span class="text-primary">(Hold Ctrl/Cmd to unselect or select)</span></label>
+                            <select name="edit_faculty_name[]" id="edit_faculty_name" class="form-select" multiple>
+                                <?php foreach($faculty_list as $f): ?>
+                                    <option value="<?php echo htmlspecialchars($f); ?>"><?php echo htmlspecialchars($f); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small class="text-muted fst-italic">Select none to unassign all faculties.</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-0 rounded-bottom-4">
+                        <button type="submit" name="edit_subject" class="btn btn-dark fw-bold px-4 w-100">Update Subject</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-body p-4 text-center">
+                    <i class="fas fa-exclamation-triangle text-danger mb-3" style="font-size: 50px;"></i>
+                    <h4 class="fw-bold text-dark mb-2">Delete Subject?</h4>
+                    <p class="text-muted fw-semibold mb-4">You are about to delete <strong id="delete_subject_name" class="text-danger"></strong>. Make sure it has no active records.</p>
+                    <form method="POST" class="d-flex gap-2">
+                        <input type="hidden" name="delete_id" id="delete_id_input">
+                        <button type="button" class="btn btn-light fw-bold w-50" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" name="delete_subject_btn" class="btn btn-danger fw-bold w-50">Yes, Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function updateClock() {

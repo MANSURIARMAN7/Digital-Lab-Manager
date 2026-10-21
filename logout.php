@@ -1,9 +1,17 @@
 <?php
-session_start(); // Memory start karo
-session_unset(); // Saara data (naam, id) hata do
-session_destroy(); // Memory ko hamesha ke liye khatam kar do
+session_start();
+$_SESSION = array(); // Clear all session variables
+session_destroy(); // Destroy the session
 
-// Wapas login page par bhej do
-header("Location: login.php");
+// Clear session cookie if exists
+if (ini_get("session.use_cookies")) {
+    $params = session_get_cookie_params();
+    setcookie(session_name(), '', time() - 42000,
+        $params["path"], $params["domain"],
+        $params["secure"], $params["httponly"]
+    );
+}
+
+header("Location: index.php");
 exit();
 ?>
