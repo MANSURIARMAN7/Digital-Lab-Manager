@@ -364,7 +364,7 @@ if (!$current_sub && $submissions_list && $submissions_list->num_rows > 0) {
                                     </div>
                                 </div>
                             </form>
-                        </div>
+                        
                     </div>
                 </div>
             <?php endif; ?>
