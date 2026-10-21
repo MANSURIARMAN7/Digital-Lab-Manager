@@ -251,7 +251,7 @@ $manuals_list = $conn->query("SELECT * FROM lab_manuals $sql_search ORDER BY upl
         </ul>
     </div>
 
-    <!-- MAIN CONTENT FOR STUDENTS & -->
+    <!-- MAIN CONTENT FOR STUDENTS  -->
     <div class="main">
         
         <!-- TOPBAR -->
