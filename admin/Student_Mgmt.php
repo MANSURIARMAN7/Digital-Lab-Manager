@@ -205,7 +205,7 @@ $students = $conn->query($query);
         </div>
     </div>
 
-    <!-- Modals (Add Student & CSV) -->
+    <!-- Modals (Add Student & CSV)FOR STUDENTS -->
     <div class="modal fade" id="addStudentModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
