@@ -16,7 +16,7 @@ $users = [];
 if (file_exists($users_file)) {
     $users = json_decode(file_get_contents($users_file), true);
     if (!is_array($users)) {
-       
+        $users = [];
     }
 }
 
