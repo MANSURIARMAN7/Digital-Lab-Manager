@@ -11,11 +11,11 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'student') {
 
 $student_id = $_SESSION['user_id'];
 
-// 2. Fetch Logged-in Student Details
+// 2. Fetch Logged-in Student Details (SAFE METHOD)
 $user_query = $conn->query("SELECT name, department, semester, profile_photo FROM users WHERE user_id = '$student_id'");
-$user_data = $user_query->fetch_assoc();
+$user_data = ($user_query && $user_query->num_rows > 0) ? $user_query->fetch_assoc() : [];
 
-$full_name = $user_data['name'];
+$full_name = $user_data['name'] ?? 'Student';
 $branch = !empty($user_data['department']) ? $user_data['department'] : 'N/A';
 $semester = !empty($user_data['semester']) ? $user_data['semester'] : '0';
 $profile_pic = !empty($user_data['profile_photo']) ? "../" . $user_data['profile_photo'] : null;
@@ -45,9 +45,6 @@ if($pending_manuals < 0) $pending_manuals = 0;
 // 4. Reviewed / Graded
 $graded_query = $conn->query("SELECT COUNT(*) as c FROM student_submissions WHERE student_id = '$student_id' AND status = 'Graded'");
 $graded_manuals = $graded_query ? $graded_query->fetch_assoc()['c'] : 0;
-
-// Progress
-$progress_percentage = ($total_manuals > 0) ? round(($submitted_manuals / $total_manuals) * 100) : 0;
 
 // ==========================================
 // RECENT SUBMISSIONS & FEEDBACK
@@ -144,7 +141,7 @@ $upcoming_deadlines = $conn->query("
             <div class="sidebar-title"><h2>K.D. Polytechnic</h2></div>
         </div>
         <ul class="nav-links">
-            <li class="active" onclick="window.location.href='dashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
+            <li class="active" onclick="window.location.href='Stdashboard.php'"><i class="fas fa-home"></i> Dashboard</li>
             <li onclick="window.location.href='submit_practical.php'"><i class="fas fa-file-upload"></i> Submit Practicals</li>
             <li onclick="window.location.href='my_history.php'"><i class="fas fa-history"></i> My History</li>
             <li onclick="window.location.href='profile.php'"><i class="fas fa-user-graduate"></i> My Profile</li>
