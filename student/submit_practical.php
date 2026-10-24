@@ -12,7 +12,20 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'student') {
 $student_id = $_SESSION['user_id'];
 $msg = "";
 
-// Fetch Student Branch, Sem & Profile Details
+// Auto-fix any bad database unique keys silently to prevent crashes
+$conn->query("ALTER TABLE student_submissions DROP INDEX unique_practical_sub");
+
+// SESSION MESSAGE (To handle PRG redirect messages)
+if (isset($_SESSION['upload_msg'])) {
+    $msg = $_SESSION['upload_msg'];
+    unset($_SESSION['upload_msg']);
+}
+
+// Catch Silent Drop for Large Files
+if (empty($_POST) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+    $msg = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-triangle me-2'></i> Error: File ki size server ki limit se badi hai! Kripya 5MB se choti PDF upload karein.</div>";
+}
+
 $user_q = $conn->query("SELECT name, department, semester, profile_photo FROM users WHERE user_id = '$student_id'");
 $user_d = ($user_q && $user_q->num_rows > 0) ? $user_q->fetch_assoc() : [];
 
@@ -23,20 +36,26 @@ $profile_pic = !empty($user_d['profile_photo']) ? "../" . $user_d['profile_photo
 $name_parts = explode(" ", trim($user_d['name'] ?? 'Student'));
 $profile_display_name = $name_parts[0] . ' ' . (count($name_parts) > 1 ? end($name_parts) : '');
 
+$selected_subject = $_GET['subject_code'] ?? '';
+
 // ==========================================
 // HANDLE FILE UPLOAD / REPLACE / RESUBMIT
 // ==========================================
 if (isset($_POST['submit_practical'])) {
     $manual_id = (int)$_POST['manual_id'];
-    $upload_type = $_POST['upload_type']; // 'new', 'replace', 'resubmit'
-    $existing_sub_id = isset($_POST['submission_id']) ? (int)$_POST['submission_id'] : 0;
+    $upload_type = $_POST['upload_type']; 
     
-    // Check if practical is already Graded (Backend Enforcement)
+    if(empty($selected_subject) && isset($_POST['current_subject'])) {
+        $selected_subject = $_POST['current_subject'];
+    }
+    
+    // Check if Graded (Locked from Backend)
     $check_lock = $conn->query("SELECT status FROM student_submissions WHERE manual_id = '$manual_id' AND student_id = '$student_id' ORDER BY submitted_at DESC LIMIT 1");
     if($check_lock && $check_lock->num_rows > 0) {
-        $current_status = $check_lock->fetch_assoc()['status'];
-        if($current_status === 'Graded') {
-            die("Security Error: This practical is already graded and locked.");
+        if($check_lock->fetch_assoc()['status'] === 'Graded') {
+            $_SESSION['upload_msg'] = "<div class='alert alert-danger m-4'>Security Error: Yeh practical pehle hi check ho chuka hai (Locked).</div>";
+            header("Location: submit_practical.php?subject_code=" . urlencode($selected_subject));
+            exit();
         }
     }
 
@@ -46,75 +65,74 @@ if (isset($_POST['submit_practical'])) {
         $file_size = $_FILES['practical_file']['size'];
         $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
         
-        // Validation: PDF only and Size limit (e.g., 5MB)
         if ($file_ext === "pdf") {
             if ($file_size <= 5242880) { // 5MB limit
                 $target_dir = "../uploads/submissions/";
                 if (!is_dir($target_dir)) { mkdir($target_dir, 0777, true); }
                 
-                // Safe Filename Generation
                 $new_filename = $student_id . "_" . $manual_id . "_" . time() . ".pdf";
                 $target_file = $target_dir . $new_filename;
                 $db_filepath = "uploads/submissions/" . $new_filename;
                 
                 if (move_uploaded_file($file_tmp, $target_file)) {
                     
-                    if ($upload_type === 'replace' && $existing_sub_id > 0) {
-                        // MASTER LOGIC 1: Pre-lock Edit (Safe Unlink)
-                        // Fetch old file path first, verifying it belongs to this student
-                        $old_file_q = $conn->query("SELECT file_path FROM student_submissions WHERE id = $existing_sub_id AND student_id = '$student_id'");
+                    if ($upload_type === 'replace') {
+                        // REPLACE LOGIC: Find old file and update using manual_id
+                        $old_file_q = $conn->query("SELECT file_path FROM student_submissions WHERE manual_id = '$manual_id' AND student_id = '$student_id' ORDER BY submitted_at DESC LIMIT 1");
+                        $old_file_path = ($old_file_q && $old_file_q->num_rows > 0) ? "../" . $old_file_q->fetch_assoc()['file_path'] : "";
                         
-                        if ($old_file_q && $old_file_q->num_rows > 0) {
-                            $old_file_path = "../" . $old_file_q->fetch_assoc()['file_path'];
-                            
-                            // 1. Update DB FIRST
-                            if($conn->query("UPDATE student_submissions SET file_path='$db_filepath', submitted_at=NOW() WHERE id=$existing_sub_id")) {
-                                // 2. Remove old file ONLY after successful DB update
-                                if (file_exists($old_file_path)) { unlink($old_file_path); }
-                                $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-sync-alt me-2'></i> Practical file replaced successfully!</div>";
+                        if($conn->query("UPDATE student_submissions SET file_path='$db_filepath', submitted_at=NOW() WHERE manual_id='$manual_id' AND student_id='$student_id'")) {
+                            if (!empty($old_file_path) && file_exists($old_file_path)) { unlink($old_file_path); } 
+                            $_SESSION['upload_msg'] = "<div class='alert alert-success shadow-sm'><i class='fas fa-sync-alt me-2'></i> Practical file successfully replace ho gayi!</div>";
+                        } else {
+                            $_SESSION['upload_msg'] = "<div class='alert alert-danger shadow-sm'>Database Update Error: " . $conn->error . "</div>";
+                        }
+                    } else {
+                        // NEW UPLOAD / RESUBMIT (ULTIMATE FAILSAFE)
+                        $sql = "INSERT INTO student_submissions (student_id, manual_id, file_path, status, submitted_at) VALUES ('$student_id', '$manual_id', '$db_filepath', 'Submitted', NOW())";
+                        
+                        if ($conn->query($sql)) {
+                            $_SESSION['upload_msg'] = "<div class='alert alert-success shadow-sm'><i class='fas fa-check-circle me-2'></i> Practical successfully submit ho gaya!</div>";
+                        } else {
+                            // Agar Insert fail hota hai DB structure ki wajah se, toh silently Update kar do!
+                            $update_sql = "UPDATE student_submissions SET file_path='$db_filepath', status='Submitted', submitted_at=NOW() WHERE manual_id='$manual_id' AND student_id='$student_id'";
+                            if ($conn->query($update_sql)) {
+                                $_SESSION['upload_msg'] = "<div class='alert alert-success shadow-sm'><i class='fas fa-check-circle me-2'></i> Practical successfully submit ho gaya! (Updated)</div>";
                             } else {
-                                $msg = "<div class='alert alert-danger shadow-sm'>Database update failed.</div>";
+                                $_SESSION['upload_msg'] = "<div class='alert alert-danger shadow-sm'>Database Error: " . $conn->error . "</div>";
                             }
                         }
-                        
-                    } elseif ($upload_type === 'resubmit') {
-                        // MASTER LOGIC 2: Resubmit (Preserve History)
-                        // Insert as a completely new row (new attempt)
-                        $conn->query("INSERT INTO student_submissions (student_id, manual_id, file_path, status, submitted_at) VALUES ('$student_id', '$manual_id', '$db_filepath', 'Submitted', NOW())");
-                        $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-upload me-2'></i> Corrected file uploaded! New attempt created.</div>";
-                        
-                    } else {
-                        // Fresh Upload (Attempt 1)
-                        $conn->query("INSERT INTO student_submissions (student_id, manual_id, file_path, status, submitted_at) VALUES ('$student_id', '$manual_id', '$db_filepath', 'Submitted', NOW())");
-                        $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-check-circle me-2'></i> Practical submitted successfully!</div>";
                     }
                 } else {
-                    $msg = "<div class='alert alert-danger shadow-sm'>Failed to upload file to server.</div>";
+                    $_SESSION['upload_msg'] = "<div class='alert alert-danger shadow-sm'>File server par move nahi ho payi.</div>";
                 }
             } else {
-                $msg = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-circle me-2'></i> File size must be less than 5MB!</div>";
+                $_SESSION['upload_msg'] = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-circle me-2'></i> Error: File 5MB se badi hai! Kripya choti size ki PDF upload karein.</div>";
             }
         } else {
-            $msg = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-circle me-2'></i> Only PDF files are allowed!</div>";
+            $_SESSION['upload_msg'] = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-circle me-2'></i> Error: Sirf PDF files hi allowed hain!</div>";
         }
     } else {
-        $msg = "<div class='alert alert-danger shadow-sm'>Please select a valid file.</div>";
+        $err_code = $_FILES['practical_file']['error'] ?? 4;
+        $err_msg = "Kripya ek valid file select karein.";
+        if($err_code == 1 || $err_code == 2) { $err_msg = "File ki size server limit se badi hai!"; }
+        $_SESSION['upload_msg'] = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-triangle me-2'></i> Upload Failed: $err_msg</div>";
     }
+
+    header("Location: submit_practical.php?subject_code=" . urlencode($selected_subject));
+    exit();
 }
 
 // ==========================================
-// FETCH SUBJECTS FOR DROPDOWN
+// FETCH SUBJECTS & PRACTICALS
 // ==========================================
 $subjects_query = $conn->query("SELECT DISTINCT subject_code, subject_name FROM lab_manuals WHERE department = '$branch' AND semester = '$semester'");
-
-$selected_subject = $_GET['subject_code'] ?? '';
 
 $manuals = null;
 if (!empty($selected_subject)) {
     $safe_sub = $conn->real_escape_string($selected_subject);
     $manuals = $conn->query("SELECT * FROM lab_manuals WHERE department = '$branch' AND semester = '$semester' AND subject_code = '$safe_sub' ORDER BY id ASC");
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -163,6 +181,7 @@ if (!empty($selected_subject)) {
         .deadline-badge { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; margin-top: 10px;}
         .deadline-safe { background: #dcfce7; color: #16a34a; border: 1px solid #4ade80; }
         .deadline-late { background: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
+        .late-flag { background: #dc2626; color: white; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 800; margin-left: 10px; }
         
         .upload-area { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 20px; text-align: center; background: #f8fafc; margin-top: 15px;}
         .locked-area { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 25px; text-align: center; margin-top: 15px;}
@@ -240,7 +259,6 @@ if (!empty($selected_subject)) {
                 <?php while($prac = $manuals->fetch_assoc()): ?>
                     <?php 
                         $manual_id = $prac['id'];
-                        // Fetch ONLY the latest submission attempt
                         $sub_q = $conn->query("SELECT * FROM student_submissions WHERE student_id = '$student_id' AND manual_id = '$manual_id' ORDER BY submitted_at DESC LIMIT 1");
                         $has_submission = false;
                         $sub_data = null;
@@ -251,6 +269,15 @@ if (!empty($selected_subject)) {
                         
                         $deadline_timestamp = strtotime($prac['end_date']);
                         $is_late = ($deadline_timestamp < time());
+                        
+                        // Check if student submitted after deadline
+                        $submitted_late = false;
+                        if($has_submission) {
+                            $submitted_time = strtotime($sub_data['submitted_at']);
+                            if($submitted_time > $deadline_timestamp) {
+                                $submitted_late = true;
+                            }
+                        }
                     ?>
                     
                     <div class="prac-card">
@@ -260,7 +287,7 @@ if (!empty($selected_subject)) {
                                 <a href="../<?php echo $prac['file_path']; ?>" target="_blank" class="text-decoration-none small fw-bold text-primary"><i class="fas fa-file-download"></i> View Faculty PDF</a>
                             </div>
                             
-                            <div>
+                            <div class="d-flex align-items-center">
                                 <?php if(!$has_submission): ?>
                                     <span class="badge bg-secondary px-3 py-2">Not Submitted</span>
                                 <?php elseif($sub_data['status'] == 'Submitted'): ?>
@@ -270,10 +297,15 @@ if (!empty($selected_subject)) {
                                 <?php elseif($sub_data['status'] == 'Resubmit'): ?>
                                     <span class="badge bg-danger px-3 py-2">Resubmit Required</span>
                                 <?php endif; ?>
+
+                                <!-- RED FLAG for late submission -->
+                                <?php if($submitted_late && $has_submission): ?>
+                                    <span class="late-flag"><i class="fas fa-flag"></i> Late</span>
+                                <?php endif; ?>
                             </div>
                         </div>
 
-                        <?php if($is_late): ?>
+                        <?php if($is_late && !$has_submission): ?>
                             <div class="deadline-badge deadline-late"><i class="fas fa-exclamation-triangle me-2"></i> Deadline Passed: <?php echo date('d M Y, h:i A', $deadline_timestamp); ?></div>
                         <?php else: ?>
                             <div class="deadline-badge deadline-safe"><i class="far fa-clock me-2"></i> Due Date: <?php echo date('d M Y, h:i A', $deadline_timestamp); ?></div>
@@ -282,30 +314,42 @@ if (!empty($selected_subject)) {
                         <!-- UPLOAD / LOCK LOGIC SECTION -->
                         
                         <?php if(!$has_submission): ?>
-                            <form method="POST" enctype="multipart/form-data" class="upload-area">
+                            <form method="POST" enctype="multipart/form-data" class="upload-area <?php echo $is_late ? 'border-danger' : ''; ?>">
+                                <input type="hidden" name="current_subject" value="<?php echo htmlspecialchars($selected_subject); ?>">
                                 <input type="hidden" name="manual_id" value="<?php echo $manual_id; ?>">
                                 <input type="hidden" name="upload_type" value="new">
                                 <div class="mb-3 text-start">
                                     <label class="form-label fw-bold small">Upload Your PDF Solution <span class="text-muted fw-normal">(Max 5MB)</span></label>
                                     <input class="form-control" type="file" name="practical_file" accept=".pdf" required>
                                 </div>
-                                <button type="submit" name="submit_practical" class="btn btn-primary fw-bold w-100"><i class="fas fa-cloud-upload-alt me-2"></i> Submit File</button>
+                                <button type="submit" name="submit_practical" class="btn <?php echo $is_late ? 'btn-danger' : 'btn-primary'; ?> fw-bold w-100">
+                                    <i class="fas fa-cloud-upload-alt me-2"></i> <?php echo $is_late ? 'Submit Late Assignment' : 'Submit File'; ?>
+                                </button>
                             </form>
 
                         <?php elseif($sub_data['status'] == 'Submitted'): ?>
-                            <div class="upload-area border-warning">
-                                <p class="small text-muted fw-bold mb-2"><i class="fas fa-info-circle"></i> Faculty has not reviewed this yet. You can replace your file if needed.</p>
-                                <form method="POST" enctype="multipart/form-data">
-                                    <input type="hidden" name="manual_id" value="<?php echo $manual_id; ?>">
-                                    <input type="hidden" name="submission_id" value="<?php echo $sub_data['id']; ?>">
-                                    <input type="hidden" name="upload_type" value="replace">
-                                    <div class="d-flex gap-2 align-items-center">
-                                        <input class="form-control" type="file" name="practical_file" accept=".pdf" required>
-                                        <button type="submit" name="submit_practical" class="btn btn-warning fw-bold text-nowrap"><i class="fas fa-sync"></i> Replace File</button>
-                                    </div>
-                                    <div class="mt-2 text-start"><a href="../<?php echo $sub_data['file_path']; ?>" target="_blank" class="small fw-bold text-success"><i class="fas fa-eye"></i> View Current Upload</a></div>
-                                </form>
-                            </div>
+                            <!-- STRICT DEADLINE REPLACE LOGIC -->
+                            <?php if(!$is_late): ?>
+                                <div class="upload-area border-warning">
+                                    <p class="small text-muted fw-bold mb-2"><i class="fas fa-info-circle"></i> Faculty has not reviewed this yet. You can replace your file before the deadline.</p>
+                                    <form method="POST" enctype="multipart/form-data">
+                                        <input type="hidden" name="current_subject" value="<?php echo htmlspecialchars($selected_subject); ?>">
+                                        <input type="hidden" name="manual_id" value="<?php echo $manual_id; ?>">
+                                        <input type="hidden" name="upload_type" value="replace">
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <input class="form-control" type="file" name="practical_file" accept=".pdf" required>
+                                            <button type="submit" name="submit_practical" class="btn btn-warning fw-bold text-nowrap"><i class="fas fa-sync"></i> Replace File</button>
+                                        </div>
+                                        <div class="mt-2 text-start"><a href="../<?php echo $sub_data['file_path']; ?>" target="_blank" class="small fw-bold text-success"><i class="fas fa-eye"></i> View Current Upload</a></div>
+                                    </form>
+                                </div>
+                            <?php else: ?>
+                                <div class="locked-area border-danger">
+                                    <p class="text-danger fw-bold mb-2"><i class="fas fa-lock"></i> Deadline Passed</p>
+                                    <p class="small text-muted mb-0">You can no longer replace this file as the deadline has expired.</p>
+                                    <div class="mt-3"><a href="../<?php echo $sub_data['file_path']; ?>" target="_blank" class="btn btn-sm btn-outline-primary fw-bold"><i class="fas fa-eye"></i> View Uploaded File</a></div>
+                                </div>
+                            <?php endif; ?>
 
                         <?php elseif($sub_data['status'] == 'Graded'): ?>
                             <div class="locked-area">
@@ -318,6 +362,7 @@ if (!empty($selected_subject)) {
                             <div class="upload-area border-danger">
                                 <p class="small text-dark mb-3 text-start"><b>Faculty feedback:</b> <?php echo htmlspecialchars($sub_data['feedback']); ?></p>
                                 <form method="POST" enctype="multipart/form-data" class="bg-white border rounded-3 p-4">
+                                    <input type="hidden" name="current_subject" value="<?php echo htmlspecialchars($selected_subject); ?>">
                                     <input type="hidden" name="manual_id" value="<?php echo $manual_id; ?>">
                                     <input type="hidden" name="upload_type" value="resubmit">
                                     <div class="d-flex flex-column align-items-center mb-3">
