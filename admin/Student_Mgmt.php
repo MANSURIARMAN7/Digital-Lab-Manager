@@ -31,8 +31,8 @@ if (isset($_POST['add_student'])) {
     if ($check->num_rows > 0) {
         $msg = "<div class='alert alert-danger shadow-sm'><i class='fas fa-exclamation-circle me-2'></i> <b>Duplicate Entry!</b> Enrollment No. '$enrollment' already exists.</div>";
     } else {
-        $sql = "INSERT INTO users (user_id, name, email, password, role, department, designation, batch) 
-                VALUES ('$enrollment', '$name', $email_val, '$default_pass', 'student', '$dept', 'Semester $sem', '$batch')";
+        $sql = "INSERT INTO users (user_id, name, email, password, role, department, designation, batch, semester) 
+        VALUES ('$enrollment', '$name', $email_val, '$default_pass', 'student', '$dept', 'Semester $sem', '$batch', '$sem')";
         if ($conn->query($sql)) {
             $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-check-circle me-2'></i> Student <b>$name</b> (Batch $batch) added successfully!</div>";
         } else {
@@ -69,8 +69,8 @@ if (isset($_POST['import_csv'])) {
                     if ($check->num_rows > 0) {
                         $duplicate_count++;
                     } else {
-                        $conn->query("INSERT INTO users (user_id, name, email, password, role, department, designation, batch) 
-                                      VALUES ('$enrollment', '$name', $email_val, '123456', 'student', '$dept', 'Semester $sem', '$batch')");
+                        $conn->query("INSERT INTO users (user_id, name, email, password, role, department, designation, batch, semester) 
+              VALUES ('$enrollment', '$name', $email_val, '123456', 'student', '$dept', 'Semester $sem', '$batch', '$sem')");
                         $success_count++;
                     }
                 }
@@ -96,7 +96,7 @@ if (isset($_POST['edit_student'])) {
     
     $email_val = empty($email) ? "NULL" : "'" . $conn->real_escape_string($email) . "'";
     
-    $conn->query("UPDATE users SET name='$name', department='$dept', designation='Semester $sem', batch='$batch', email=$email_val WHERE user_id='$enrollment' AND role='student'");
+    $conn->query("UPDATE users SET name='$name', department='$dept', designation='Semester $sem', batch='$batch', email=$email_val, semester='$sem' WHERE user_id='$enrollment' AND role='student'");
     $msg = "<div class='alert alert-success shadow-sm'><i class='fas fa-check-circle me-2'></i> Student details updated successfully!</div>";
 }
 
@@ -600,9 +600,6 @@ $total_students = $students->num_rows;
     </script>
 </body>
 </html>
-
-
-
 
 
 
