@@ -604,7 +604,5 @@ $total_students = $students->num_rows;
 jsjjsjskjxjdjsjjjdjsjsjmsjsjskmsjnsjsj
 isisjjxjdjdjjdjsjsksjdjjdjdjd
 sijdjdjjdkzmzmzmkssksmms
-sijdjdjjdkz 
-
 
 
